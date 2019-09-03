@@ -5,16 +5,14 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from keras import activations
-from keras import initializers
-from keras import regularizers
-from keras import constraints
-from keras.engine import Layer
-from keras.engine import InputSpec
+from keras import activations, initializers, regularizers, constraints
+from keras.engine import Layer, InputSpec
+
 from keras import backend as K
 from keras.legacy import interfaces
 import tensorflow as tf
 from keras.layers.recurrent import RNN
+
 import Plants
 
 
@@ -338,23 +336,23 @@ class JanetControllerCell(Layer):
     def call(self, inputs, states, training=None):
         plant = self.plant
 
-        if 0 < self.dropout < 1 and self._dropout_mask is None:
-            self._dropout_mask = _generate_dropout_mask(
-                K.ones_like(inputs),
-                self.dropout,
-                training=training,
-                count=2)
-        if (0 < self.recurrent_dropout < 1 and
-                self._recurrent_dropout_mask is None):
-            self._recurrent_dropout_mask = _generate_dropout_mask(
-                K.ones_like(states[0]),
-                self.recurrent_dropout,
-                training=training,
-                count=2)
-        # dropout matrices for input units
-        dp_mask = self._dropout_mask
-        # dropout matrices for recurrent units
-        rec_dp_mask = self._recurrent_dropout_mask
+        # if 0 < self.dropout < 1 and self._dropout_mask is None:
+        #     self._dropout_mask = _generate_dropout_mask(
+        #         K.ones_like(inputs),
+        #         self.dropout,
+        #         training=training,
+        #         count=2)
+        # if (0 < self.recurrent_dropout < 1 and
+        #         self._recurrent_dropout_mask is None):
+        #     self._recurrent_dropout_mask = _generate_dropout_mask(
+        #         K.ones_like(states[0]),
+        #         self.recurrent_dropout,
+        #         training=training,
+        #         count=2)
+        # # dropout matrices for input units
+        # dp_mask = self._dropout_mask
+        # # dropout matrices for recurrent units
+        # rec_dp_mask = self._recurrent_dropout_mask
 
         x_tm1 = states[0]
         c_tm1 = states[1]  # previous cell memory state
@@ -385,10 +383,8 @@ class JanetControllerCell(Layer):
             c_tm2 = .5 * (c_tm1 + c_tm1 * tau_f + tau_c - tau_c * tau_f)
 
             u = K.dot(c_tm1, self.output_kernel)
-            # u = K.constant([9.6,8,7],shape=[1,3])
-            # x_tm1=K.constant([1,2,3,4,8,9], shape=[1,6])
             x_tm2 = plant.step(x_tm1, u)
-            y_tm2 = plant.get_obs(x_tm2)
+            # y_tm2 = plant.get_obs(x_tm2)
 
         if 0 < self.dropout + self.recurrent_dropout:
             if training is None:
