@@ -5,6 +5,7 @@ from keras.models import Model, load_model
 from keras.layers import Input
 from keras.callbacks import ModelCheckpoint
 from keras.utils import CustomObjectScope
+from keras import backend as K
 # from keras import regularizers
 
 import h5py
@@ -13,6 +14,7 @@ import numpy as np
 
 import Plants
 from CustomLayers import JanetController
+
 
 def train(num_units=4, plant_name='Pendulum', timesteps=100,
           num_samples=10000, batch_size=1, epochs=3, dt=1e-3, obs_idx=None,
@@ -45,7 +47,8 @@ def train(num_units=4, plant_name='Pendulum', timesteps=100,
     model.save(model_file_name)
     print("Saved model " + model_file_name + " to disk")
 
-def load_cust_model(num_units, plant_name, timesteps, tag=''):
+
+def CLsys_get(num_units, plant_name, timesteps, tag=''):
     # dirname = os.path.dirname(__file__)
     dirname = os.path.join('/users/shenshen/Veril/data/')
     model_file_name = dirname + plant_name + '/' + \
@@ -56,12 +59,22 @@ def load_cust_model(num_units, plant_name, timesteps, tag=''):
     print(model.summary())
     for this_layer in model.layers:
         if hasattr(this_layer, 'cell'):
-            inputs=None,
-            states=[np.array([0, -1, 0]),np.zeros(num_units,)]
-            # sys = CLoop(this_layer, timesteps, tag)
-            x_tm2, [x_tm2, c_tm2] = this_layer.cell.call(inputs,states,training=False)
+            return this_layer
+
+def CLsys_call(sys, tm1):
+    plant = Plants.get(sys.plant_name, sys.dt, sys.obs_idx)
+    inputs = K.zeros((1, 1, plant.num_disturb))
+    # states=[K.constant([0, -1, 0],shape=[1,3]),K.zeros((1,num_units))]
+    x_tm2, [x_tm2, c_tm2] = sys.cell.call(inputs, tm1, training=False)
     return [x_tm2, c_tm2]
-load_cust_model(4, "Pendulum", 100, tag='')
+
+sys = CLsys_get(4, "Pendulum", 100, tag='')
+tm1 = [K.constant([0, -1, 0], shape=[1, 3]), K.zeros((1, 4))]
+[x_tm2, c_tm2] = CLsys_call(sys, tm1)
+
+print(K.eval(x_tm2))
+print(K.eval(c_tm2))
+
 
 class CLoop(object):
 
