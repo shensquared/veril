@@ -18,17 +18,20 @@ from CustomLayers import JanetController
 
 def train(plant_name='Pendulum', num_units=4, timesteps=100,
           num_samples=10000, batch_size=1, epochs=3, dt=1e-3, obs_idx=None,
-          tag=''):
+          tag='', pre_trained=None):
     plant = Plants.get(plant_name, dt, obs_idx)
-    [init_x, init_c, ext_in] = [Input(shape=(plant.num_states,), name='init_x'),
-                                Input(shape=(num_units,), name='init_c'),
-                                Input(shape=(timesteps, None), name='ext_in')]
-    Janet_layer = JanetController(
-        num_units, plant_name=plant_name, dt=dt, obs_idx=obs_idx)
-    out = Janet_layer(ext_in, initial_state=[init_x, init_c])
-    model = Model([init_x, init_c, ext_in], out)
-    model.compile(optimizer='adam', loss='mse', metrics=['mse'])
-    print(model.summary())
+    if pre_trained is None:
+        [init_x, init_c, ext_in] = [Input(shape=(plant.num_states,), name='init_x'),
+                                    Input(shape=(num_units,), name='init_c'),
+                                    Input(shape=(timesteps, None), name='ext_in')]
+        Janet_layer = JanetController(
+            num_units, plant_name=plant_name, dt=dt, obs_idx=obs_idx)
+        out = Janet_layer(ext_in, initial_state=[init_x, init_c])
+        model = Model([init_x, init_c, ext_in], out)
+        model.compile(optimizer='adam', loss='mse', metrics=['mse'])
+        print(model.summary())
+    else:
+        model = pre_trained
 
     dirname = os.path.join('/users/shenshen/Veril/data/')
     model_file_name = dirname + plant.name + '/' + \
@@ -48,7 +51,7 @@ def train(plant_name='Pendulum', num_units=4, timesteps=100,
     print("Saved model " + model_file_name + " to disk")
 
 
-def CLsys_get(num_units, plant_name, timesteps, tag=''):
+def get_NNorCL(num_units, plant_name, timesteps, tag='', NNorCL='CL'):
     # dirname = os.path.dirname(__file__)
     dirname = os.path.join('/users/shenshen/Veril/data/')
     model_file_name = dirname + plant_name + '/' + \
@@ -57,25 +60,28 @@ def CLsys_get(num_units, plant_name, timesteps, tag=''):
     with CustomObjectScope({'JanetController': JanetController}):
         model = load_model(model_file_name)
     print(model.summary())
-    for this_layer in model.layers:
-        if hasattr(this_layer, 'cell'):
-            return this_layer
+    if NNorCL is 'NN':
+        return model
+    elif NNorCL is 'CL':
+        for this_layer in model.layers:
+            if hasattr(this_layer, 'cell'):
+                return this_layer
 
-def CLsys_call(sys, tm1):
+
+def call_CLsys(sys, tm1):
     plant = Plants.get(sys.plant_name, sys.dt, sys.obs_idx)
     inputs = K.zeros((1, 1, plant.num_disturb))
     # states=[K.constant([0, -1, 0],shape=[1,3]),K.zeros((1,num_units))]
     x_tm2, [x_tm2, c_tm2] = sys.cell.call(inputs, tm1, training=False)
     return [x_tm2, c_tm2]
 
-train(num_units=4, timesteps=1000, batch_size=1)
+NN = get_NNorCL(4, "Pendulum", 1000, NNorCL='NN')
+train(num_units=4, timesteps=1000, batch_size=1,epochs=3, pre_trained=NN)
 
-# sys = CLsys_get(4, "Pendulum", 100, tag='')
 # tm1 = [K.constant([0, -1, 0], shape=[1, 3]), K.zeros((1, 4))]
-# [x_tm2, c_tm2] = CLsys_call(sys, tm1)
-#
-print(K.eval(x_tm2))
-print(K.eval(c_tm2))
+# [x_tm2, c_tm2] = call_CLsys(sys, tm1)
+# print(K.eval(x_tm2))
+# print(K.eval(c_tm2))
 
 
 class CLoop(object):
