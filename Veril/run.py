@@ -16,7 +16,7 @@ import Plants
 from CustomLayers import JanetController
 
 
-def train(num_units=4, plant_name='Pendulum', timesteps=100,
+def train(plant_name='Pendulum', num_units=4, timesteps=100,
           num_samples=10000, batch_size=1, epochs=3, dt=1e-3, obs_idx=None,
           tag=''):
     plant = Plants.get(plant_name, dt, obs_idx)
@@ -68,10 +68,12 @@ def CLsys_call(sys, tm1):
     x_tm2, [x_tm2, c_tm2] = sys.cell.call(inputs, tm1, training=False)
     return [x_tm2, c_tm2]
 
-sys = CLsys_get(4, "Pendulum", 100, tag='')
-tm1 = [K.constant([0, -1, 0], shape=[1, 3]), K.zeros((1, 4))]
-[x_tm2, c_tm2] = CLsys_call(sys, tm1)
+train(num_units=4, timesteps=1000, batch_size=1)
 
+# sys = CLsys_get(4, "Pendulum", 100, tag='')
+# tm1 = [K.constant([0, -1, 0], shape=[1, 3]), K.zeros((1, 4))]
+# [x_tm2, c_tm2] = CLsys_call(sys, tm1)
+#
 print(K.eval(x_tm2))
 print(K.eval(c_tm2))
 
