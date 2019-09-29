@@ -13,6 +13,7 @@ def get(plant_name, dt, obs_idx):
         identifier = str(plant_name)
         return globals()[identifier](dt=dt, obs_idx=obs_idx)
 
+
 class Plant():
 
     def __init__(self, dt=1e-3, obs_idx=None, num_disturb=0):
@@ -65,9 +66,12 @@ class Pendulum(Plant):
         self.u0 = 0
 
     def step(self, x, u):
-        s = tf.gather(x, [0], axis=1)
-        c = tf.gather(x, [1], axis=1)
-        thetadot = tf.gather(x, [2], axis=1)
+        # s = tf.gather(x, [0], axis=1)
+        # c = tf.gather(x, [1], axis=1)
+        # thetadot = tf.gather(x, [2], axis=1)
+        s = K.dot(x,K.constant([1, 0, 0],shape=(3,1)))
+        c = K.dot(x,K.constant([0, 1, 0],shape=(3,1)))
+        thetadot = K.dot(x,K.constant([0, 0, 1],shape=(3,1)))
 
         # desired fixed point should be sin(pi)=0, cos(pi)=-1, thetadot =0
         delta = K.concatenate([c * thetadot,
@@ -76,6 +80,9 @@ class Pendulum(Plant):
                                self.g * s / self.l])
         self.states = x + delta * self.dt
         return self.states
+
+    def A0(self):
+        return [[0, thetadot, c], [-thetadot, 0, -s], [-self.g / self.l, 0, (-self.b) / (self.m * self.l * self.l)]]
 
     def np_step(self, x, u):
         [s, c, thetadot] = x
