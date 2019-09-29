@@ -301,6 +301,14 @@ class JanetControllerCell(Layer):
                                              initializer=self.kernel_initializer,
                                              regularizer=self.kernel_regularizer,
                                              constraint=self.kernel_constraint)
+
+        self.feedthrough_kernel = self.add_weight(shape=(self.plant.num_outputs,
+                                                         self.plant.num_inputs),
+                                                  name='output_kernel',
+                                                  initializer=self.kernel_initializer,
+                                                  regularizer=self.kernel_regularizer,
+                                                  constraint=self.kernel_constraint)
+
         # bias
         if self.use_bias:
             if self.unit_forget_bias:
@@ -356,7 +364,7 @@ class JanetControllerCell(Layer):
             c_f = K.dot(c_tm1_f, self.recurrent_kernel_f)
             c_c = K.dot(c_tm1_c, self.recurrent_kernel_c)
 
-            # adding the plant output feedback
+            # adding the plant's output feedback
             c_f = c_f + K.dot(shift_y_tm1, self.kernel_f)
             c_c = c_c + K.dot(shift_y_tm1, self.kernel_c)
 
@@ -369,6 +377,7 @@ class JanetControllerCell(Layer):
             c_tm2 = .5 * (c_tm1 + c_tm1 * tau_f + tau_c - tau_c * tau_f)
 
             u = K.dot(c_tm1, self.output_kernel)
+            u = u + K.dot(y_tm1, self.feedthrough_kernel)
             x_tm2 = plant.step(x_tm1, u)
             # y_tm2 = plant.get_obs(x_tm2)
 
@@ -398,6 +407,7 @@ class JanetControllerCell(Layer):
                                (self.units, self.plant.num_states)))
         J22 = K.eval(K.reshape(jacobian(tm2[1], tm1[1]),
                                (self.units, self.units)))
+        print(J11)
         # J11 = sess.run(J11, feed_dict={tm1[0]: np.reshape(self.plant.x0,
         # (1,self.plant.num_states)), tm1[1]:np.zeros((1,self.units))})
         # J12 = sess.run(J12, feed_dict={tm1[0]: np.reshape(self.plant.x0,
