@@ -13,7 +13,9 @@ from keras.legacy import interfaces
 import tensorflow as tf
 from keras.layers.recurrent import RNN
 
+import numpy as np
 import Plants
+from tensorflow.python.ops.parallel_for.gradients import jacobian
 
 
 class JanetController(RNN):
@@ -93,6 +95,9 @@ class JanetController(RNN):
         return super(JanetController, self).call(inputs, mask=mask,
                                                  training=training,
                                                  initial_state=initial_state)
+
+    def linearize(self):
+        return self.cell.linearize()
 
     @property
     def units(self):
@@ -335,25 +340,6 @@ class JanetControllerCell(Layer):
 
     def call(self, inputs, states, training=None):
         plant = self.plant
-
-        # if 0 < self.dropout < 1 and self._dropout_mask is None:
-        #     self._dropout_mask = _generate_dropout_mask(
-        #         K.ones_like(inputs),
-        #         self.dropout,
-        #         training=training,
-        #         count=2)
-        # if (0 < self.recurrent_dropout < 1 and
-        #         self._recurrent_dropout_mask is None):
-        #     self._recurrent_dropout_mask = _generate_dropout_mask(
-        #         K.ones_like(states[0]),
-        #         self.recurrent_dropout,
-        #         training=training,
-        #         count=2)
-        # # dropout matrices for input units
-        # dp_mask = self._dropout_mask
-        # # dropout matrices for recurrent units
-        # rec_dp_mask = self._recurrent_dropout_mask
-
         x_tm1 = states[0]
         c_tm1 = states[1]  # previous cell memory state
         y_tm1 = plant.get_obs(x_tm1)
@@ -392,6 +378,38 @@ class JanetControllerCell(Layer):
 
         return x_tm2, [x_tm2, c_tm2]
 
+    def linearize(self):
+        tm1 = [K.reshape(K.variable(self.plant.x0),
+                         (1, self.plant.num_states)), K.zeros((1, self.units))]
+        # tm1 = [K.placeholder((1,self.plant.num_states)),K.placeholder((1, self.units))]
+        inputs = K.zeros((1, 1, self.plant.num_disturb))
+        tm2 = self.call(inputs, tm1, training=False)[1]
+        # full_dim = self.units + self.plant.num_states
+        # sess = K.get_session()
+
+        # J = K.reshape(jacobian(K.concatenate([tm2[0],tm2[1]]),K.concatenate([tm1
+        #   [0],tm1[1]])), (full_dim,full_dim))
+
+        J11 = K.eval(K.reshape(jacobian(tm2[0], tm1[0]),
+                               (self.plant.num_states, self.plant.num_states)))
+        J12 = K.eval(K.reshape(jacobian(tm2[0], tm1[1]),
+                               (self.plant.num_states, self.units)))
+        J21 = K.eval(K.reshape(jacobian(tm2[1], tm1[0]),
+                               (self.units, self.plant.num_states)))
+        J22 = K.eval(K.reshape(jacobian(tm2[1], tm1[1]),
+                               (self.units, self.units)))
+        # J11 = sess.run(J11, feed_dict={tm1[0]: np.reshape(self.plant.x0,
+        # (1,self.plant.num_states)), tm1[1]:np.zeros((1,self.units))})
+        # J12 = sess.run(J12, feed_dict={tm1[0]: np.reshape(self.plant.x0,
+        # (1,self.plant.num_states)), tm1[1]:np.zeros((1,self.units))})
+        # J21 = sess.run(J21, feed_dict={tm1[0]: np.reshape(self.plant.x0,
+        # (1,self.plant.num_states)), tm1[1]:np.zeros((1,self.units))})
+        # J22 = sess.run(J22, feed_dict={tm1[0]: np.reshape(self.plant.x0,
+        # (1,self.plant.num_states)), tm1[1]:np.zeros((1,self.units))})
+        # print(J11)
+
+        return np.vstack((np.hstack((J11, J12)), np.hstack((J21, J22))))
+
     def get_config(self):
         config = {'units': self.units,
                   'activation': activations.serialize(self.activation),
@@ -413,6 +431,11 @@ class JanetControllerCell(Layer):
                   'implementation': self.implementation}
         base_config = super(JanetControllerCell, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
+
+# def Jacobian(X, y):
+#     J = tf.map_fn(lambda m: tf.gradients(y[:,:,m:m+1], X)[0], tf.range(tf.shape(y)[-1]), tf.float32)
+#     J = tf.transpose(tf.squeeze(J), perm = [1,0,2])
+#     return J
 
 
 class JanetCell(Layer):
@@ -1205,6 +1228,7 @@ class CeilingLayer(Layer):
     def compute_output_shape(self, input_shape):
         return input_shape
 
+
 class Scaling(Layer):
 
     def __init__(self, alpha=1., **kwargs):
@@ -1590,4 +1614,3 @@ class DoubleIntCell(Layer):
                   'implementation': self.implementation}
         base_config = super(DoubleIntCell, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
-
