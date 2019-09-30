@@ -38,6 +38,9 @@ class Plant():
         else:
             return x[self.obs_idx]
 
+    def manifold(self):
+        return None
+
 
 class Pendulum(Plant):
 
@@ -116,6 +119,8 @@ class Pendulum(Plant):
         y_train = np.tile(self.y0, (num_samples, 1))
         return x_train, y_train
 
+    def manifold(self,x):
+        return x[0]^2+x[1]^2-1
 
 class Satellite(Plant):
 
