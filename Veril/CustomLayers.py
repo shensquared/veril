@@ -387,39 +387,6 @@ class JanetControllerCell(Layer):
 
         return x_tm2, [x_tm2, c_tm2]
 
-    def linearize(self):
-        tm1 = [K.reshape(K.variable(self.plant.x0),
-                         (1, self.plant.num_states)), K.zeros((1, self.units))]
-        # tm1 = [K.placeholder((1,self.plant.num_states)),K.placeholder((1, self.units))]
-        inputs = K.zeros((1, 1, self.plant.num_disturb))
-        tm2 = self.call(inputs, tm1, training=False)[1]
-        # full_dim = self.units + self.plant.num_states
-        # sess = K.get_session()
-
-        # J = K.reshape(jacobian(K.concatenate([tm2[0],tm2[1]]),K.concatenate([tm1
-        #   [0],tm1[1]])), (full_dim,full_dim))
-
-        J11 = K.eval(K.reshape(jacobian(tm2[0], tm1[0]),
-                               (self.plant.num_states, self.plant.num_states)))
-        J12 = K.eval(K.reshape(jacobian(tm2[0], tm1[1]),
-                               (self.plant.num_states, self.units)))
-        J21 = K.eval(K.reshape(jacobian(tm2[1], tm1[0]),
-                               (self.units, self.plant.num_states)))
-        J22 = K.eval(K.reshape(jacobian(tm2[1], tm1[1]),
-                               (self.units, self.units)))
-        print(J11)
-        # J11 = sess.run(J11, feed_dict={tm1[0]: np.reshape(self.plant.x0,
-        # (1,self.plant.num_states)), tm1[1]:np.zeros((1,self.units))})
-        # J12 = sess.run(J12, feed_dict={tm1[0]: np.reshape(self.plant.x0,
-        # (1,self.plant.num_states)), tm1[1]:np.zeros((1,self.units))})
-        # J21 = sess.run(J21, feed_dict={tm1[0]: np.reshape(self.plant.x0,
-        # (1,self.plant.num_states)), tm1[1]:np.zeros((1,self.units))})
-        # J22 = sess.run(J22, feed_dict={tm1[0]: np.reshape(self.plant.x0,
-        # (1,self.plant.num_states)), tm1[1]:np.zeros((1,self.units))})
-        # print(J11)
-
-        return np.vstack((np.hstack((J11, J12)), np.hstack((J21, J22))))
-
     def get_config(self):
         config = {'units': self.units,
                   'activation': activations.serialize(self.activation),
