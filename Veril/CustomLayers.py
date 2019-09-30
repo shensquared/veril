@@ -387,6 +387,37 @@ class JanetControllerCell(Layer):
 
         return x_tm2, [x_tm2, c_tm2]
 
+    def linearize(self):
+        plant = Plants.get(self.plant_name, self.dt, self.obs_idx)
+        tm1 = [K.reshape(K.variable(plant.x0), (1, plant.num_states)), K.zeros((1,
+           self.units))]
+        # tm1 = [K.placeholder((1,self.plant.num_states)),K.placeholder((1, self.units))]
+        inputs = K.zeros((1, 1, plant.num_disturb))
+        tm2 = self.call(inputs, tm1)[1]
+        # tm2 = [tm2[0]-tm1[0],tm2[1]-tm1[1]]
+        J11 = K.eval(K.reshape(jacobian(tm2[0], tm1[0]),
+                               (plant.num_states, plant.num_states)))
+        J12 = K.eval(K.reshape(jacobian(tm2[0], tm1[1]),
+                               (plant.num_states, self.units)))
+        J21 = K.eval(K.reshape(jacobian(tm2[1], tm1[0]),
+                               (self.units, plant.num_states)))
+        J22 = K.eval(K.reshape(jacobian(tm2[1], tm1[1]),
+                               (self.units, self.units)))
+        full_dim = self.units + plant.num_states
+        # sess = K.get_session()
+        # J11 = sess.run(J11, feed_dict={tm1[0]: np.reshape(plant.x0,
+        # (1,plant.num_states)), tm1[1]:np.zeros((1,self.units))})
+        # J12 = sess.run(J12, feed_dict={tm1[0]: np.reshape(plant.x0,
+        # (1,plant.num_states)), tm1[1]:np.zeros((1,self.units))})
+        # J21 = sess.run(J21, feed_dict={tm1[0]: np.reshape(plant.x0,
+        # (1,plant.num_states)), tm1[1]:np.zeros((1,self.units))})
+        # J22 = sess.run(J22, feed_dict={tm1[0]: np.reshape(plant.x0,
+        # (1,plant.num_states)), tm1[1]:np.zeros((1,self.units))})
+        # print(J11)
+        J = np.vstack((np.hstack((J11, J12)), np.hstack((J21, J22))))
+        J -= np.eye(full_dim)
+        return J
+
     def get_config(self):
         config = {'units': self.units,
                   'plant_name': self.plant_name,

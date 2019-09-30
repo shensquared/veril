@@ -32,7 +32,8 @@ def train(plant_name='Pendulum', num_units=4, timesteps=100,
                                     Input(shape=(num_units,), name='init_c'),
                                     Input(shape=(timesteps, None), name='ext_in')]
         Janet_layer = JanetController(
-            num_units, plant_name=plant_name, dt=dt, obs_idx=obs_idx)
+            num_units, plant_name=plant_name, dt=dt,
+            obs_idx=obs_idx)
         out = Janet_layer(ext_in, initial_state=[init_x, init_c])
         model = Model([init_x, init_c, ext_in], out)
         model.compile(optimizer='adam', loss='mse', metrics=['mse'])
@@ -84,16 +85,16 @@ def call_CLsys(sys, tm1):
 
 
 
-# CL = get_NNorCL(num_units, plant_name, timesteps, NNorCL='CL')
-# get_P0(CL)
+CL = get_NNorCL(num_units, plant_name, timesteps, NNorCL='CL')
+get_P0(CL)
 # A = CL.linearize()
 # print(A)
 # print(eig(A)[0])
 
-# train(num_units=2, timesteps=10, num_samples=100, batch_size=1, epochs=1,
-      # pre_trained=None)
-CL = get_NNorCL(2, "Pendulum", 10, NNorCL='CL')
-get_P0(CL)
+train(num_units=2, timesteps=10, num_samples=100, batch_size=1, epochs=1,
+      pre_trained=None)
+# CL = get_NNorCL(2, "Pendulum", 10, NNorCL='CL')
+# get_P0(CL)
 # tm1 = [K.constant([0, -1, 0], shape=[1, 3]), K.zeros((1, 4))]
 # [x_tm2, c_tm2] = call_CLsys(CL, tm1)
 # print(K.eval(x_tm2))

@@ -16,36 +16,7 @@ from keras import backend as K
 # matplotlib.use('TkAgg')
 
 
-def linearize(CL):
-    plant = Plants.get(CL.plant_name, CL.dt, CL.obs_idx)
-    tm1 = [K.reshape(K.variable(plant.x0),
-                     (1, plant.num_states)), K.zeros((1, CL.units))]
-    # tm1 = [K.placeholder((1,CL.plant.num_states)),K.placeholder((1, CL.units))]
-    inputs = K.zeros((1, 1, plant.num_disturb))
-    tm2 = CL.call(inputs, tm1, training=False)[1]
-    # tm2 = [tm2[0]-tm1[0],tm2[1]-tm1[1]]
-    J11 = K.eval(K.reshape(jacobian(tm2[0], tm1[0]),
-                           (plant.num_states, plant.num_states)))
-    J12 = K.eval(K.reshape(jacobian(tm2[0], tm1[1]),
-                           (plant.num_states, CL.units)))
-    J21 = K.eval(K.reshape(jacobian(tm2[1], tm1[0]),
-                           (CL.units, plant.num_states)))
-    J22 = K.eval(K.reshape(jacobian(tm2[1], tm1[1]),
-                           (CL.units, CL.units)))
-    full_dim = CL.units + plant.num_states
-    # sess = K.get_session()
-    # J11 = sess.run(J11, feed_dict={tm1[0]: np.reshape(plant.x0,
-    # (1,plant.num_states)), tm1[1]:np.zeros((1,CL.units))})
-    # J12 = sess.run(J12, feed_dict={tm1[0]: np.reshape(plant.x0,
-    # (1,plant.num_states)), tm1[1]:np.zeros((1,CL.units))})
-    # J21 = sess.run(J21, feed_dict={tm1[0]: np.reshape(plant.x0,
-    # (1,plant.num_states)), tm1[1]:np.zeros((1,CL.units))})
-    # J22 = sess.run(J22, feed_dict={tm1[0]: np.reshape(plant.x0,
-    # (1,plant.num_states)), tm1[1]:np.zeros((1,CL.units))})
-    # print(J11)
-    J = np.vstack((np.hstack((J11, J12)), np.hstack((J21, J22))))
-    J -= np.eye(full_dim)
-    return J
+
 
 
 def get_P0(CL):
@@ -60,7 +31,7 @@ def get_P0(CL):
     basis = [sym.Monomial(_) for _ in full_states]
     full_dim = plant.num_states + CL.units
 
-    A0 = linearize(CL)
+    A0 = CL.linearize()
     P = prog.NewSymmetricContinuousVariables(full_dim, "P")
     prog.AddPositiveSemidefiniteConstraint(P)
     prog.AddPositiveSemidefiniteConstraint(P + P.T)
