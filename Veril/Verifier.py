@@ -19,12 +19,7 @@ def linearize(CL):
     # tm1 = [K.placeholder((1,CL.plant.num_states)),K.placeholder((1, CL.units))]
     inputs = K.zeros((1, 1, CL.plant.num_disturb))
     tm2 = CL.call(inputs, tm1, training=False)[1]
-    # full_dim = CL.units + CL.plant.num_states
-    # sess = K.get_session()
-
-    # J = K.reshape(jacobian(K.concatenate([tm2[0],tm2[1]]),K.concatenate([tm1
-    #   [0],tm1[1]])), (full_dim,full_dim))
-
+    # tm2 = [tm2[0]-tm1[0],tm2[1]-tm1[1]]
     J11 = K.eval(K.reshape(jacobian(tm2[0], tm1[0]),
                            (CL.plant.num_states, CL.plant.num_states)))
     J12 = K.eval(K.reshape(jacobian(tm2[0], tm1[1]),
@@ -33,7 +28,8 @@ def linearize(CL):
                            (CL.units, CL.plant.num_states)))
     J22 = K.eval(K.reshape(jacobian(tm2[1], tm1[1]),
                            (CL.units, CL.units)))
-    # print(J11)
+    full_dim = CL.units + CL.plant.num_states
+    # sess = K.get_session()
     # J11 = sess.run(J11, feed_dict={tm1[0]: np.reshape(CL.plant.x0,
     # (1,CL.plant.num_states)), tm1[1]:np.zeros((1,CL.units))})
     # J12 = sess.run(J12, feed_dict={tm1[0]: np.reshape(CL.plant.x0,
@@ -43,24 +39,21 @@ def linearize(CL):
     # J22 = sess.run(J22, feed_dict={tm1[0]: np.reshape(CL.plant.x0,
     # (1,CL.plant.num_states)), tm1[1]:np.zeros((1,CL.units))})
     # print(J11)
-
-    return np.vstack((np.hstack((J11, J12)), np.hstack((J21, J22))))
-
+    J = np.vstack((np.hstack((J11, J12)), np.hstack((J21, J22))))
+    J -= np.eye(full_dim)
+    return J
 
 def get_P0(CL):
     plant = Plants.get(CL.plant_name)
-
     prog = MathematicalProgram()
     # add the constant basis
-
     # constant = prog.NewIndeterminates(1, 'constant')
     # basis = [sym.Monomial(constant[0], 0)]
-
     x = prog.NewIndeterminates(plant.num_states, "x")
     c = prog.NewIndeterminates(CL.units, "c")
-    basis += [sym.Monomial(_) for _ in np.hstack((x, c))]
-    full_dim = plant.num_states+CL.units
-
+    basis = [sym.Monomial(_) for _ in np.hstack((x, c))]
+    full_dim = plant.num_states + CL.units
+    # TODO: decide if want substraction (yes)
     A0 = linearize(CL)
 
     P = prog.NewSymmetricContinuousVariables(full_dim, "P")
@@ -70,11 +63,11 @@ def get_P0(CL):
     # Vdot = [x,c].TP*A0+A0.T*P
     if plant.manifold is not None:
         r = prog.NewContinuousVariables(1, "r")[0]
-        Vdot = Vdot + r*plant.manifold(x)
+        Vdot = Vdot + r * plant.manifold(x)
     slack = prog.NewContinuousVariables(1, "s")[0]
     prog.AddConstraint(slack >= 0)
 
-    prog.AddSosConstraint(-Vdot+slack*V)
+    prog.AddSosConstraint(-Vdot + slack * V)
     prog.AddCost(-sigma1[0])
     result = prog.Solve()
 
@@ -83,14 +76,14 @@ def get_P0(CL):
     if result == SolutionResult.kSolutionFound:
         slack = prog.GetSolution(slack)
         P = prog.GetSolution(P)
-        m = prog.GetSolution(m)
-        n = prog.GetSolution(n)
+        return P
     else:
         print result
         raise RuntimeError(result)
 
 
 class SOS_verifier():
+
     def __init__(self, tag, num_inputs=1, num_nuerons=10, zero_nominal=False,
                  step_or_total='step'):
         self.zero_nominal = zero_nominal
@@ -105,7 +98,6 @@ class SOS_verifier():
                                     np.array([.5, 0, .5, .5, -.5]))
         self.setup_prog()
 
-    
     def setup_prog(self):
         prog = MathematicalProgram()
         # add the constant basis
@@ -338,7 +330,7 @@ class SOS_verifier():
         sigma1 = prog.NewContinuousVariables(1, 'sigma1')
         prog.AddConstraint(sigma1[0] >= 0)
 
-        cstr = - dV + IQC_Cstr + small_deviation - sigma1*V
+        cstr = - dV + IQC_Cstr + small_deviation - sigma1 * V
 
         prog.AddSosConstraint(cstr[0])
         prog.AddCost(-sigma1[0])

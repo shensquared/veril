@@ -120,7 +120,7 @@ class Pendulum(Plant):
         return x_train, y_train
 
     def manifold(self,x):
-        return x[0]^2+x[1]^2-1
+        return x[0]**2+x[1]**2-1
 
 class Satellite(Plant):
 
