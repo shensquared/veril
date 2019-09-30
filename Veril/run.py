@@ -15,6 +15,7 @@ import numpy as np
 import Plants
 from CustomLayers import JanetController
 from numpy.linalg import eig
+from Verifier import *
 
 num_units = 4
 plant_name = "Pendulum"
@@ -82,13 +83,17 @@ def call_CLsys(sys, tm1):
     return [x_tm2, c_tm2]
 
 
-NN = get_NNorCL(4, "Pendulum", 1000, NNorCL='NN')
+
 # CL = get_NNorCL(num_units, plant_name, timesteps, NNorCL='CL')
+# get_P0(CL)
 # A = CL.linearize()
 # print(A)
 # print(eig(A)[0])
 
-train(num_units=4, timesteps=1000, batch_size=1,epochs=1, pre_trained=NN)
+# train(num_units=2, timesteps=10, num_samples=100, batch_size=1, epochs=1,
+      # pre_trained=None)
+CL = get_NNorCL(2, "Pendulum", 10, NNorCL='CL')
+get_P0(CL)
 # tm1 = [K.constant([0, -1, 0], shape=[1, 3]), K.zeros((1, 4))]
 # [x_tm2, c_tm2] = call_CLsys(CL, tm1)
 # print(K.eval(x_tm2))

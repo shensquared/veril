@@ -389,6 +389,9 @@ class JanetControllerCell(Layer):
 
     def get_config(self):
         config = {'units': self.units,
+                  'plant_name': self.plant_name,
+                  'dt': self.dt,
+                  'obs_idx': self.obs_idx,
                   'activation': activations.serialize(self.activation),
                   'recurrent_activation': activations.serialize(self.recurrent_activation),
                   'use_bias': self.use_bias,
