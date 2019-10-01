@@ -85,21 +85,14 @@ def call_CLsys(sys, tm1):
 
 
 
-CL = get_NNorCL(num_units, plant_name, timesteps, NNorCL='CL')
-get_P0(CL)
-# A = CL.linearize()
-# print(A)
-# print(eig(A)[0])
-
-# train(num_units=2, timesteps=10, num_samples=100, batch_size=1, epochs=1,
-#       pre_trained=None)
-# CL = get_NNorCL(2, "Pendulum", 10, NNorCL='CL')
+# CL = get_NNorCL(num_units, plant_name, timesteps, NNorCL='CL')
+# CL = get_NNorCL(num_units, plant_name, timesteps, NNorCL='CL')
 # get_P0(CL)
-# tm1 = [K.constant([0, -1, 0], shape=[1, 3]), K.zeros((1, 4))]
-# [x_tm2, c_tm2] = call_CLsys(CL, tm1)
-# print(K.eval(x_tm2))
-# print(K.eval(c_tm2))
 
+NN = get_NNorCL(num_units, plant_name, timesteps, NNorCL='NN')
+
+train(pre_trained=NN,num_units=num_units, timesteps=timesteps, batch_size=1,
+   epochs=3)
 
 class CLoop(object):
 

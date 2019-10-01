@@ -7,18 +7,12 @@ import numpy as np
 from numpy.linalg import eig
 import pydrake.symbolic as sym
 from pydrake.all import (MathematicalProgram, Polynomial, SolutionResult,
-   Solve, Jacobian)
+   Solve, Jacobian, Evaluate, RealContinuousLyapunovEquation, Substitute)
 import Plants
-from keras import backend as K
-
+# from keras import backend as K
 # import matplotlib
 # import matplotlib.pyplot as plt
 # matplotlib.use('TkAgg')
-
-
-
-
-
 def get_P0(CL):
     plant = Plants.get(CL.plant_name, CL.dt, CL.obs_idx)
     prog = MathematicalProgram()
@@ -49,6 +43,8 @@ def get_P0(CL):
     result = Solve(prog)
     print('w/ solver %s' % (result.get_solver_id().name()))
     print(result.get_solution_result())
+    slack = result.GetSolution(slack)
+    print(slack)
     P = result.GetSolution(P)
     print(eig(A0)[0])
     print(eig(A0.T@P+P@A0)[0])
