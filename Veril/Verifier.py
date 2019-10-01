@@ -7,7 +7,7 @@ import numpy as np
 from numpy.linalg import eig
 import pydrake.symbolic as sym
 from pydrake.all import (MathematicalProgram, Polynomial, SolutionResult,
-                         Jacobian)
+   Solve, Jacobian)
 import Plants
 from keras import backend as K
 
@@ -36,21 +36,23 @@ def get_P0(CL):
     prog.AddPositiveSemidefiniteConstraint(P)
     prog.AddPositiveSemidefiniteConstraint(P + P.T)
     V = full_states.T@P@full_states
-    # Vdot = full_states.T@P@A0@full_states+full_states.T@A0.T@P@full_states
+    Vdot = full_states.T@P@A0@full_states+full_states.T@A0.T@P@full_states
     if plant.manifold is not None:
         r = prog.NewContinuousVariables(1, "r")[0]
         Vdot = Vdot + r * plant.manifold(x)
     slack = prog.NewContinuousVariables(1, "s")[0]
 
     prog.AddConstraint(slack >= 0)
-    prog.AddSosConstraint(-Vdot - slack * V)
+    prog.AddSosConstraint(-Vdot - slack * full_states.T@np.eye
+        (full_dim)@full_states)
     prog.AddCost(-slack)
-    result = prog.Solve()
-    print(result)
-    if result == SolutionResult.kSolutionFound:
-        slack = prog.GetSolution(slack)
-        P = prog.GetSolution(P)
-        return P
+    result = Solve(prog)
+    print('w/ solver %s' % (result.get_solver_id().name()))
+    print(result.get_solution_result())
+    P = result.GetSolution(P)
+    print(eig(A0)[0])
+    print(eig(A0.T@P+P@A0)[0])
+
 #
 # class SOS_verifier():
 #
