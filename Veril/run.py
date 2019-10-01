@@ -91,8 +91,8 @@ get_P0(CL)
 # print(A)
 # print(eig(A)[0])
 
-train(num_units=2, timesteps=10, num_samples=100, batch_size=1, epochs=1,
-      pre_trained=None)
+# train(num_units=2, timesteps=10, num_samples=100, batch_size=1, epochs=1,
+#       pre_trained=None)
 # CL = get_NNorCL(2, "Pendulum", 10, NNorCL='CL')
 # get_P0(CL)
 # tm1 = [K.constant([0, -1, 0], shape=[1, 3]), K.zeros((1, 4))]
