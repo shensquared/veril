@@ -374,10 +374,11 @@ class JanetControllerCell(Layer):
 
             tau_f = self.activation(c_f)
             tau_c = self.activation(c_c)
-            c_tm2 = .5 * (c_tm1 + c_tm1 * tau_f + tau_c - tau_c * tau_f)
+
+            c_tm2 = (.5 * (c_tm1 + c_tm1 * tau_f + tau_c - tau_c * tau_f))
 
             u = K.dot(c_tm1, self.output_kernel)
-            u = u + K.dot(y_tm1, self.feedthrough_kernel)
+            u = u + K.dot(shift_y_tm1, self.feedthrough_kernel)
             x_tm2 = plant.step(x_tm1, u)
             # y_tm2 = plant.get_obs(x_tm2)
 
@@ -388,48 +389,51 @@ class JanetControllerCell(Layer):
         return x_tm2, [x_tm2, c_tm2]
 
     def linearize(self):
-        plant = Plants.get(self.plant_name, self.dt, self.obs_idx)
-        tm1 = [K.reshape(K.variable(plant.x0), (1, plant.num_states)), K.zeros((1,
-           self.units))]
-        # tm1 = [K.placeholder((1,self.plant.num_states)),K.placeholder((1, self.units))]
-        inputs = K.zeros((1, 1, plant.num_disturb))
+        full_dim = self.units + self.plant.num_states
+        init_x = K.reshape(K.variable(self.plant.x0),
+                           (1, self.plant.num_states))
+        init_c = K.zeros((1, self.units))
+        tm1 = [init_x, init_c]
+        inputs = K.zeros((1, 1, self.plant.num_disturb))
         tm2 = self.call(inputs, tm1)[1]
+
         J11 = K.eval(K.transpose(K.reshape(jacobian(tm2[0], tm1[0]),
-                               (plant.num_states, plant.num_states))))
+                                           (self.plant.num_states, self.plant.num_states))))
         # tm2[0]:1-by-num_states, tm1[1]:1-by-units
         J12 = K.eval(K.transpose(K.reshape(jacobian(tm2[0], tm1[1]),
-                               (plant.num_states,self.units))))
+                                           (self.plant.num_states, self.units))))
         J21 = K.eval(K.transpose(K.reshape(jacobian(tm2[1], tm1[0]),
-                               (self.units,plant.num_states))))
+                                           (self.units, self.plant.num_states))))
         J22 = K.eval(K.transpose(K.reshape(jacobian(tm2[1], tm1[1]),
-                               (self.units, self.units))))
-        full_dim = self.units + plant.num_states
+                                           (self.units, self.units))))
         # sess = K.get_session()
-        # J11 = sess.run(J11, feed_dict={tm1[0]: np.reshape(plant.x0,
-        # (1,plant.num_states)), tm1[1]:np.zeros((1,self.units))})
-        # J12 = sess.run(J12, feed_dict={tm1[0]: np.reshape(plant.x0,
-        # (1,plant.num_states)), tm1[1]:np.zeros((1,self.units))})
-        # J21 = sess.run(J21, feed_dict={tm1[0]: np.reshape(plant.x0,
-        # (1,plant.num_states)), tm1[1]:np.zeros((1,self.units))})
-        # J22 = sess.run(J22, feed_dict={tm1[0]: np.reshape(plant.x0,
-        # (1,plant.num_states)), tm1[1]:np.zeros((1,self.units))})
-        # print(J11)
+        # J11 = sess.run(J11, feed_dict={tm1[0]: np.reshape(self.plant.x0,
+        # (1,self.plant.num_states)), tm1[1]:np.zeros((1,self.units))})
+        # J12 = sess.run(J12, feed_dict={tm1[0]: np.reshape(self.plant.x0,
+        # (1,self.plant.num_states)), tm1[1]:np.zeros((1,self.units))})
+        # J21 = sess.run(J21, feed_dict={tm1[0]: np.reshape(self.plant.x0,
+        # (1,self.plant.num_states)), tm1[1]:np.zeros((1,self.units))})
+        # J22 = sess.run(J22, feed_dict={tm1[0]: np.reshape(self.plant.x0,
+        # (1,self.plant.num_states)), tm1[1]:np.zeros((1,self.units))})
         J = np.vstack((np.hstack((J11, J21)), np.hstack((J12, J22))))
+        # for debugging (3 plant states 4 cell states)
+        # tm2_np = np.hstack((K.eval(tm2[0]), K.eval(tm2[1])))
+        # initx_delta = init_x + K.reshape(K.variable(np.array([1e-6, 1e-6, 1e-6])),
+        #                                  (1, self.plant.num_states))
+        # initc_delta = init_c + \
+        #     K.reshape(K.variable(
+        #         np.array([1e-6, 1e-6, 1e-6, 1e-6])), (1, self.units))
+        # tm1_delta = [initx_delta, initc_delta]
+        # tm2_delta = self.call(inputs, tm1_delta)[1]
+        # print(K.eval(tm2_delta[0]))
+        # print(K.eval(tm2_delta[1]))
+        # tm1_np_delta = 1e-6 * np.ones((1, full_dim))
+        # print((tm1_np_delta)@J + tm2_np)
 
-        # print(J)
-        tm1_delta = [K.reshape(K.variable(np.array([-1e-4,-1,2e-5])), (1,
-          plant.num_states)), K.reshape(K.variable(np.array([1e-7,-3e-7,2e-7,8e-7])),(1,self.units))]
-        tm2_delta = self.call(inputs, tm1_delta)[1]
-        print(K.eval(tm2_delta[0]))
-        print(K.eval(tm2_delta[1]))
-
-        tm1_delta_fix=np.reshape((np.array([-1e-4,-1,2e-5,1e-7,-3e-7,2e-7,8e-7])), (1,full_dim))
-        tm1_fix=np.reshape((np.array([0,-1,0,0,0,0,0])), (1,full_dim))
-
-        print((tm1_fix-tm1_delta_fix)@J+tm1_delta_fix)
         J -= np.eye(full_dim)
-
-        return J
+        A0 = J / self.dt
+        print(A0)
+        return A0
 
     def get_config(self):
         config = {'units': self.units,

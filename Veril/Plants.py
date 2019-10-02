@@ -72,15 +72,15 @@ class Pendulum(Plant):
         # s = tf.gather(x, [0], axis=1)
         # c = tf.gather(x, [1], axis=1)
         # thetadot = tf.gather(x, [2], axis=1)
-        s = K.dot(x,K.constant([1, 0, 0],shape=(3,1)))
-        c = K.dot(x,K.constant([0, 1, 0],shape=(3,1)))
-        thetadot = K.dot(x,K.constant([0, 0, 1],shape=(3,1)))
+        s = K.dot(x, K.constant([1, 0, 0], shape=(3, 1)))
+        c = K.dot(x, K.constant([0, 1, 0], shape=(3, 1)))
+        thetadot = K.dot(x, K.constant([0, 0, 1], shape=(3, 1)))
 
         # desired fixed point should be sin(pi)=0, cos(pi)=-1, thetadot =0
         delta = K.concatenate([c * thetadot,
                                -s * thetadot,
-                               (-self.b * thetadot + u) / (self.m * self.l * self.l) -
-                               self.g * s / self.l])
+                               (-self.b * thetadot + u) / (self.m * self.l *
+                                                           self.l) - self.g * s / self.l])
         self.states = x + delta * self.dt
         return self.states
 
@@ -119,8 +119,9 @@ class Pendulum(Plant):
         y_train = np.tile(self.y0, (num_samples, 1))
         return x_train, y_train
 
-    def manifold(self,x):
-        return x[0]**2+x[1]**2-1
+    def manifold(self, x):
+        return x[0]**2 + x[1]**2 - 1
+
 
 class Satellite(Plant):
 
