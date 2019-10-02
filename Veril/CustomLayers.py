@@ -394,15 +394,15 @@ class JanetControllerCell(Layer):
         # tm1 = [K.placeholder((1,self.plant.num_states)),K.placeholder((1, self.units))]
         inputs = K.zeros((1, 1, plant.num_disturb))
         tm2 = self.call(inputs, tm1)[1]
-        # tm2 = [tm2[0]-tm1[0],tm2[1]-tm1[1]]
-        J11 = K.eval(K.reshape(jacobian(tm2[0], tm1[0]),
-                               (plant.num_states, plant.num_states)))
-        J12 = K.eval(K.reshape(jacobian(tm2[0], tm1[1]),
-                               (plant.num_states, self.units)))
-        J21 = K.eval(K.reshape(jacobian(tm2[1], tm1[0]),
-                               (self.units, plant.num_states)))
-        J22 = K.eval(K.reshape(jacobian(tm2[1], tm1[1]),
-                               (self.units, self.units)))
+        J11 = K.eval(K.transpose(K.reshape(jacobian(tm2[0], tm1[0]),
+                               (plant.num_states, plant.num_states))))
+        # tm2[0]:1-by-num_states, tm1[1]:1-by-units
+        J12 = K.eval(K.transpose(K.reshape(jacobian(tm2[0], tm1[1]),
+                               (plant.num_states,self.units))))
+        J21 = K.eval(K.transpose(K.reshape(jacobian(tm2[1], tm1[0]),
+                               (self.units,plant.num_states))))
+        J22 = K.eval(K.transpose(K.reshape(jacobian(tm2[1], tm1[1]),
+                               (self.units, self.units))))
         full_dim = self.units + plant.num_states
         # sess = K.get_session()
         # J11 = sess.run(J11, feed_dict={tm1[0]: np.reshape(plant.x0,
@@ -414,8 +414,21 @@ class JanetControllerCell(Layer):
         # J22 = sess.run(J22, feed_dict={tm1[0]: np.reshape(plant.x0,
         # (1,plant.num_states)), tm1[1]:np.zeros((1,self.units))})
         # print(J11)
-        J = np.vstack((np.hstack((J11, J12)), np.hstack((J21, J22))))
+        J = np.vstack((np.hstack((J11, J21)), np.hstack((J12, J22))))
+
+        # print(J)
+        tm1_delta = [K.reshape(K.variable(np.array([-1e-4,-1,2e-5])), (1,
+          plant.num_states)), K.reshape(K.variable(np.array([1e-7,-3e-7,2e-7,8e-7])),(1,self.units))]
+        tm2_delta = self.call(inputs, tm1_delta)[1]
+        print(K.eval(tm2_delta[0]))
+        print(K.eval(tm2_delta[1]))
+
+        tm1_delta_fix=np.reshape((np.array([-1e-4,-1,2e-5,1e-7,-3e-7,2e-7,8e-7])), (1,full_dim))
+        tm1_fix=np.reshape((np.array([0,-1,0,0,0,0,0])), (1,full_dim))
+
+        print((tm1_fix-tm1_delta_fix)@J+tm1_delta_fix)
         J -= np.eye(full_dim)
+
         return J
 
     def get_config(self):
