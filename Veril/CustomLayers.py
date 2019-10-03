@@ -225,7 +225,7 @@ class JanetControllerCell(Layer):
                  use_bias=False,
                  external_input=False,
                  kernel_initializer='glorot_uniform',
-                 recurrent_initializer='orthogonal',
+                 recurrent_initializer=' orthogonal',
                  bias_initializer='zeros',
                  unit_forget_bias=True,
                  kernel_regularizer=None,
@@ -430,6 +430,8 @@ class JanetControllerCell(Layer):
         # tm1_np_delta = 1e-6 * np.ones((1, full_dim))
         # print((tm1_np_delta)@J + tm2_np)
         J -= np.eye(full_dim)
+        # since training all state vectors are row vecs, need to transpose
+        # such that state_plus approx A@state_plus
         A0 = (J / self.dt).T
         print(A0)
         return A0
