@@ -17,8 +17,8 @@ from CustomLayers import JanetController
 from numpy.linalg import eig
 from Verifier import *
 
-num_units = 4
-plant_name = "Pendulum"
+num_units = 3
+plant_name = "DoubleIntegrator"
 timesteps = 1000
 NNorCL = 'CL'
 
@@ -82,6 +82,7 @@ def call_CLsys(sys, tm1):
     # states=[K.constant([0, -1, 0],shape=[1,3]),K.zeros((1,num_units))]
     x_tm2, [x_tm2, c_tm2] = sys.cell.call(inputs, tm1, training=False)
     return [x_tm2, c_tm2]
+
 
 class CLoop(object):
 
@@ -168,9 +169,9 @@ class CLoop(object):
         scipy.io.savemat(confi_name,  dict(file_name=file_name,
                                            num_units=self.units))
         print('saved' + file_name)
-CL = get_NNorCL(num_units, plant_name, timesteps, NNorCL='CL')
-get_S0(CL)
+# CL = get_NNorCL(num_units, plant_name, timesteps, NNorCL='CL')
+# get_S0(CL)
 
 # NN = get_NNorCL(num_units, plant_name, timesteps, NNorCL='NN')
-# train(pre_trained=None , num_units=num_units, timesteps=timesteps, batch_size=1,
-#       epochs=3)
+train(pre_trained=None, plant_name=plant_name, num_units=num_units,
+      timesteps=timesteps, batch_size=1,epochs=3)
