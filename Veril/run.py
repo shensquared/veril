@@ -83,14 +83,6 @@ def call_CLsys(sys, tm1):
     x_tm2, [x_tm2, c_tm2] = sys.cell.call(inputs, tm1, training=False)
     return [x_tm2, c_tm2]
 
-CL = get_NNorCL(num_units, plant_name, timesteps, NNorCL='CL')
-get_P0(CL)
-
-# NN = get_NNorCL(num_units, plant_name, timesteps, NNorCL='NN')
-# train(pre_trained=NN, num_units=num_units, timesteps=timesteps, batch_size=1,
-#       epochs=3)
-
-
 class CLoop(object):
 
     def __init__(self, this_layer, timesteps, tag):
@@ -176,3 +168,9 @@ class CLoop(object):
         scipy.io.savemat(confi_name,  dict(file_name=file_name,
                                            num_units=self.units))
         print('saved' + file_name)
+CL = get_NNorCL(num_units, plant_name, timesteps, NNorCL='CL')
+get_S0(CL)
+
+# NN = get_NNorCL(num_units, plant_name, timesteps, NNorCL='NN')
+# train(pre_trained=None , num_units=num_units, timesteps=timesteps, batch_size=1,
+#       epochs=3)
