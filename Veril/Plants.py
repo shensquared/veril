@@ -19,10 +19,13 @@ class Plant():
     def __init__(self, dt=1e-3, obs_idx=None, num_disturb=0):
         self.dt = dt
         self.num_disturb = num_disturb
-        self.obs_idx = np.array(obs_idx)
+
+    def obs(self, obs_idx):
         if obs_idx is None:
+            self.obs_idx = obs_idx
             self.num_outputs = self.num_states
         else:
+            self.obs_idx = np.array(obs_idx)
             self.num_outputs = sum(self.obs_idx)
 
     def step(self, x, u):
@@ -35,14 +38,16 @@ class Plant():
         if self.obs_idx is None:
             return x
         else:
-            return (x * K.constant(self.obs_idx, shape=(1, self.num_states)))
+            # TODO: need a keras version of this but differentiable
+            pass
+            # return (x * K.constant(self.obs_idx, shape=(1, self.num_states)))
             # return tf.gather(x, self.obs_idx, axis=1)
 
     def np_get_obs(self, x):
         if self.obs_idx is None:
             return x
         else:
-            return x * self.obs_idx
+            return x[0, np.nonzero(self.obs_idx)]
 
     def manifold(self):
         return None
@@ -64,12 +69,7 @@ class Pendulum(Plant):
         self.num_inputs = 1
         self.num_disturb = num_disturb
 
-        self.obs_idx = np.array(obs_idx)
-        if obs_idx is None:
-            self.num_outputs = self.num_states
-        else:
-            self.num_outputs = sum(self.obs_idx)
-            
+        self.obs(obs_idx)
 
         self.dt = dt
         self.x0 = np.array([0, -1, 0])
@@ -137,12 +137,7 @@ class Satellite(Plant):
         self.name = 'Satellite'
         self.num_states = 6
         self.num_inputs = 3
-        self.obs_idx = np.array(obs_idx)
-        if obs_idx is None:
-            self.num_outputs = self.num_states
-        else:
-            self.num_outputs = sum(self.obs_idx)
-
+        self.obs(obs_idx)
         self.dt = dt
         self.num_disturb = num_disturb
         self.x0 = np.array([0, 0, 0, 0, 0, 0])
@@ -168,9 +163,12 @@ class Satellite(Plant):
         H_inv = K.constant(np.diag([.5, 1, 2]))
         eye3 = K.constant(np.eye(3))
 
-        w = x[:, :3]
-        phi = x[:, 3:6]
-
+        # w = x[:, :3]
+        # phi = x[:, 3:6]
+        w = K.dot(x, K.constant([[1, 0, 0], [0, 1, 0], [0, 0, 1], [0, 0, 0],
+                                 [0, 0, 0], [0, 0, 0]], shape=(6, 3)))
+        phi = K.dot(x, K.constant([[0, 0, 0], [0, 0, 0], [0, 0, 0],
+                                   [1, 0, 0], [0, 1, 0], [0, 0, 1]], shape=(6, 3)))
         # CT dynamics:
         # H*dot(w)=-Sigma(w)*H*w+u, or equivalently:
         # dot(w)=H_inv*(-Sigma(w)*H*w+u), forward Euler
@@ -430,12 +428,8 @@ class DoubleIntegrator(Plant):
         self.num_states = 2
         self.num_inputs = 1
         self.obs_idx = np.array(obs_idx)
-        if obs_idx is None:
-            self.num_outputs = self.num_states
-        else:
-            self.num_outputs = sum(self.obs_idx)
+        self.obs(obs_idx)
         self.num_disturb = num_disturb
-
         self.x0 = np.array([0, 0])
         self.y0 = self.np_get_obs(self.x0)
         self.u0 = 0
