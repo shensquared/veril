@@ -429,9 +429,8 @@ class JanetControllerCell(Layer):
         # print(K.eval(tm2_delta[1]))
         # tm1_np_delta = 1e-6 * np.ones((1, full_dim))
         # print((tm1_np_delta)@J + tm2_np)
-
         J -= np.eye(full_dim)
-        A0 = J / self.dt
+        A0 = (J / self.dt).T
         print(A0)
         return A0
 
@@ -464,7 +463,6 @@ class JanetControllerCell(Layer):
 #     J = tf.map_fn(lambda m: tf.gradients(y[:,:,m:m+1], X)[0], tf.range(tf.shape(y)[-1]), tf.float32)
 #     J = tf.transpose(tf.squeeze(J), perm = [1,0,2])
 #     return J
-
 
 class JanetCell(Layer):
     """Cell class for the LSTM layer.

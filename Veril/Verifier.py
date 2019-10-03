@@ -4,16 +4,29 @@ sys.path.append(
 from scipy.linalg import solve_discrete_lyapunov
 import pydrake
 import numpy as np
-from numpy.linalg import eig
+from numpy.linalg import eig, inv
 import pydrake.symbolic as sym
 from pydrake.all import (MathematicalProgram, Polynomial, SolutionResult,
-   Solve, Jacobian, Evaluate, RealContinuousLyapunovEquation, Substitute)
+                         Solve, Jacobian, Evaluate, RealContinuousLyapunovEquation, Substitute)
 import Plants
 # from keras import backend as K
 # import matplotlib
 # import matplotlib.pyplot as plt
 # matplotlib.use('TkAgg')
-def get_P0(CL):
+
+
+class opt(object):
+    def __init__(self):
+        self.degV = 4
+        self.max_iterations = 10
+        self.converged_tol = .01
+        self.degL1 = 2
+        self.degL2 = 2
+
+options = opt()
+
+
+def get_S0(CL):
     plant = Plants.get(CL.plant_name, CL.dt, CL.obs_idx)
     prog = MathematicalProgram()
     # add the constant basis
@@ -30,7 +43,7 @@ def get_P0(CL):
     prog.AddPositiveSemidefiniteConstraint(P)
     prog.AddPositiveSemidefiniteConstraint(P + P.T)
     V = full_states.T@P@full_states
-    Vdot = full_states.T@P@A0@full_states+full_states.T@A0.T@P@full_states
+    Vdot = full_states.T@P@A0@full_states + full_states.T@A0.T@P@full_states
     if plant.manifold is not None:
         r = prog.NewContinuousVariables(1, "r")[0]
         Vdot = Vdot + r * plant.manifold(x)
@@ -38,16 +51,16 @@ def get_P0(CL):
 
     prog.AddConstraint(slack >= 0)
     prog.AddSosConstraint(-Vdot - slack * full_states.T@np.eye
-        (full_dim)@full_states)
+                          (full_dim)@full_states)
     prog.AddCost(-slack)
     result = Solve(prog)
     print('w/ solver %s' % (result.get_solver_id().name()))
     print(result.get_solution_result())
     slack = result.GetSolution(slack)
     print(slack)
-    P = result.GetSolution(P)
+    S0 = result.GetSolution(P)
     print(eig(A0)[0])
-    print(eig(A0.T@P+P@A0)[0])
+    print(eig(A0.T@S0 + S0@A0)[0])
 
 #
 # class SOS_verifier():
@@ -65,53 +78,7 @@ def get_P0(CL):
 #         self.aug_dyanmics = np.kron(np.eye(self.num_nuerons),
 #                                     np.array([.5, 0, .5, .5, -.5]))
 #         self.setup_prog()
-#
-#     def setup_prog(self):
-#         prog = MathematicalProgram()
-#         # add the constant basis
-#         constant = prog.NewIndeterminates(1, 'constant')
-#         basis = [sym.Monomial(constant[0], 0)]
-#
-#         xhat = prog.NewIndeterminates(3 * self.num_nuerons, "xhat")
-#         uhat = prog.NewIndeterminates(self.num_inputs, "uhat")
-#         basis += [sym.Monomial(_) for _ in np.hstack((uhat, xhat))]
-#         # set up the nominal state and inputs
-#         if self.zero_nominal:
-#             u = np.zeros((self.num_inputs,))
-#             x = np.zeros((3 * self.num_nuerons))
-#         else:
-#             x = prog.NewIndeterminates(3 * self.num_nuerons, "x")
-#             u = prog.NewIndeterminates(self.num_inputs, "u")
-#             basis += [sym.Monomial(_) for _ in np.hstack((x, u))]
-#
-#         self.prog = prog
-#         self.xhat = xhat
-#         self.uhat = uhat
-#         self.u = u
-#         self.x = x
-#         self.basis = basis
-#
-#         self.x1 = x.reshape(self.num_nuerons, 3)[:, 0]
-#         self.xf = x.reshape(self.num_nuerons, 3)[:, 1]
-#         self.xc = x.reshape(self.num_nuerons, 3)[:, 2]
-#
-#         # Set up the actual states and inputs
-#         self.xhat1 = xhat.reshape(self.num_nuerons, 3)[:, 0]
-#         self.xhatf = xhat.reshape(self.num_nuerons, 3)[:, 1]
-#         self.xhatc = xhat.reshape(self.num_nuerons, 3)[:, 2]
-#
-#         # calculate the output
-#         self.dx = xhat - x
-#         self.du = uhat - u
-#
-#         self.dx1 = self.dx.reshape(self.num_nuerons, 3)[:, 0]
-#         self.dy = self.dx1.dot(self.output_weight)
-#
-#         # calculate the error dynamics
-#         self.x1_plus = self.poly_dynamics(x)
-#         self.xhat1_plus = self.poly_dynamics(xhat)
-#         self.dx1_plus = self.xhat1_plus - self.x1_plus
-#
+
 #     def get_args(self, state, inputs):
 #         x_f = np.dot(inputs, self.kernel_f)
 #         x_c = np.dot(inputs, self.kernel_c)
@@ -121,61 +88,6 @@ def get_P0(CL):
 #         arg_c = (x_c + np.dot(state, self.recurrent_kernel_c))
 #         return arg_f, arg_c
 #
-#     def explicit_Jacobian(self):
-#         c = self.xhat1
-#         u = self.uhat
-#         arg_f, arg_c = self.get_args(c, u)
-#         tau_f = np.array([sym.tanh(_) for _ in arg_f])
-#         tau_c = np.array([sym.tanh(_) for _ in arg_c])
-#         # split into 4 parts, so to get around drake Jacobian issues
-#         Jac1 = Jacobian(c, c)
-#         Jac2 = (Jacobian(tau_f, c).T * c).T + (Jacobian(c, c).T * tau_f).T
-#         Jac3 = Jacobian(tau_c, c)
-#         Jac4 = -(Jacobian(tau_c, c).T * tau_f).T - (Jacobian(tau_f, c).T *
-#                                                     tau_c).T
-#         Jac = .5 * (Jac1 + Jac2 + Jac3 + Jac4)
-#         # evaluate at zero
-#         env = {_: 0 for _ in np.hstack((c, u))}
-#         self.linerized_A = np.array(
-#             [[x.Evaluate(env) for x in J] for J in Jac])
-#         self.linerized_S0 = solve_discrete_lyapunov(
-#             self.linerized_A.T, np.eye(self.num_nuerons))
-#         print eig(self.linerized_S0)[0]
-#
-#     def test_explicit_linearize(self):
-#         prog = MathematicalProgram()
-#         c = prog.NewIndeterminates(self.num_nuerons, "c")
-#         u = prog.NewIndeterminates(1, "u")
-#         # random and non-zero sample
-#         env = {_: np.random.uniform(5, 10, 1) for _ in np.hstack((c, u))}
-#         arg_f, arg_c = self.get_args(c, u)
-#         tau_f = np.array([sym.tanh(_) for _ in arg_f])
-#         tau_c = np.array([sym.tanh(_) for _ in arg_c])
-#         # direct jacobian method
-#         c_plus1 = ((c)).tolist()
-#         c_plus2 = ((tau_f * c)).tolist()
-#         c_plus3 = ((tau_c)).tolist()
-#         c_plus4 = ((- tau_c * tau_f)).tolist()
-#         direct_Jac1 = np.array([[x.Evaluate(env) for x in J]
-#                                 for J in Jacobian(c_plus1, c)])
-#         direct_Jac2 = np.array([[x.Evaluate(env) for x in J]
-#                                 for J in Jacobian(c_plus2, c)])
-#         direct_Jac3 = np.array([[x.Evaluate(env) for x in J]
-#                                 for J in Jacobian(c_plus3, c)])
-#         direct_Jac4 = np.array([[x.Evaluate(env) for x in J]
-#                                 for J in Jacobian(c_plus4, c)])
-#         directJac = .5 * (direct_Jac1 + direct_Jac2 +
-#                           direct_Jac3 + direct_Jac4)
-#         # explicit jacobian
-#         Jac1 = np.array(Jacobian(c, c))
-#         Jac2 = np.array((Jacobian(tau_f, c).T * c).T +
-#                         (Jacobian(c, c).T * tau_f).T)
-#         Jac3 = np.array(Jacobian(tau_c, c))
-#         Jac4 = np.array(-(Jacobian(tau_c, c).T * tau_f).T - (Jacobian(tau_f, c).T *
-#                                                              tau_c).T)
-#         Jac = .5 * (Jac1 + Jac2 + Jac3 + Jac4)
-#         manualJac = np.array([[x.Evaluate(env) for x in J] for J in Jac])
-#         print manualJac - directJac
 #
 #     def poly_dynamics(self, states):
 #         x1 = states.reshape(self.num_nuerons, 3)[:, 0]
@@ -493,36 +405,79 @@ def get_P0(CL):
 #                       (y - x) * y))
 #
 #
-# def balanceQuadraticForm(S, P):
-#     # copied from the old drake, with only syntax swap
-#     #  Quadratic Form "Balancing"
-#     #
-#     #    T = balqf(S,P)
-#     #
-#     #  Input:
-#     #    S -- n-by-n symmetric positive definite.
-#     #    P -- n-by-n symmetric, full rank.
-#     #
-#     #  Finds a T such that:
-#     #    T'*S*T = D
-#     #    T'*P*T = D^(-1)
-#
-#     # if np.linalg.norm(S - S.T,1) > 1e-8:
-#     # raise Error('S must be symmetric')
-#     # if np.linalg.norm(P - P.T,1) > 1e-8:
-#     # raise Error('P must be symmetric')
-#     # if np.linalg.cond(P) > 1e10:
-#     # raise Error('P must be full rank')
-#
-#     # Tests if S positive def. for us.
-#     V = np.linalg.inv(np.linalg.cholesky(S).T)
-#     [U, l, N] = np.linalg.svd((V.T.dot(P)).dot(V))
-#     T = (V.dot(U)).dot(np.diag(np.power(l, -.25, dtype=float)))
-#     D = np.diag(np.power(l, -.5, dtype=float))
-#     return T, D
-#
-#
+
+
+def balanceQuadraticForm(S, P):
+    # copied from the old drake, with only syntax swap
+    #  Quadratic Form "Balancing"
+    #
+    #    T = balqf(S,P)
+    #
+    #  Input:
+    #    S -- n-by-n symmetric positive definite.
+    #    P -- n-by-n symmetric, full rank.
+    #
+    #  Finds a T such that:
+    #    T'*S*T = D
+    #    T'*P*T = D^(-1)
+
+    if np.linalg.norm(S - S.T, 1) > 1e-8:
+        raise Error('S must be symmetric')
+    if np.linalg.norm(P - P.T, 1) > 1e-8:
+        raise Error('P must be symmetric')
+    if np.linalg.cond(P) > 1e10:
+        raise Error('P must be full rank')
+
+    # Tests if S positive def. for us.
+    V = np.linalg.inv(np.linalg.cholesky(S).T)
+    [U, l, N] = np.linalg.svd((V.T.dot(P)).dot(V))
+    T = (V.dot(U)).dot(np.diag(np.power(l, -.25, dtype=float)))
+    D = np.diag(np.power(l, -.5, dtype=float))
+    return T, D
+
+
+def balance(x, V, f, S, A):
+    if S is None:
+        S=.5*(subs(Jacobian(Jacobian(V,x).T,x),x,0*x))
+    if A is None:
+        A = (subs(Jacobian(f,x),x,0*x))
+    [T, D] = balanceQuadForm(S, (S@A + A.T@S))
+    Sbal = (T.T)@(S)@(T)
+    Vbal = subs(V, x, T@x)
+    fbal = inv(T) * subs(f, x, T@x)
+    return T, Vbal, fbal, S, A
+
+def bilinear(x, V0, f, S0, A, options):
+    V = V0
+    [T, V0bal, fbal, S0, A] = balance(x, V0, f, S0, A)
+    rho = 1
+
+    L1monom = sym.Monomial(x, options.degL1)
+    L2monom = sym.Monomial(x, options.degL2)
+    Vmonom = sym.Monomial(x, options.degV)
+
+    vol = 0
+    for iter in range(options.max_iterations):
+        last_vol = vol
+
+        # balance on every iteration (since V and Vdot are changing):
+        [T, Vbal, fbal] = balance(x, V, f, S0 / rho, A)
+        V0bal = subs(V0, x, T@x)
+
+        [L1, sigma1] = findL1(x, fbal, Vbal, L1monom, options)
+        L2 = findL2(x, Vbal, V0bal, rho, L2monom, options)
+        [Vbal, rho] = optimizeV(x, fbal, L1, L2, V0bal, sigma1, Vmonom,
+                                options)
+        vol = rho
+
+        #  undo balancing (for the next iteration, or if i'm done)
+        V = subs(Vbal, x, inv(T)@x)
+        if ((vol - last_vol) < options.converged_tol * last_vol):
+            break
+    return V
+
 # def balance(S, A, x=None, f=None):
+# DT balancing step
 #     # [T, D] = balanceQuadraticForm(S, (S.dot(A) + A.T.dot(S)))
 #     [T, D] = balanceQuadraticForm(S, (A.T.dot(S).dot(A) - S))
 #     Sbal = (T.T).dot(S).dot(T)
@@ -530,3 +485,108 @@ def get_P0(CL):
 #         fbal = inv(T) * subs(f, x, T * x)
 #         return T, Sbal, fbal
 #     return T, Sbal
+
+#     def explicit_Jacobian(self):
+#         c = self.xhat1
+#         u = self.uhat
+#         arg_f, arg_c = self.get_args(c, u)
+#         tau_f = np.array([sym.tanh(_) for _ in arg_f])
+#         tau_c = np.array([sym.tanh(_) for _ in arg_c])
+#         # split into 4 parts, so to get around drake Jacobian issues
+#         Jac1 = Jacobian(c, c)
+#         Jac2 = (Jacobian(tau_f, c).T * c).T + (Jacobian(c, c).T * tau_f).T
+#         Jac3 = Jacobian(tau_c, c)
+#         Jac4 = -(Jacobian(tau_c, c).T * tau_f).T - (Jacobian(tau_f, c).T *
+#                                                     tau_c).T
+#         Jac = .5 * (Jac1 + Jac2 + Jac3 + Jac4)
+#         # evaluate at zero
+#         env = {_: 0 for _ in np.hstack((c, u))}
+#         self.linerized_A = np.array(
+#             [[x.Evaluate(env) for x in J] for J in Jac])
+#         self.linerized_S0 = solve_discrete_lyapunov(
+#             self.linerized_A.T, np.eye(self.num_nuerons))
+#         print eig(self.linerized_S0)[0]
+#
+#     def test_explicit_linearize(self):
+#         prog = MathematicalProgram()
+#         c = prog.NewIndeterminates(self.num_nuerons, "c")
+#         u = prog.NewIndeterminates(1, "u")
+#         # random and non-zero sample
+#         env = {_: np.random.uniform(5, 10, 1) for _ in np.hstack((c, u))}
+#         arg_f, arg_c = self.get_args(c, u)
+#         tau_f = np.array([sym.tanh(_) for _ in arg_f])
+#         tau_c = np.array([sym.tanh(_) for _ in arg_c])
+#         # direct jacobian method
+#         c_plus1 = ((c)).tolist()
+#         c_plus2 = ((tau_f * c)).tolist()
+#         c_plus3 = ((tau_c)).tolist()
+#         c_plus4 = ((- tau_c * tau_f)).tolist()
+#         direct_Jac1 = np.array([[x.Evaluate(env) for x in J]
+#                                 for J in Jacobian(c_plus1, c)])
+#         direct_Jac2 = np.array([[x.Evaluate(env) for x in J]
+#                                 for J in Jacobian(c_plus2, c)])
+#         direct_Jac3 = np.array([[x.Evaluate(env) for x in J]
+#                                 for J in Jacobian(c_plus3, c)])
+#         direct_Jac4 = np.array([[x.Evaluate(env) for x in J]
+#                                 for J in Jacobian(c_plus4, c)])
+#         directJac = .5 * (direct_Jac1 + direct_Jac2 +
+#                           direct_Jac3 + direct_Jac4)
+#         # explicit jacobian
+#         Jac1 = np.array(Jacobian(c, c))
+#         Jac2 = np.array((Jacobian(tau_f, c).T * c).T +
+#                         (Jacobian(c, c).T * tau_f).T)
+#         Jac3 = np.array(Jacobian(tau_c, c))
+#         Jac4 = np.array(-(Jacobian(tau_c, c).T * tau_f).T - (Jacobian(tau_f, c).T *
+#                                                              tau_c).T)
+#         Jac = .5 * (Jac1 + Jac2 + Jac3 + Jac4)
+#         manualJac = np.array([[x.Evaluate(env) for x in J] for J in Jac])
+#         print manualJac - directJac
+
+
+#
+#     def setup_prog(self):
+#         prog = MathematicalProgram()
+#         # add the constant basis
+#         constant = prog.NewIndeterminates(1, 'constant')
+#         basis = [sym.Monomial(constant[0], 0)]
+#
+#         xhat = prog.NewIndeterminates(3 * self.num_nuerons, "xhat")
+#         uhat = prog.NewIndeterminates(self.num_inputs, "uhat")
+#         basis += [sym.Monomial(_) for _ in np.hstack((uhat, xhat))]
+#         # set up the nominal state and inputs
+#         if self.zero_nominal:
+#             u = np.zeros((self.num_inputs,))
+#             x = np.zeros((3 * self.num_nuerons))
+#         else:
+#             x = prog.NewIndeterminates(3 * self.num_nuerons, "x")
+#             u = prog.NewIndeterminates(self.num_inputs, "u")
+#             basis += [sym.Monomial(_) for _ in np.hstack((x, u))]
+#
+#         self.prog = prog
+#         self.xhat = xhat
+#         self.uhat = uhat
+#         self.u = u
+#         self.x = x
+#         self.basis = basis
+#
+#         self.x1 = x.reshape(self.num_nuerons, 3)[:, 0]
+#         self.xf = x.reshape(self.num_nuerons, 3)[:, 1]
+#         self.xc = x.reshape(self.num_nuerons, 3)[:, 2]
+#
+#         # Set up the actual states and inputs
+#         self.xhat1 = xhat.reshape(self.num_nuerons, 3)[:, 0]
+#         self.xhatf = xhat.reshape(self.num_nuerons, 3)[:, 1]
+#         self.xhatc = xhat.reshape(self.num_nuerons, 3)[:, 2]
+#
+#         # calculate the output
+#         self.dx = xhat - x
+#         self.du = uhat - u
+#
+#         self.dx1 = self.dx.reshape(self.num_nuerons, 3)[:, 0]
+#         self.dy = self.dx1.dot(self.output_weight)
+#
+#         # calculate the error dynamics
+#         self.x1_plus = self.poly_dynamics(x)
+#         self.xhat1_plus = self.poly_dynamics(xhat)
+#         self.dx1_plus = self.xhat1_plus - self.x1_plus
+#
