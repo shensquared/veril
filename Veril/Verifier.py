@@ -1,14 +1,16 @@
 import sys
 sys.path.append(
     "/Users/shenshen/drake-build/install/lib/python3.7/site-packages")
-from scipy.linalg import solve_discrete_lyapunov
+from scipy.linalg import solve_lyapunov, solve_discrete_lyapunov
 import pydrake
 import numpy as np
 from numpy.linalg import eig, inv
 import pydrake.symbolic as sym
 from pydrake.all import (MathematicalProgram, Polynomial, SolutionResult,
-                         Solve, Jacobian, Evaluate, RealContinuousLyapunovEquation, Substitute)
-import Plants
+                         Variables, Solve, Jacobian, Evaluate,
+                         RealContinuousLyapunovEquation, Substitute)
+# import Plants
+from Veril.Plants import *
 # from keras import backend as K
 # import matplotlib
 # import matplotlib.pyplot as plt
@@ -16,15 +18,14 @@ import Plants
 
 
 class opt(object):
-    def __init__(self):
-        self.degV = 4
+
+    def __init__(self,nX):
+        self.degV = 2
         self.max_iterations = 10
         self.converged_tol = .01
-        self.degL1 = 2
-        self.degL2 = 2
-
-options = opt()
-
+        self.degL1 = 4
+        self.degL2 = 4
+        self.nX = nX
 
 def get_S0(CL):
     plant = Plants.get(CL.plant_name, CL.dt, CL.obs_idx)
@@ -48,8 +49,8 @@ def get_S0(CL):
         r = prog.NewContinuousVariables(1, "r")[0]
         Vdot = Vdot + r * plant.manifold(x)
     slack = prog.NewContinuousVariables(1, "s")[0]
-
     prog.AddConstraint(slack >= 0)
+
     prog.AddSosConstraint(-Vdot - slack * full_states.T@np.eye
                           (full_dim)@full_states)
     prog.AddCost(-slack)
@@ -61,6 +62,178 @@ def get_S0(CL):
     S0 = result.GetSolution(P)
     print(eig(A0)[0])
     print(eig(A0.T@S0 + S0@A0)[0])
+
+def IQC_tanh(x, y):
+    y_cross = 0.642614
+    x_off = .12
+    return np.hstack((y ** 2 - 1,
+                      (y - ((x) + x_off)) * (y + y_cross),
+                      (y - ((x) - x_off)) * (y - y_cross),
+                      (y - x) * y))
+
+def balanceQuadForm(S, P):
+    # copied from the old drake, with only syntax swap
+    #  Quadratic Form "Balancing"
+    #
+    #    T = balqf(S,P)
+    #
+    #  Input:
+    #    S -- n-by-n symmetric positive definite.
+    #    P -- n-by-n symmetric, full rank.
+    #
+    #  Finds a T such that:
+    #    T'*S*T = D
+    #    T'*P*T = D^(-1)
+
+    # if np.linalg.norm(S - S.T, 1) > 1e-8:
+        # raise Error('S must be symmetric')
+    # if np.linalg.norm(P - P.T, 1) > 1e-8:
+        # raise Error('P must be symmetric')
+    # if np.linalg.cond(P) > 1e10:
+        # raise Error('P must be full rank')
+
+    # Tests if S positive def. for us.
+    V = np.linalg.inv(np.linalg.cholesky(S).T)
+    [U, l, N] = np.linalg.svd((V.T.dot(P)).dot(V))
+    T = (V.dot(U)).dot(np.diag(np.power(l, -.25, dtype=float)))
+    D = np.diag(np.power(l, -.5, dtype=float))
+    return T, D
+
+
+def balance(x, V, f, S, A):
+    if S is None:
+        S = .5 * (Substitute(Jacobian(Jacobian(V, x).T, x), x, 0 * x))
+    if A is None:
+        J = Jacobian(f, x)
+        # mapping = dict(zip(x, x0))
+        # mapping.update(dict(zip(ucon, u0)))
+        env = {x:0}
+        A = J.Substitute(env)
+    [T, D] = balanceQuadForm(S, (S@A + A.T@S))
+    # Sbal = (T.T)@(S)@(T)
+    Vbal = V.Substitute(dict(zip(x,T@x)))
+    # print([i.Substitute(dict(zip(x,T@x))) for i in f])
+    fbal = inv(T)@[i.Substitute(dict(zip(x,T@x))) for i in f]
+    print(f)
+    print(fbal)
+    print(inv(T))
+    return T, Vbal, fbal, S, A
+
+
+def bilinear(x, V0, f, S0, A, options):
+    V = V0
+    [T, V0bal, fbal, S0, A] = balance(x, V0, f, S0, A)
+    rho = 1
+    vol = 0
+    for iter in range(options.max_iterations):
+        last_vol = vol
+
+        # balance on every iteration (since V and Vdot are changing):
+        [T, Vbal, fbal] = balance(x, V, f, S0 / rho, A)[0:3]
+        V0bal = V0.Substitute(dict(zip(x,T@x)))
+
+        [L1, sigma1] = findL1(x, fbal, Vbal, options)
+        L2 = findL2(x, Vbal, V0bal, rho, options)
+        [Vbal, rho] = optimizeV(fbal, L1, L2, V0bal, sigma1, options)
+        vol = rho
+
+        #  undo balancing (for the next iteration, or if i'm done)
+        V = Vbal.Substitute(dict(zip(x,inv(T)@x)))
+        if ((vol - last_vol) < options.converged_tol * last_vol):
+            break
+    return V
+
+def findL1(old_x, f, V, options):
+    prog = MathematicalProgram()
+    x = prog.NewIndeterminates(options.nX,'lx')
+    V = V.Substitute(dict(zip(old_x, x)))
+    f = [i.Substitute(dict(zip(old_x, x))) for i in f]
+    # % construct multipliers for Vdot
+    L1 = prog.NewSosPolynomial(Variables(x), options.degL1)[0].ToExpression()
+    print(L1)
+    # % construct Vdot
+    # x = list(V.GetVariables())
+    Vdot = (V.Jacobian(x) @ f)
+    # print('Vdot')
+    print(Vdot)
+    # % construct slack var
+    sigma1 = prog.NewContinuousVariables(1, "s")[0]
+    prog.AddConstraint(sigma1 >= 0)
+    # % setup SOS constraints
+    # print(Polynomial(-Vdot + L1 * (V - 1) - sigma1 * V).TotalDegree())
+    prog.AddSosConstraint(-Vdot + L1 * (V - 1) - sigma1 * V)
+    # add cost
+    prog.AddCost(-sigma1)
+    result = Solve(prog)
+    print('w/ solver %s' % (result.get_solver_id().name()))
+    print(result.get_solution_result())
+    assert result.is_success()
+    L1 = result.GetSolution(L1)
+    sigma1 = result.GetSolution(sigma1)
+    print(sigma1)
+    return L1, sigma1
+
+def findL2(V, V0, rho, options):
+    prog = MathematicalProgram()
+    x = prog.NewIndeterminates(options.nX, "x")
+    # % construct multipliers for Vdot
+    L2 = prog.NewSosPolynomial(Variables(x), options.degL2)[0].ToExpression()
+    # % construct slack var
+    slack = prog.NewContinuousVariables(1, "s")[0]
+    prog.AddConstraint(slack >= 0)
+    # add normalizing constraint
+    prog.AddSosConstraint(-(V - 1) + L2 * (V0 - rho))
+    prog.AddCost(slack)
+    result = Solve(prog)
+    print('w/ solver %s' % (result.get_solver_id().name()))
+    print(result.get_solution_result())
+    slack = result.GetSolution(slack)
+    print(slack)
+    L2 = result.GetSolution(L2)
+    return L2
+
+
+def optimizeV(f, L1, L2, V0, sigma1, options):
+    prog = MathematicalProgram()
+    x = prog.NewIndeterminates(options.nX, "x")
+    #% construct V
+    V = prog.NewSosPolynomial(Variables(x), options.degV)[0].ToExpression()
+    Vdot = Jacobian(V, x) * f
+    # % construct rho
+    rho = prog.NewContinuousVariables(1, "r")[0]
+    prog.AddConstraint(rho >= 0)
+
+    # % setup SOS constraints
+    prog.AddSosConstraint(-Vdot + L1 * (V - 1) - sigma1 * V / 2)
+    prog.AddSosConstraint(-(V - 1) + L2 * (V0 - rho))
+
+    # % run SeDuMi/MOSEK and check output
+    prog.AddCost(-rho)
+    result = Solve(prog)
+    print('w/ solver %s' % (result.get_solver_id().name()))
+    print(result.get_solution_result())
+    V = result.GetSolution(V)
+    rho = result.GetSolution(rho)
+    print(rho)
+    return V, rho
+
+# def clean(a,tol=1e-6):
+#     [x,p,M]=decomp(a)
+#     M(abs(M)<tol)=0
+#     a=recomp(x,p,M,size(a))
+#     return a
+
+# def balance(S, A, x=None, f=None):
+# DT balancing step
+#     # [T, D] = balanceQuadraticForm(S, (S.dot(A) + A.T.dot(S)))
+#     [T, D] = balanceQuadraticForm(S, (A.T.dot(S).dot(A) - S))
+#     Sbal = (T.T).dot(S).dot(T)
+#     if f is not None:
+#         fbal = inv(T) * subs(f, x, T * x)
+#         return T, Sbal, fbal
+#     return T, Sbal
+
+
 
 #
 # class SOS_verifier():
@@ -396,95 +569,6 @@ def get_S0(CL):
 #         raise RuntimeError(result)
 #
 #
-# def IQC_tanh(x, y):
-#     y_cross = 0.642614
-#     x_off = .12
-#     return np.hstack((y ** 2 - 1,
-#                       (y - ((x) + x_off)) * (y + y_cross),
-#                       (y - ((x) - x_off)) * (y - y_cross),
-#                       (y - x) * y))
-#
-#
-
-
-def balanceQuadraticForm(S, P):
-    # copied from the old drake, with only syntax swap
-    #  Quadratic Form "Balancing"
-    #
-    #    T = balqf(S,P)
-    #
-    #  Input:
-    #    S -- n-by-n symmetric positive definite.
-    #    P -- n-by-n symmetric, full rank.
-    #
-    #  Finds a T such that:
-    #    T'*S*T = D
-    #    T'*P*T = D^(-1)
-
-    if np.linalg.norm(S - S.T, 1) > 1e-8:
-        raise Error('S must be symmetric')
-    if np.linalg.norm(P - P.T, 1) > 1e-8:
-        raise Error('P must be symmetric')
-    if np.linalg.cond(P) > 1e10:
-        raise Error('P must be full rank')
-
-    # Tests if S positive def. for us.
-    V = np.linalg.inv(np.linalg.cholesky(S).T)
-    [U, l, N] = np.linalg.svd((V.T.dot(P)).dot(V))
-    T = (V.dot(U)).dot(np.diag(np.power(l, -.25, dtype=float)))
-    D = np.diag(np.power(l, -.5, dtype=float))
-    return T, D
-
-
-def balance(x, V, f, S, A):
-    if S is None:
-        S=.5*(subs(Jacobian(Jacobian(V,x).T,x),x,0*x))
-    if A is None:
-        A = (subs(Jacobian(f,x),x,0*x))
-    [T, D] = balanceQuadForm(S, (S@A + A.T@S))
-    Sbal = (T.T)@(S)@(T)
-    Vbal = subs(V, x, T@x)
-    fbal = inv(T) * subs(f, x, T@x)
-    return T, Vbal, fbal, S, A
-
-def bilinear(x, V0, f, S0, A, options):
-    V = V0
-    [T, V0bal, fbal, S0, A] = balance(x, V0, f, S0, A)
-    rho = 1
-
-    L1monom = sym.Monomial(x, options.degL1)
-    L2monom = sym.Monomial(x, options.degL2)
-    Vmonom = sym.Monomial(x, options.degV)
-
-    vol = 0
-    for iter in range(options.max_iterations):
-        last_vol = vol
-
-        # balance on every iteration (since V and Vdot are changing):
-        [T, Vbal, fbal] = balance(x, V, f, S0 / rho, A)
-        V0bal = subs(V0, x, T@x)
-
-        [L1, sigma1] = findL1(x, fbal, Vbal, L1monom, options)
-        L2 = findL2(x, Vbal, V0bal, rho, L2monom, options)
-        [Vbal, rho] = optimizeV(x, fbal, L1, L2, V0bal, sigma1, Vmonom,
-                                options)
-        vol = rho
-
-        #  undo balancing (for the next iteration, or if i'm done)
-        V = subs(Vbal, x, inv(T)@x)
-        if ((vol - last_vol) < options.converged_tol * last_vol):
-            break
-    return V
-
-# def balance(S, A, x=None, f=None):
-# DT balancing step
-#     # [T, D] = balanceQuadraticForm(S, (S.dot(A) + A.T.dot(S)))
-#     [T, D] = balanceQuadraticForm(S, (A.T.dot(S).dot(A) - S))
-#     Sbal = (T.T).dot(S).dot(T)
-#     if f is not None:
-#         fbal = inv(T) * subs(f, x, T * x)
-#         return T, Sbal, fbal
-#     return T, Sbal
 
 #     def explicit_Jacobian(self):
 #         c = self.xhat1
