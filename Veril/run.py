@@ -18,7 +18,8 @@ from numpy.linalg import eig
 from Verifier import *
 
 num_units = 3
-plant_name = "DoubleIntegrator"
+# plant_name = "DoubleIntegrator"
+plant_name = "Satellite"
 timesteps = 1000
 NNorCL = 'CL'
 
