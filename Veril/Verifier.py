@@ -94,7 +94,7 @@ def balanceQuadForm(S, P):
 
     # Tests if S positive def. for us.
     V = np.linalg.inv(np.linalg.cholesky(S).T)
-    [U, l, N] = np.linalg.svd((V.T.dot(P)).dot(V))
+    [N, l, U] = np.linalg.svd((V.T.dot(P)).dot(V))
     T = (V.dot(U)).dot(np.diag(np.power(l, -.25, dtype=float)))
     D = np.diag(np.power(l, -.5, dtype=float))
     return T, D
@@ -114,9 +114,6 @@ def balance(x, V, f, S, A):
     Vbal = V.Substitute(dict(zip(x,T@x)))
     # print([i.Substitute(dict(zip(x,T@x))) for i in f])
     fbal = inv(T)@[i.Substitute(dict(zip(x,T@x))) for i in f]
-    print(f)
-    print(fbal)
-    print(inv(T))
     return T, Vbal, fbal, S, A
 
 
@@ -150,12 +147,10 @@ def findL1(old_x, f, V, options):
     f = [i.Substitute(dict(zip(old_x, x))) for i in f]
     # % construct multipliers for Vdot
     L1 = prog.NewSosPolynomial(Variables(x), options.degL1)[0].ToExpression()
-    print(L1)
     # % construct Vdot
     # x = list(V.GetVariables())
     Vdot = (V.Jacobian(x) @ f)
     # print('Vdot')
-    print(Vdot)
     # % construct slack var
     sigma1 = prog.NewContinuousVariables(1, "s")[0]
     prog.AddConstraint(sigma1 >= 0)
