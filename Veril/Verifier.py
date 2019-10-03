@@ -19,13 +19,14 @@ from Veril.Plants import *
 
 class opt(object):
 
-    def __init__(self,nX):
-        self.degV = 2
+    def __init__(self, nX, degL1=4, degL2=4, degV=2):
+        self.degV = degV
         self.max_iterations = 10
         self.converged_tol = .01
-        self.degL1 = 4
-        self.degL2 = 4
+        self.degL1 = degL1
+        self.degL2 = degL2
         self.nX = nX
+
 
 def get_S0(CL):
     plant = Plants.get(CL.plant_name, CL.dt, CL.obs_idx)
@@ -63,6 +64,7 @@ def get_S0(CL):
     print(eig(A0)[0])
     print(eig(A0.T@S0 + S0@A0)[0])
 
+
 def IQC_tanh(x, y):
     y_cross = 0.642614
     x_off = .12
@@ -70,6 +72,7 @@ def IQC_tanh(x, y):
                       (y - ((x) + x_off)) * (y + y_cross),
                       (y - ((x) - x_off)) * (y - y_cross),
                       (y - x) * y))
+
 
 def balanceQuadForm(S, P):
     # copied from the old drake, with only syntax swap
@@ -105,15 +108,15 @@ def balance(x, V, f, S, A):
         S = .5 * (Substitute(Jacobian(Jacobian(V, x).T, x), x, 0 * x))
     if A is None:
         J = Jacobian(f, x)
-        # mapping = dict(zip(x, x0))
-        # mapping.update(dict(zip(ucon, u0)))
-        env = {x:0}
-        A = J.Substitute(env)
+        env = dict(zip(x,np.zeros(x.shape)))
+        mapping = dict(zip(x, x0))
+        A = np.array([[i.Evaluate(env) for i in j]for j in J])
+
     [T, D] = balanceQuadForm(S, (S@A + A.T@S))
     # Sbal = (T.T)@(S)@(T)
-    Vbal = V.Substitute(dict(zip(x,T@x)))
+    Vbal = V.Substitute(dict(zip(x, T@x)))
     # print([i.Substitute(dict(zip(x,T@x))) for i in f])
-    fbal = inv(T)@[i.Substitute(dict(zip(x,T@x))) for i in f]
+    fbal = inv(T)@[i.Substitute(dict(zip(x, T@x))) for i in f]
     return T, Vbal, fbal, S, A
 
 
@@ -127,7 +130,7 @@ def bilinear(x, V0, f, S0, A, options):
 
         # balance on every iteration (since V and Vdot are changing):
         [T, Vbal, fbal] = balance(x, V, f, S0 / rho, A)[0:3]
-        V0bal = V0.Substitute(dict(zip(x,T@x)))
+        V0bal = V0.Substitute(dict(zip(x, T@x)))
 
         [L1, sigma1] = findL1(x, fbal, Vbal, options)
         L2 = findL2(x, Vbal, V0bal, rho, options)
@@ -135,14 +138,15 @@ def bilinear(x, V0, f, S0, A, options):
         vol = rho
 
         #  undo balancing (for the next iteration, or if i'm done)
-        V = Vbal.Substitute(dict(zip(x,inv(T)@x)))
+        V = Vbal.Substitute(dict(zip(x, inv(T)@x)))
         if ((vol - last_vol) < options.converged_tol * last_vol):
             break
     return V
 
+
 def findL1(old_x, f, V, options):
     prog = MathematicalProgram()
-    x = prog.NewIndeterminates(options.nX,'lx')
+    x = prog.NewIndeterminates(options.nX, 'x')
     V = V.Substitute(dict(zip(old_x, x)))
     f = [i.Substitute(dict(zip(old_x, x))) for i in f]
     # % construct multipliers for Vdot
@@ -167,6 +171,7 @@ def findL1(old_x, f, V, options):
     sigma1 = result.GetSolution(sigma1)
     print(sigma1)
     return L1, sigma1
+
 
 def findL2(V, V0, rho, options):
     prog = MathematicalProgram()
@@ -227,7 +232,6 @@ def optimizeV(f, L1, L2, V0, sigma1, options):
 #         fbal = inv(T) * subs(f, x, T * x)
 #         return T, Sbal, fbal
 #     return T, Sbal
-
 
 
 #
