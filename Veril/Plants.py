@@ -422,7 +422,6 @@ class DoubleIntegrator(Plant):
         self.name = 'DoubleIntegrator'
         self.num_states = 2
         self.num_inputs = 1
-        self.num_outputs = 1
         self.obs_idx = obs_idx
         if obs_idx is None:
             self.num_outputs = self.num_states
