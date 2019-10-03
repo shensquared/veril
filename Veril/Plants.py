@@ -19,6 +19,11 @@ class Plant():
     def __init__(self, dt=1e-3, obs_idx=None, num_disturb=0):
         self.dt = dt
         self.num_disturb = num_disturb
+        self.obs_idx = np.array(obs_idx)
+        if obs_idx is None:
+            self.num_outputs = self.num_states
+        else:
+            self.num_outputs = sum(self.obs_idx)
 
     def step(self, x, u):
         pass
@@ -30,14 +35,14 @@ class Plant():
         if self.obs_idx is None:
             return x
         else:
-            return K.dot(x, K.constant(self.obs_idx, shape=(self.num_states, 1)))
+            return (x * K.constant(self.obs_idx, shape=(1, self.num_states)))
             # return tf.gather(x, self.obs_idx, axis=1)
 
     def np_get_obs(self, x):
         if self.obs_idx is None:
             return x
         else:
-            return x[self.obs_idx]
+            return x * self.obs_idx
 
     def manifold(self):
         return None
@@ -57,12 +62,14 @@ class Pendulum(Plant):
         # b/c we deal with the [sin cos thetadot] coordinate
         self.num_states = 3
         self.num_inputs = 1
-        self.obs_idx = obs_idx
+        self.num_disturb = num_disturb
+
+        self.obs_idx = np.array(obs_idx)
         if obs_idx is None:
             self.num_outputs = self.num_states
         else:
-            self.num_outputs = len(obs_idx)
-        self.num_disturb = num_disturb
+            self.num_outputs = sum(self.obs_idx)
+            
 
         self.dt = dt
         self.x0 = np.array([0, -1, 0])
@@ -130,11 +137,11 @@ class Satellite(Plant):
         self.name = 'Satellite'
         self.num_states = 6
         self.num_inputs = 3
-        self.obs_idx = obs_idx
+        self.obs_idx = np.array(obs_idx)
         if obs_idx is None:
             self.num_outputs = self.num_states
         else:
-            self.num_outputs = len(obs_idx)
+            self.num_outputs = sum(self.obs_idx)
 
         self.dt = dt
         self.num_disturb = num_disturb
@@ -422,11 +429,11 @@ class DoubleIntegrator(Plant):
         self.name = 'DoubleIntegrator'
         self.num_states = 2
         self.num_inputs = 1
-        self.obs_idx = obs_idx
+        self.obs_idx = np.array(obs_idx)
         if obs_idx is None:
             self.num_outputs = self.num_states
         else:
-            self.num_outputs = len(obs_idx)
+            self.num_outputs = sum(self.obs_idx)
         self.num_disturb = num_disturb
 
         self.x0 = np.array([0, 0])
