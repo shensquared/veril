@@ -9,7 +9,7 @@ from keras import backend as K
 # from keras import regularizers
 
 import h5py
-import scipy.io
+# import scipy.io
 import numpy as np
 
 import Plants
@@ -17,14 +17,14 @@ from CustomLayers import JanetController
 from numpy.linalg import eig
 from Verifier import *
 
-num_units = 3
+num_units = 4
 # plant_name = "DoubleIntegrator"
 plant_name = "Satellite"
+# plant_name = "Pendulum"
 timesteps = 1000
 NNorCL = 'CL'
 
-
-def train(plant_name='Pendulum', num_units=4, timesteps=100,
+def train(plant_name=None, num_units=4, timesteps=100,
           num_samples=10000, batch_size=1, epochs=3, dt=1e-3, obs_idx=None,
           tag='', pre_trained=None):
     plant = Plants.get(plant_name, dt, obs_idx)
@@ -173,6 +173,6 @@ class CLoop(object):
 # CL = get_NNorCL(num_units, plant_name, timesteps, NNorCL='CL')
 # get_S0(CL)
 
-# NN = get_NNorCL(num_units, plant_name, timesteps, NNorCL='NN')
-train(pre_trained=None, plant_name=plant_name, num_units=num_units,
+NN = get_NNorCL(num_units, plant_name, timesteps, NNorCL='NN')
+train(pre_trained=NN, plant_name=plant_name, num_units=num_units,
       timesteps=timesteps, batch_size=1,epochs=3)
