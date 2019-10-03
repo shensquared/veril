@@ -30,7 +30,8 @@ class Plant():
         if self.obs_idx is None:
             return x
         else:
-            return tf.gather(x, self.obs_idx, axis=1)
+            return K.dot(x, K.constant(self.obs_idx, shape=(self.num_states, 1)))
+            # return tf.gather(x, self.obs_idx, axis=1)
 
     def np_get_obs(self, x):
         if self.obs_idx is None:
@@ -415,20 +416,32 @@ class VanderPol():
         self.S0 = solve_discrete_lyapunov(self.A0, np.eye(2), method='direct')
 
 
-class DoubleIntegrator():
+class DoubleIntegrator(Plant):
 
-    def __init__(self, num_states=2, num_inputs=1, num_outputs=1):
+    def __init__(self, dt=1, obs_idx=None, num_disturb=0):
         self.name = 'DoubleIntegrator'
-        self.num_states = num_states
-        self.num_inputs = num_inputs
-        self.num_outputs = num_outputs
+        self.num_states = 2
+        self.num_inputs = 1
+        self.num_outputs = 1
+        self.obs_idx = obs_idx
+        if obs_idx is None:
+            self.num_outputs = self.num_states
+        else:
+            self.num_outputs = len(obs_idx)
+        self.num_disturb = num_disturb
 
-    def step_once(self, full_states, u):
-        x1, x2 = self.states
+        self.x0 = np.array([0, 0])
+        self.y0 = self.np_get_obs(self.x0)
+        self.u0 = 0
+
+    def step(self, x, u):
+        x1 = K.dot(x, K.constant([1, 0], shape=(2, 1)))
+        x2 = K.dot(x, K.constant([0, 1], shape=(2, 1)))
+
         x1_next = x1 + x2
         x2_next = x2 + u
-        self.states = np.array([x1_next, x2_next])
-        return self._get_obs(full_states)
+        self.states = K.concatenate([x1_next, x2_next])
+        return self.states
 
     def sim_traj(self, timesteps, full_states, stable_sample, u=0,
                  scale_time=1, given_initial=None):
@@ -438,13 +451,6 @@ class DoubleIntegrator():
             self.states = given_initial
         return np.array([self.step_once(full_states, u) for i in range
                          (timesteps)])
-
-    def _get_obs(self, full_states):
-        if full_states:
-            return self.states
-        else:
-            # return last states
-            return [self.states[0]]
 
     def reset(self):
         self.states = np.random.uniform(-5, 5, (self.num_states,))
@@ -471,6 +477,23 @@ class DoubleIntegrator():
                 plt.xticks(fontsize=8)
                 plt.yticks(fontsize=8)
         plt.show()
+
+    def get_data(self, num_samples, timesteps, num_units):
+        u = np.linspace(-1, 1, np.sqrt(num_samples))
+        v = np.linspace(-1, 1, np.sqrt(num_samples))
+        u, v = np.meshgrid(u, v)
+        x1, x2 = u.flatten(), v.flatten()
+
+        # init_theta = np.random.uniform(np.pi-.1,np.pi+.1, (num_samples, 1))
+        # init_thetadot = np.random.uniform(-1, 1, (num_samples, 1))
+
+        init_x_train = np.array([x1, x2]).T
+        # init_c_train = np.random.uniform(-1, 1, (num_samples, num_units))
+        init_c_train = np.zeros((num_samples, num_units))
+        ext_in_train = np.zeros((num_samples, timesteps, self.num_disturb))
+        x_train = [init_x_train, init_c_train, ext_in_train]
+        y_train = np.tile(self.y0, (num_samples, 1))
+        return x_train, y_train
 
 
 class HybridPlant():
