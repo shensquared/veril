@@ -433,7 +433,7 @@ class JanetControllerCell(Layer):
         # since training all state vectors are row vecs, need to transpose
         # such that state_plus approx A@state_plus
         A0 = (J / self.dt).T
-        print(A0)
+        # print(A0)
         return A0
 
     def get_config(self):
