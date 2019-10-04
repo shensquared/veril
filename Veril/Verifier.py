@@ -10,7 +10,7 @@ from pydrake.all import (MathematicalProgram, Polynomial, SolutionResult,
                          Variables, Solve, Jacobian, Evaluate,
                          RealContinuousLyapunovEquation, Substitute)
 # import Plants
-from Veril.Plants import *
+from Veril import Plants
 # from keras import backend as K
 # import matplotlib
 # import matplotlib.pyplot as plt
@@ -46,9 +46,9 @@ def get_S0(CL):
     prog.AddPositiveSemidefiniteConstraint(P + P.T)
     V = full_states.T@P@full_states
     Vdot = full_states.T@P@A0@full_states + full_states.T@A0.T@P@full_states
-    if plant.manifold is not None:
+    if plant.manifold is True:
         r = prog.NewContinuousVariables(1, "r")[0]
-        Vdot = Vdot + r * plant.manifold(x)
+        Vdot = Vdot + r * plant.get_manifold(x)
     slack = prog.NewContinuousVariables(1, "s")[0]
     prog.AddConstraint(slack >= 0)
 
@@ -132,9 +132,9 @@ def bilinear(x, V0, f, S0, A, options):
         [T, Vbal, fbal] = balance(x, V, f, S0 / rho, A)[0:3]
         V0bal = V0.Substitute(dict(zip(x, T@x)))
 
-        [L1, sigma1] = findL1(x, fbal, Vbal, options)
-        L2 = findL2(x, Vbal, V0bal, rho, options)
-        [Vbal, rho] = optimizeV(fbal, L1, L2, V0bal, sigma1, options)
+        [x, L1, sigma1] = findL1(x, fbal, Vbal, options)
+        [x, L2] = findL2(x, Vbal, V0bal, rho, options)
+        [x, Vbal, rho] = optimizeV(x, fbal, L1, L2, V0bal, sigma1, options)
         vol = rho
 
         #  undo balancing (for the next iteration, or if i'm done)
@@ -146,14 +146,13 @@ def bilinear(x, V0, f, S0, A, options):
 
 def findL1(old_x, f, V, options):
     prog = MathematicalProgram()
-    x = prog.NewIndeterminates(options.nX, 'x')
+    x = prog.NewIndeterminates(options.nX, 'l1x')
     V = V.Substitute(dict(zip(old_x, x)))
     f = [i.Substitute(dict(zip(old_x, x))) for i in f]
     # % construct multipliers for Vdot
     L1 = prog.NewSosPolynomial(Variables(x), options.degL1)[0].ToExpression()
     # % construct Vdot
-    # x = list(V.GetVariables())
-    Vdot = (V.Jacobian(x) @ f)
+    Vdot = V.Jacobian(x) @ f
     # print('Vdot')
     # % construct slack var
     sigma1 = prog.NewContinuousVariables(1, "s")[0]
@@ -170,12 +169,14 @@ def findL1(old_x, f, V, options):
     L1 = result.GetSolution(L1)
     sigma1 = result.GetSolution(sigma1)
     print(sigma1)
-    return L1, sigma1
+    return x, L1, sigma1
 
 
-def findL2(V, V0, rho, options):
+def findL2(old_x, V, V0, rho, options):
     prog = MathematicalProgram()
-    x = prog.NewIndeterminates(options.nX, "x")
+    x = prog.NewIndeterminates(options.nX, "l2x")
+    V = V.Substitute(dict(zip(list(V.GetVariables()), x)))
+    V0 = V0.Substitute(dict(zip(list(V0.GetVariables()), x)))
     # % construct multipliers for Vdot
     L2 = prog.NewSosPolynomial(Variables(x), options.degL2)[0].ToExpression()
     # % construct slack var
@@ -190,15 +191,21 @@ def findL2(V, V0, rho, options):
     slack = result.GetSolution(slack)
     print(slack)
     L2 = result.GetSolution(L2)
-    return L2
+    print(L2)
+    return x, L2
 
 
-def optimizeV(f, L1, L2, V0, sigma1, options):
+def optimizeV(old_x, f, L1, L2, V0, sigma1, options):
     prog = MathematicalProgram()
-    x = prog.NewIndeterminates(options.nX, "x")
+    x = prog.NewIndeterminates(options.nX, "Vx")
+    L1 = L1.Substitute(dict(zip(list(L1.GetVariables()), x)))
+    L2 = L2.Substitute(dict(zip(list(L2.GetVariables()), x)))
+    V0 = V0.Substitute(dict(zip(list(V0.GetVariables()), x)))
+    f = np.array([i.Substitute(dict(zip(list(i.GetVariables()), x))) for i in
+        f])
     #% construct V
     V = prog.NewSosPolynomial(Variables(x), options.degV)[0].ToExpression()
-    Vdot = Jacobian(V, x) * f
+    Vdot = V.Jacobian(x) @ f
     # % construct rho
     rho = prog.NewContinuousVariables(1, "r")[0]
     prog.AddConstraint(rho >= 0)
@@ -215,7 +222,7 @@ def optimizeV(f, L1, L2, V0, sigma1, options):
     V = result.GetSolution(V)
     rho = result.GetSolution(rho)
     print(rho)
-    return V, rho
+    return x, V, rho
 
 # def clean(a,tol=1e-6):
 #     [x,p,M]=decomp(a)
