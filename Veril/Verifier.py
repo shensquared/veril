@@ -31,40 +31,41 @@ class opt(object):
 
 def get_S0(CL):
     plant = Plants.get(CL.plant_name, CL.dt, CL.obs_idx)
-    prog = MathematicalProgram()
-    # add the constant basis
-    # constant = prog.NewIndeterminates(1, 'constant')
-    # basis = [sym.Monomial(constant[0], 0)]
-    x = prog.NewIndeterminates(plant.num_states, "x")
-    c = prog.NewIndeterminates(CL.units, "c")
-    full_states = np.hstack((x, c))
-    basis = [sym.Monomial(_) for _ in full_states]
-    full_dim = plant.num_states + CL.units
-
     A0 = CL.linearize()
-    P = prog.NewSymmetricContinuousVariables(full_dim, "P")
-    prog.AddPositiveSemidefiniteConstraint(P)
-    prog.AddPositiveSemidefiniteConstraint(P + P.T)
-    V = full_states.T@P@full_states
-    Vdot = full_states.T@P@A0@full_states + full_states.T@A0.T@P@full_states
-    if plant.manifold is True:
+    full_dim = plant.num_states + CL.units
+    if plant.manifold is not True:
+        S0 = solve_lyapunov(A0.T, -np.eye(full_dim))
+    else:
+        prog = MathematicalProgram()
+        # add the constant basis
+        # constant = prog.NewIndeterminates(1, 'constant')
+        # basis = [sym.Monomial(constant[0], 0)]
+        x = prog.NewIndeterminates(plant.num_states, "x")
+        c = prog.NewIndeterminates(CL.units, "c")
+        full_states = np.hstack((x, c))
+        basis = [sym.Monomial(_) for _ in full_states]
+        P = prog.NewSymmetricContinuousVariables(full_dim, "P")
+        prog.AddPositiveSemidefiniteConstraint(P)
+        prog.AddPositiveSemidefiniteConstraint(P + P.T)
+        V = full_states.T@P@full_states
+        Vdot = full_states.T@P@A0@full_states + full_states.T@A0.T@P@full_states
         r = prog.NewContinuousVariables(1, "r")[0]
         Vdot = Vdot + r * plant.get_manifold(x)
-    slack = prog.NewContinuousVariables(1, "s")[0]
-    prog.AddConstraint(slack >= 0)
+        slack = prog.NewContinuousVariables(1, "s")[0]
+        prog.AddConstraint(slack >= 0)
 
-    prog.AddSosConstraint(-Vdot - slack * full_states.T@np.eye
+        prog.AddSosConstraint(-Vdot - slack * full_states.T@np.eye
                           (full_dim)@full_states)
-    prog.AddCost(-slack)
-    result = Solve(prog)
-    print('w/ solver %s' % (result.get_solver_id().name()))
-    print(result.get_solution_result())
-    slack = result.GetSolution(slack)
-    print(slack)
-    S0 = result.GetSolution(P)
-    print(eig(A0)[0])
-    print(eig(A0.T@S0 + S0@A0)[0])
-
+        prog.AddCost(-slack)
+        result = Solve(prog)
+        print('solve for S0')
+        print(result.get_solution_result())
+        slack = result.GetSolution(slack)
+        print(slack)
+        S0 = result.GetSolution(P)
+    print('eig A0  %s' % (eig(A0)[0]))
+    print('eig PA+A.TP  %s' % (eig(A0.T@S0 + S0@A0)[0]))
+    return S0
 
 def IQC_tanh(x, y):
     y_cross = 0.642614
@@ -114,10 +115,14 @@ def balance(x, V, f, S, A):
         A = np.array([[i.Evaluate(env) for i in j]for j in J])
 
     [T, D] = balanceQuadForm(S, (S@A + A.T@S))
+    print(T)
     # Sbal = (T.T)@(S)@(T)
     Vbal = V.Substitute(dict(zip(x, T@x)))
     # print([i.Substitute(dict(zip(x,T@x))) for i in f])
-    fbal = inv(T)@[i.Substitute(dict(zip(x, T@x))) for i in f]
+    fbal = inv(-T)@[i.Substitute(dict(zip(x, -T@x))) for i in f]
+    # print('fbal')
+    # print(clean(fbal[0]))
+    # print(clean(fbal[1]))
     return T, Vbal, fbal, S, A
 
 
@@ -161,7 +166,7 @@ def findL1(old_x, f, V, options):
     # % construct multipliers for Vdot
     L1 = prog.NewSosPolynomial(Variables(x), options.degL1)[0].ToExpression()
     # % construct Vdot
-    Vdot = V.Jacobian(x) @ f
+    Vdot = (V).Jacobian(x) @ f
     # print('Vdot')
     # % construct slack var
     sigma1 = prog.NewContinuousVariables(1, "s")[0]
@@ -178,14 +183,14 @@ def findL1(old_x, f, V, options):
     L1 = (result.GetSolution(L1))
     sigma1 = result.GetSolution(sigma1)
     print(sigma1)
-    return x, clean(L1), sigma1
+    return x, L1, sigma1
 
 
 def findL2(old_x, V, V0, rho, options):
     prog = MathematicalProgram()
     x = prog.NewIndeterminates(options.nX, "l2x")
-    V = V.Substitute(dict(zip(list(V.GetVariables()), x)))
-    V0 = V0.Substitute(dict(zip(list(V0.GetVariables()), x)))
+    V = (V.Substitute(dict(zip(list(V.GetVariables()), x))))
+    V0 = (V0.Substitute(dict(zip(list(V0.GetVariables()), x))))
     # % construct multipliers for Vdot
     L2 = prog.NewSosPolynomial(Variables(x), options.degL2)[0].ToExpression()
     # % construct slack var
@@ -198,15 +203,15 @@ def findL2(old_x, V, V0, rho, options):
     print('finding L2')
     print(result.get_solution_result())
     L2 = (result.GetSolution(L2))
-    print(clean(L2))
-    return x, clean(L2)
+    # print(clean(L2))
+    return x, L2
 
 
 def optimizeV(old_x, f, L1, L2, V0, sigma1, options):
     prog = MathematicalProgram()
     x = prog.NewIndeterminates(options.nX, "Vx")
-    L1 = L1.Substitute(dict(zip(list(L1.GetVariables()), x)))
-    L2 = L2.Substitute(dict(zip(list(L2.GetVariables()), x)))
+    L1 = clean(L1.Substitute(dict(zip(list(L1.GetVariables()), x))))
+    L2 = clean(L2.Substitute(dict(zip(list(L2.GetVariables()), x))))
     V0 = clean(V0.Substitute(dict(zip(list(V0.GetVariables()), x))))
     f = np.array([i.Substitute(dict(zip(list(i.GetVariables()), x))) for i in
                   f])

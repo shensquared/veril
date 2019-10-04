@@ -19,7 +19,6 @@ class Plant():
     def __init__(self, dt=1e-3, obs_idx=None, num_disturb=0):
         self.dt = dt
         self.num_disturb = num_disturb
-        
 
     def obs(self, obs_idx):
         if obs_idx is None:

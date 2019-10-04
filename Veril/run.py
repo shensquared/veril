@@ -16,11 +16,14 @@ import Plants
 from CustomLayers import JanetController
 from numpy.linalg import eig
 from Verifier import *
+import plotly.graph_objects as go
+from tempfile import TemporaryFile
+
 
 num_units = 4
 # plant_name = "DoubleIntegrator"
-plant_name = "Satellite"
-# plant_name = "Pendulum"
+# plant_name = "Satellite"
+plant_name = "Pendulum"
 timesteps = 1000
 NNorCL = 'CL'
 
@@ -77,12 +80,23 @@ def get_NNorCL(num_units, plant_name, timesteps, tag='', NNorCL='CL'):
                 return this_layer
 
 
-def call_CLsys(sys, tm1):
+def call_CLsys(sys, tm1, num_samples):
     plant = Plants.get(sys.plant_name, sys.dt, sys.obs_idx)
-    inputs = K.zeros((1, 1, plant.num_disturb))
-    # states=[K.constant([0, -1, 0],shape=[1,3]),K.zeros((1,num_units))]
-    x_tm2, [x_tm2, c_tm2] = sys.cell.call(inputs, tm1, training=False)
+    inputs = K.placeholder()
+    states=[K.placeholder(shape=(num_samples,plant.num_states)),K.placeholder
+    (shape =(num_samples,sys.units))]
+    [x_tm2, c_tm2] = sys.cell.call(inputs, states, training=False)[1]
+    feed_dict=dict(zip(states, tm1))
+    sess = K.get_session()
+    x_tm2 = sess.run(x_tm2, feed_dict=feed_dict)
+    c_tm2 = sess.run(c_tm2, feed_dict=feed_dict)
     return [x_tm2, c_tm2]
+
+def simulate(CL,timesteps,init,num_samples):
+    for i in range(timesteps):
+        init= call_CLsys(CL, init, num_samples)
+    return init
+
 
 
 class CLoop(object):
@@ -171,8 +185,44 @@ class CLoop(object):
                                            num_units=self.units))
         print('saved' + file_name)
 CL = get_NNorCL(num_units, plant_name, timesteps, NNorCL='CL')
-get_S0(CL)
+# get_S0(CL)
+
+
+
+def do_plotting(CL, sim=False):
+    num_samples=14400
+    u = np.linspace(-np.pi, np.pi, np.sqrt(num_samples))
+    v = np.linspace(-2, 2, np.sqrt(num_samples))
+    u, v = np.meshgrid(u, v)
+    theta, thetadot = u.flatten(), v.flatten()
+    init_x_train = np.array([np.sin(theta), np.cos(theta), thetadot]).T
+    init_c = np.zeros((num_samples,num_units))
+    if sim:
+        final = simulate(CL,600,[init_x_train,init_c],num_samples)
+        finalx=final[0]
+        np.save('Pendulum_sim.npy', finalx)
+    else:
+        finalx = np.load('Pendulum_sim.npy')
+
+    final_theta = np.arctan2(finalx[:,0],finalx[:,1])
+    z = final_theta**2+ finalx[:,2]**2
+    fig = go.Figure(data=[go.Scatter3d(x=theta, y=thetadot, z=z,
+                                       mode='markers',marker = dict(
+            size=2,
+            color=z,                # set color to an array/list of desired values
+            colorscale='Viridis',   # choose a colorscale
+            opacity=0.8
+        ))])
+    fig.update_layout(scene = dict(
+                        xaxis_title='theta',
+                        yaxis_title='thetadot',
+                        zaxis_title='final deviation'),
+                        width=700,
+                        margin=dict(r=20, b=10, l=10, t=10))
+    fig.show()
+
+do_plotting(CL)
 
 # NN = get_NNorCL(num_units, plant_name, timesteps, NNorCL='NN')
 # train(pre_trained=NN, plant_name=plant_name, num_units=num_units,
-      # timesteps=timesteps, batch_size=1,epochs=3)
+#       timesteps=timesteps, batch_size=1,epochs=3)
