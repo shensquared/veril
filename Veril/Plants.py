@@ -19,6 +19,7 @@ class Plant():
     def __init__(self, dt=1e-3, obs_idx=None, num_disturb=0):
         self.dt = dt
         self.num_disturb = num_disturb
+        
 
     def obs(self, obs_idx):
         if obs_idx is None:
@@ -49,9 +50,6 @@ class Plant():
         else:
             return x[0, np.nonzero(self.obs_idx)]
 
-    def manifold(self):
-        return None
-
 
 class Pendulum(Plant):
 
@@ -75,6 +73,7 @@ class Pendulum(Plant):
         self.x0 = np.array([0, -1, 0])
         self.y0 = self.np_get_obs(self.x0)
         self.u0 = 0
+        self.manifold = True
 
     def step(self, x, u):
         # s = tf.gather(x, [0], axis=1)
@@ -127,7 +126,7 @@ class Pendulum(Plant):
         y_train = np.tile(self.y0, (num_samples, 1))
         return x_train, y_train
 
-    def manifold(self, x):
+    def get_manifold(self, x):
         return x[0]**2 + x[1]**2 - 1
 
 
@@ -143,7 +142,7 @@ class Satellite(Plant):
         self.x0 = np.array([0, 0, 0, 0, 0, 0])
         self.y0 = self.np_get_obs(self.x0)
         self.u0 = 0
-
+        self.manifold = False
     # def reset(self, lb=-2.5, ub=2.5):
         # np.random.seed(3)
         # self.states = np.random.uniform(lb, ub, (1,self.num_states))
@@ -154,9 +153,22 @@ class Satellite(Plant):
         # accepts alpha of shape (None,3)
         # [a1, a2, a3] = alpha
         # return np.array([[0, -a3, a2], [a3, 0, -a1], [-a2, a1, 0]])
+
         sigma = K.variable([[0, -alpha[0, 2], alpha[0, 1]], [alpha[0, 2], 0, -alpha
                                                              [0, 0]], [-alpha[0, 1], alpha[0, 0], 0]])
         return sigma
+
+    def cross(self,u,v):
+        u1 = K.dot(u, K.constant([1, 0, 0], shape=(3, 1)))
+        u2 = K.dot(u, K.constant([0, 1, 0], shape=(3, 1)))
+        u3 = K.dot(u, K.constant([0, 0, 1], shape=(3, 1)))
+        v1 = K.dot(v, K.constant([1, 0, 0], shape=(3, 1)))
+        v2 = K.dot(v, K.constant([0, 1, 0], shape=(3, 1)))
+        v3 = K.dot(v, K.constant([0, 0, 1], shape=(3, 1)))
+        # u1, u2, u3 = tf.split(u, 3)
+        # v1, v2, v3 = tf.split(v, 3)
+        return K.concatenate( [(u2 * v3) - (u3 * v2),(u3 * v1) - (u1 * v3), (u1 *
+            v2) - (u2 * v1)])
 
     def step(self, x, u):
         H = K.constant(np.diag([2, 1, .5]))
@@ -174,14 +186,14 @@ class Satellite(Plant):
         # dot(w)=H_inv*(-Sigma(w)*H*w+u), forward Euler
         # w2=w+(H_inv.dot(np.dot(-self.Sigma(w),np.dot(H,w))+u))*self.dt
         _ = K.transpose(K.dot(H, K.transpose(w)))
-        _ = self.dt * K.dot(H_inv, -K.transpose(tf.cross(w, _)))
+        _ = self.dt * K.dot(H_inv, -K.transpose(self.cross(w, _)))
         _ = K.transpose(_)
         w2 = (w + _) + K.transpose(K.dot(H_inv, K.transpose(u)) * self.dt)
 
         # dot(phi)=.5*(eye+phi*phi.T+Sigma(phi))*w
         _ = K.dot(K.transpose(phi), phi)
         _ = .5 * K.dot(_ + eye3, K.transpose(w)) * self.dt
-        _ = _ + .5 * K.transpose(tf.cross(phi, w)) * self.dt
+        _ = _ + .5 * K.transpose(self.cross(phi, w)) * self.dt
         phi2 = phi + K.transpose(_)
 
         # for comparing dot and cross:
