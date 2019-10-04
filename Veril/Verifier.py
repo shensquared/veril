@@ -6,7 +6,8 @@ import pydrake
 import numpy as np
 from numpy.linalg import eig, inv
 import pydrake.symbolic as sym
-from pydrake.all import (MathematicalProgram, Polynomial, SolutionResult,
+from pydrake.all import (MathematicalProgram, Polynomial,
+                         Expression, SolutionResult,
                          Variables, Solve, Jacobian, Evaluate,
                          RealContinuousLyapunovEquation, Substitute)
 # import Plants
@@ -108,7 +109,7 @@ def balance(x, V, f, S, A):
         S = .5 * (Substitute(Jacobian(Jacobian(V, x).T, x), x, 0 * x))
     if A is None:
         J = Jacobian(f, x)
-        env = dict(zip(x,np.zeros(x.shape)))
+        env = dict(zip(x, np.zeros(x.shape)))
         mapping = dict(zip(x, x0))
         A = np.array([[i.Evaluate(env) for i in j]for j in J])
 
@@ -120,12 +121,19 @@ def balance(x, V, f, S, A):
     return T, Vbal, fbal, S, A
 
 
+def clean(poly, tol=1e-12):
+    if isinstance(poly, Expression):
+        poly = Polynomial(poly)
+    return poly.RemoveTermsWithSmallCoefficients(tol).ToExpression()
+
+
 def bilinear(x, V0, f, S0, A, options):
     V = V0
     [T, V0bal, fbal, S0, A] = balance(x, V0, f, S0, A)
     rho = 1
     vol = 0
     for iter in range(options.max_iterations):
+        print('iteration  %s' % (iter))
         last_vol = vol
 
         # balance on every iteration (since V and Vdot are changing):
@@ -147,8 +155,9 @@ def bilinear(x, V0, f, S0, A, options):
 def findL1(old_x, f, V, options):
     prog = MathematicalProgram()
     x = prog.NewIndeterminates(options.nX, 'l1x')
-    V = V.Substitute(dict(zip(old_x, x)))
-    f = [i.Substitute(dict(zip(old_x, x))) for i in f]
+    V = V.Substitute(dict(zip(list(V.GetVariables()), x)))
+    f = np.array([i.Substitute(dict(zip(list(i.GetVariables()), x))) for i in
+                  f])
     # % construct multipliers for Vdot
     L1 = prog.NewSosPolynomial(Variables(x), options.degL1)[0].ToExpression()
     # % construct Vdot
@@ -163,13 +172,13 @@ def findL1(old_x, f, V, options):
     # add cost
     prog.AddCost(-sigma1)
     result = Solve(prog)
-    print('w/ solver %s' % (result.get_solver_id().name()))
+    print('finding L1')
     print(result.get_solution_result())
     assert result.is_success()
-    L1 = result.GetSolution(L1)
+    L1 = (result.GetSolution(L1))
     sigma1 = result.GetSolution(sigma1)
     print(sigma1)
-    return x, L1, sigma1
+    return x, clean(L1), sigma1
 
 
 def findL2(old_x, V, V0, rho, options):
@@ -186,13 +195,11 @@ def findL2(old_x, V, V0, rho, options):
     prog.AddSosConstraint(-(V - 1) + L2 * (V0 - rho))
     prog.AddCost(slack)
     result = Solve(prog)
-    print('w/ solver %s' % (result.get_solver_id().name()))
+    print('finding L2')
     print(result.get_solution_result())
-    slack = result.GetSolution(slack)
-    print(slack)
-    L2 = result.GetSolution(L2)
-    print(L2)
-    return x, L2
+    L2 = (result.GetSolution(L2))
+    print(clean(L2))
+    return x, clean(L2)
 
 
 def optimizeV(old_x, f, L1, L2, V0, sigma1, options):
@@ -200,9 +207,9 @@ def optimizeV(old_x, f, L1, L2, V0, sigma1, options):
     x = prog.NewIndeterminates(options.nX, "Vx")
     L1 = L1.Substitute(dict(zip(list(L1.GetVariables()), x)))
     L2 = L2.Substitute(dict(zip(list(L2.GetVariables()), x)))
-    V0 = V0.Substitute(dict(zip(list(V0.GetVariables()), x)))
+    V0 = clean(V0.Substitute(dict(zip(list(V0.GetVariables()), x))))
     f = np.array([i.Substitute(dict(zip(list(i.GetVariables()), x))) for i in
-        f])
+                  f])
     #% construct V
     V = prog.NewSosPolynomial(Variables(x), options.degV)[0].ToExpression()
     Vdot = V.Jacobian(x) @ f
@@ -217,13 +224,13 @@ def optimizeV(old_x, f, L1, L2, V0, sigma1, options):
     # % run SeDuMi/MOSEK and check output
     prog.AddCost(-rho)
     result = Solve(prog)
-    print('w/ solver %s' % (result.get_solver_id().name()))
+    print('finding V')
     print(result.get_solution_result())
     V = result.GetSolution(V)
+    print(clean(V))
     rho = result.GetSolution(rho)
     print(rho)
-    return x, V, rho
-
+    return x, clean(V), rho
 # def clean(a,tol=1e-6):
 #     [x,p,M]=decomp(a)
 #     M(abs(M)<tol)=0
