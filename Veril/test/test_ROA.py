@@ -25,7 +25,7 @@ elif plant is 'vdp':
     x = prog.NewIndeterminates(nx, "x")
     xdot = -np.array([x[1], -x[0] - x[1] * (x[0]**2 - 1)])
 
-options = opt(nx, 6, 6, 4)
+options = opt(nx, degL1=6, degL2=6, degV=4)
 J = Jacobian(xdot, x)
 env = dict(zip(x, np.zeros(x.shape)))
 A = np.array([[i.Evaluate(env) for i in j]for j in J])

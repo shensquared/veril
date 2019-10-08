@@ -115,14 +115,11 @@ def balance(x, V, f, S, A):
         A = np.array([[i.Evaluate(env) for i in j]for j in J])
 
     [T, D] = balanceQuadForm(S, (S@A + A.T@S))
-    print('T %s' % (T))
+    # print('T is %s' % (T))
     # Sbal = (T.T)@(S)@(T)
     Vbal = V.Substitute(dict(zip(x, T@x)))
     # print([i.Substitute(dict(zip(x,T@x))) for i in f])
     fbal = inv(-T)@[i.Substitute(dict(zip(x, -T@x))) for i in f]
-    # print('fbal')
-    # print(clean(fbal[0]))
-    # print(clean(fbal[1]))
     return T, Vbal, fbal, S, A
 
 
@@ -158,6 +155,7 @@ def bilinear(x, V0, f, S0, A, options):
 
 
 def findL1(old_x, f, V, options):
+    print('finding L1')
     prog = MathematicalProgram()
     x = prog.NewIndeterminates(options.nX, 'l1x')
     V = V.Substitute(dict(zip(list(V.GetVariables()), x)))
@@ -166,18 +164,16 @@ def findL1(old_x, f, V, options):
     # % construct multipliers for Vdot
     L1 = prog.NewSosPolynomial(Variables(x), options.degL1)[0].ToExpression()
     # % construct Vdot
-    Vdot = (V).Jacobian(x) @ f
+    Vdot = clean(V.Jacobian(x) @ f)
     # print('Vdot')
     # % construct slack var
     sigma1 = prog.NewContinuousVariables(1, "s")[0]
     prog.AddConstraint(sigma1 >= 0)
     # % setup SOS constraints
-    # print(Polynomial(-Vdot + L1 * (V - 1) - sigma1 * V).TotalDegree())
     prog.AddSosConstraint(-Vdot + L1 * (V - 1) - sigma1 * V)
     # add cost
     prog.AddCost(-sigma1)
     result = Solve(prog)
-    print('finding L1')
     print(result.get_solution_result())
     assert result.is_success()
     L1 = (result.GetSolution(L1))
@@ -187,10 +183,14 @@ def findL1(old_x, f, V, options):
 
 
 def findL2(old_x, V, V0, rho, options):
+    # print('finding L2')
     prog = MathematicalProgram()
     x = prog.NewIndeterminates(options.nX, "l2x")
     V = (V.Substitute(dict(zip(list(V.GetVariables()), x))))
     V0 = (V0.Substitute(dict(zip(list(V0.GetVariables()), x))))
+    # env = dict(zip(x, np.array([1,2])))
+    # print(V.Evaluate(env))
+    # print(V0.Evaluate(env))
     # % construct multipliers for Vdot
     L2 = prog.NewSosPolynomial(Variables(x), options.degL2)[0].ToExpression()
     # % construct slack var
@@ -200,21 +200,25 @@ def findL2(old_x, V, V0, rho, options):
     prog.AddSosConstraint(-(V - 1) + L2 * (V0 - rho))
     prog.AddCost(slack)
     result = Solve(prog)
-    print('finding L2')
     print(result.get_solution_result())
     L2 = (result.GetSolution(L2))
-    # print(clean(L2))
+    # print(L2.Evaluate(env))
     return x, L2
 
 
 def optimizeV(old_x, f, L1, L2, V0, sigma1, options):
+    print('finding V')
     prog = MathematicalProgram()
     x = prog.NewIndeterminates(options.nX, "Vx")
-    L1 = clean(L1.Substitute(dict(zip(list(L1.GetVariables()), x))))
-    L2 = clean(L2.Substitute(dict(zip(list(L2.GetVariables()), x))))
-    V0 = clean(V0.Substitute(dict(zip(list(V0.GetVariables()), x))))
+    L1 = (L1.Substitute(dict(zip(list(L1.GetVariables()), x))))
+    L2 = (L2.Substitute(dict(zip(list(L2.GetVariables()), x))))
+    V0 = (V0.Substitute(dict(zip(list(V0.GetVariables()), x))))
     f = np.array([i.Substitute(dict(zip(list(i.GetVariables()), x))) for i in
                   f])
+    env = dict(zip(x, np.array([1,2])))
+    # print(f[0].Evaluate(env))
+    # print(f[1].Evaluate(env))
+    # print(V0.Evaluate(env))
     #% construct V
     V = prog.NewSosPolynomial(Variables(x), options.degV)[0].ToExpression()
     Vdot = V.Jacobian(x) @ f
@@ -229,13 +233,13 @@ def optimizeV(old_x, f, L1, L2, V0, sigma1, options):
     # % run SeDuMi/MOSEK and check output
     prog.AddCost(-rho)
     result = Solve(prog)
-    print('finding V')
     print(result.get_solution_result())
     V = result.GetSolution(V)
     print(clean(V))
     rho = result.GetSolution(rho)
     print(rho)
     return x, clean(V), rho
+
 # def clean(a,tol=1e-6):
 #     [x,p,M]=decomp(a)
 #     M(abs(M)<tol)=0
@@ -251,7 +255,6 @@ def optimizeV(old_x, f, L1, L2, V0, sigma1, options):
 #         fbal = inv(T) * subs(f, x, T * x)
 #         return T, Sbal, fbal
 #     return T, Sbal
-
 
 #
 # class SOS_verifier():
