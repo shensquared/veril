@@ -115,7 +115,7 @@ def balance(x, V, f, S, A):
         A = np.array([[i.Evaluate(env) for i in j]for j in J])
 
     [T, D] = balanceQuadForm(S, (S@A + A.T@S))
-    print(T)
+    print('T %s' % (T))
     # Sbal = (T.T)@(S)@(T)
     Vbal = V.Substitute(dict(zip(x, T@x)))
     # print([i.Substitute(dict(zip(x,T@x))) for i in f])
