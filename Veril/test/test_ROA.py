@@ -11,52 +11,33 @@ from pydrake.all import (MathematicalProgram, Polynomial, SolutionResult,
 from scipy.linalg import solve_lyapunov, solve_discrete_lyapunov
 from Veril.Verifier import *
 
-options = opt(2,6,6,4)
+
+# plant = 'Cubic'
+plant = 'vdp'
 
 prog = MathematicalProgram()
-# add the constant basis
-# constant = prog.NewIndeterminates(1, 'constant')
-# basis = [sym.Monomial(constant[0], 0)]
+if plant is 'Cubic':
+    nx = 1
+    x = prog.NewIndeterminates(nx, "x")
+    xdot = [-x[0] + x[0]**3]
+elif plant is 'vdp':
+    nx=2
+    x = prog.NewIndeterminates(nx, "x")
+    xdot = -np.array([x[1], -x[0] - x[1] * (x[0]**2 - 1)])
 
-
-# Cubic testing
-# x = prog.NewIndeterminates(1, "x")
-# xdot = [-x[0]+x[0]**3]
-
-# # print('here the jacobian')
-# # print(J)
-# env = dict(zip(x,np.zeros(x.shape)))
-# # print(J.Evaluate(env))
-# # numpy_compare.assert_equal(e.Substitute(env), x + y + 5)
-# A = np.reshape(np.array([-1]),(1,1))
-# # print(solve_lyapunov(A,-np.eye(1)))
-# S0 = np.reshape(np.array([0.5]),(1,1))
-# # x = np.reshape(np.array([x]),(1,1))
-# V0 = (x.T@S0@x)
-
-
-
-# vdp testing
-x = prog.NewIndeterminates(2, "x")
-xdot = -np.array([x[1],-x[0]-x[1]*(x[0]**2-1)])
-# # print('here the jacobian')
-# # print(J)
-J=Jacobian(xdot,x)
-env = dict(zip(x,np.zeros(x.shape)))
+options = opt(nx, 6, 6, 4)
+J = Jacobian(xdot, x)
+env = dict(zip(x, np.zeros(x.shape)))
 A = np.array([[i.Evaluate(env) for i in j]for j in J])
-# print(J.Evaluate(env))
-# # numpy_compare.assert_equal(e.Substitute(env), x + y + 5)
-# A = np.reshape(np.array([-1]),(1,1))
-# # print(solve_lyapunov(A,-np.eye(1)))
-S0 = solve_lyapunov(A.T,-np.eye(2))
-# # x = np.reshape(np.array([x]),(1,1))
+S0 = solve_lyapunov(A.T, -np.eye(nx))
 V0 = (x.T@S0@x)
 
 bilinear(x, V0, xdot, S0, A, options)
 
+
 def levelsetMethod(old_x, f, V, options):
     prog = MathematicalProgram()
-    x = prog.NewIndeterminates(options.nX,'lx')
+    x = prog.NewIndeterminates(options.nX, 'lx')
     V = V.Substitute(dict(zip(old_x, x)))
     f = [i.Substitute(dict(zip(old_x, x))) for i in f]
     # % construct multipliers for Vdot
@@ -78,7 +59,7 @@ def levelsetMethod(old_x, f, V, options):
     print(V)
     print('vdot')
     print(Vdot)
-    prog.AddSosConstraint((x.T@x)**4 * (V - sigma1) + L1*Vdot)
+    prog.AddSosConstraint((x.T@x)**4 * (V - sigma1) + L1 * Vdot)
     # add cost
     prog.AddCost(-sigma1)
     result = Solve(prog)
@@ -123,5 +104,3 @@ def levelsetMethod(old_x, f, V, options):
 #     return L1, sigma1
 
 # findL1(x, xdot, V0, options)
-
-
