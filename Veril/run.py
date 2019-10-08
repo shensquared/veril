@@ -186,24 +186,24 @@ class CLoop(object):
         print('saved' + file_name)
 
 
-def do_plotting(CL, sim=False):
-    num_samples=14400
-    u = np.linspace(-np.pi, np.pi, np.sqrt(num_samples))
+def do_plotting(CL, sim=True):
+    num_samples=10000
+    u = np.linspace(-4, 4, np.sqrt(num_samples))
     v = np.linspace(-2, 2, np.sqrt(num_samples))
     u, v = np.meshgrid(u, v)
-    theta, thetadot = u.flatten(), v.flatten()
-    init_x_train = np.array([np.sin(theta), np.cos(theta), thetadot]).T
+    u, v = u.flatten(), v.flatten()
+    init_x_train = np.array([ u.flatten(), v.flatten()]).T
     init_c = np.zeros((num_samples,num_units))
     if sim:
-        final = simulate(CL,600,[init_x_train,init_c],num_samples)
+        final = simulate(CL,100,[init_x_train,init_c],num_samples)
         finalx=final[0]
-        np.save('Pendulum_sim.npy', finalx)
+        np.save('double_sim_100steps.npy', finalx)
     else:
-        finalx = np.load('Pendulum_sim.npy')
+        finalx = np.load('double_sim.npy')
 
-    final_theta = np.arctan2(finalx[:,0],finalx[:,1])
-    z = final_theta**2+ finalx[:,2]**2
-    fig = go.Figure(data=[go.Scatter3d(x=theta, y=thetadot, z=z,
+    # final_theta = np.arctan2(finalx[:,0],finalx[:,1])
+    z = finalx[:,1]**2+ finalx[:,0]**2
+    fig = go.Figure(data=[go.Scatter3d(x=u, y=v, z=z,
                                        mode='markers',marker = dict(
             size=2,
             color=z,                # set color to an array/list of desired values
@@ -219,8 +219,8 @@ def do_plotting(CL, sim=False):
     fig.show()
 
 CL = get_NNorCL(num_units, plant_name, timesteps, NNorCL='CL')
-get_S0(CL)
-# do_plotting(CL)
+# get_S0(CL)
+do_plotting(CL)
 
 # NN = get_NNorCL(num_units, plant_name, timesteps, NNorCL='NN')
 # train(pre_trained=NN, plant_name=plant_name, num_units=num_units,

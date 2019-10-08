@@ -3,10 +3,9 @@ import numpy as np
 # from scipy import integrate
 # import matplotlib.pyplot as plt
 # import os
-from keras import backend as K
-import tensorflow as tf
+# import tensorflow as tf
 import six
-
+from keras import backend as K
 
 def get(plant_name, dt, obs_idx):
     if isinstance(plant_name, six.string_types):
