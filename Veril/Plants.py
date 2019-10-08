@@ -444,6 +444,7 @@ class DoubleIntegrator(Plant):
         self.x0 = np.array([0, 0])
         self.y0 = self.np_get_obs(self.x0)
         self.u0 = 0
+        self.manifold = False
 
     def step(self, x, u):
         x1 = K.dot(x, K.constant([1, 0], shape=(2, 1)))

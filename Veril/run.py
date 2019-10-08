@@ -20,11 +20,11 @@ import plotly.graph_objects as go
 from tempfile import TemporaryFile
 
 
-num_units = 4
-# plant_name = "DoubleIntegrator"
+num_units = 2
+plant_name = "DoubleIntegrator"
 # plant_name = "Satellite"
-plant_name = "Pendulum"
-timesteps = 1000
+# plant_name = "Pendulum"
+timesteps = 500
 NNorCL = 'CL'
 
 def train(plant_name=None, num_units=4, timesteps=100,
@@ -184,9 +184,6 @@ class CLoop(object):
         scipy.io.savemat(confi_name,  dict(file_name=file_name,
                                            num_units=self.units))
         print('saved' + file_name)
-CL = get_NNorCL(num_units, plant_name, timesteps, NNorCL='CL')
-# get_S0(CL)
-
 
 
 def do_plotting(CL, sim=False):
@@ -221,8 +218,13 @@ def do_plotting(CL, sim=False):
                         margin=dict(r=20, b=10, l=10, t=10))
     fig.show()
 
-do_plotting(CL)
+CL = get_NNorCL(num_units, plant_name, timesteps, NNorCL='CL')
+get_S0(CL)
+# do_plotting(CL)
 
 # NN = get_NNorCL(num_units, plant_name, timesteps, NNorCL='NN')
 # train(pre_trained=NN, plant_name=plant_name, num_units=num_units,
+      # timesteps=timesteps, batch_size=1,epochs=3)
+
+# train(pre_trained=None, plant_name=plant_name, num_units=num_units,
 #       timesteps=timesteps, batch_size=1,epochs=3)
