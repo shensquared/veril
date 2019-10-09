@@ -34,7 +34,7 @@ def get_S0(CL):
     plant = Plants.get(CL.plant_name, CL.dt, CL.obs_idx)
     A0 = CL.linearize()
     full_dim = plant.num_states + CL.units
-    if plant.manifold is not True:
+    if not plant.manifold:
         S0 = solve_lyapunov(A0.T, -np.eye(full_dim))
     else:
         prog = MathematicalProgram()
@@ -121,9 +121,10 @@ def balance(x, V, f, S, A):
     [T, D] = balanceQuadForm(S, (S@A + A.T@S))
     # print('T is %s' % (T))
     # Sbal = (T.T)@(S)@(T)
-    Vbal = V.Substitute(dict(zip(x, T@x)))
+    Vbal = V.Substitute(dict(zip(list(V.GetVariables()), T@x)))
     # print([i.Substitute(dict(zip(x,T@x))) for i in f])
-    fbal = inv(T)@[i.Substitute(dict(zip(x, T@x))) for i in f]
+    fbal = inv(T)@[i.Substitute(dict(zip(list(i.GetVariables()), T@x))) for i
+    in f]
     return T, Vbal, fbal, S, A
 
 
@@ -138,14 +139,15 @@ def bilinear(x, V0, f, S0, A, options):
     [T, V0bal, fbal, S0, A] = balance(x, V0, f, S0, A)
     rho = 1
     vol = 0
-    for iter in range(options.max_iterations):
+    # for iter in range(options.max_iterations):
+    for iter in range(3):
         print('iteration  %s' % (iter))
         last_vol = vol
 
         # balance on every iteration (since V and Vdot are changing):
         [T, Vbal, fbal] = balance(x, V, f, S0 / rho, A)[0:3]
         print('T is %s' % (T))
-        V0bal = V0.Substitute(dict(zip(x, T@x)))
+        V0bal = V0.Substitute(dict(zip(list(V0.GetVariables()), T@x)))
         env = dict(zip(list(V0bal.GetVariables()), np.array([1, 2.31])))
         print('V0bal is %s' % (V0bal.Evaluate(env)))
 
@@ -158,6 +160,9 @@ def bilinear(x, V0, f, S0, A, options):
         V = Vbal.Substitute(dict(zip(x, inv(T)@x)))
         if ((vol - last_vol) < options.converged_tol * last_vol):
             break
+    print('rho is %s' % (rho))
+    env = dict(zip(x, np.array([1, 2.31])))
+    print('V is %s' % (V.Evaluate(env)))
     return V
 
 
@@ -167,7 +172,7 @@ def findL1(old_x, f, V, options):
     x = prog.NewIndeterminates(options.nX, 'l1x')
     V = V.Substitute(dict(zip(list(V.GetVariables()), x)))
     f = np.array([i.Substitute(dict(zip(list(i.GetVariables()), x))) for i in
-                  f])
+       f])
     # % construct multipliers for Vdot
     L1 = prog.NewFreePolynomial(Variables(x), options.degL1).ToExpression()
     # L1 = prog.NewSosPolynomial(Variables(x), options.degL1)[0].ToExpression()
@@ -234,8 +239,7 @@ def optimizeV(old_x, f, L1, L2, V0, sigma1, options):
     L1 = (L1.Substitute(dict(zip(list(L1.GetVariables()), x))))
     L2 = (L2.Substitute(dict(zip(list(L2.GetVariables()), x))))
     V0 = (V0.Substitute(dict(zip(list(V0.GetVariables()), x))))
-    f = np.array([i.Substitute(dict(zip(list(i.GetVariables()), x))) for i in
-                  f])
+    f = np.array([i.Substitute(dict(zip(list(i.GetVariables()), x))) for i in f])
     env = dict(zip(x, np.array([1, 2.31])))
     print('f0 is %s' % (f[0].Evaluate(env)))
     print('f1 is %s' % (f[1].Evaluate(env)))
@@ -244,9 +248,9 @@ def optimizeV(old_x, f, L1, L2, V0, sigma1, options):
     print('V0 is %s' % (V0.Evaluate(env)))
 
     #% construct V
-    # V = prog.NewFreePolynomial(Variables(x), options.degV).ToExpression()
+    V = prog.NewFreePolynomial(Variables(x), options.degV).ToExpression()
 
-    V = prog.NewSosPolynomial(Variables(x), options.degV)[0].ToExpression()
+    # V = prog.NewSosPolynomial(Variables(x), options.degV)[0].ToExpression()
     Vdot = V.Jacobian(x) @ f
     # % construct rho
     rho = prog.NewContinuousVariables(1, "r")[0]
@@ -259,7 +263,7 @@ def optimizeV(old_x, f, L1, L2, V0, sigma1, options):
     # % run SeDuMi/MOSEK and check output
     prog.AddCost(-rho)
     solver = MosekSolver()
-    solver.set_stream_logging(True, "")
+    solver.set_stream_logging(False, "")
     result = solver.Solve(prog, None, None)
 
     # result = Solve(prog)
