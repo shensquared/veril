@@ -56,7 +56,7 @@ def get_S0(CL):
         prog.AddConstraint(slack >= 0)
 
         prog.AddSosConstraint(-Vdot - slack * full_states.T@np.eye
-                          (full_dim)@full_states)
+                              (full_dim)@full_states)
         prog.AddCost(-slack)
         result = Solve(prog)
         print('solve for S0')
@@ -67,6 +67,7 @@ def get_S0(CL):
     print('eig A0  %s' % (eig(A0)[0]))
     print('eig PA+A.TP  %s' % (eig(A0.T@S0 + S0@A0)[0]))
     return S0
+
 
 def IQC_tanh(x, y):
     y_cross = 0.642614
@@ -145,7 +146,7 @@ def bilinear(x, V0, f, S0, A, options):
         [T, Vbal, fbal] = balance(x, V, f, S0 / rho, A)[0:3]
         print('T is %s' % (T))
         V0bal = V0.Substitute(dict(zip(x, T@x)))
-        env = dict(zip(list(V0bal.GetVariables()), np.array([1,2.31])))
+        env = dict(zip(list(V0bal.GetVariables()), np.array([1, 2.31])))
         print('V0bal is %s' % (V0bal.Evaluate(env)))
 
         [x, L1, sigma1] = findL1(x, fbal, Vbal, options)
@@ -172,7 +173,7 @@ def findL1(old_x, f, V, options):
     # L1 = prog.NewSosPolynomial(Variables(x), options.degL1)[0].ToExpression()
     # % construct Vdot
     Vdot = clean(V.Jacobian(x) @ f)
-    env = dict(zip(x, np.array([1,2.31])))
+    env = dict(zip(x, np.array([1, 2.31])))
     print('f0 is %s' % (f[0].Evaluate(env)))
     print('f1 is %s' % (f[1].Evaluate(env)))
     print('V is %s' % (V.Evaluate(env)))
@@ -204,10 +205,10 @@ def findL2(old_x, V, V0, rho, options):
     x = prog.NewIndeterminates(options.nX, "l2x")
     V = (V.Substitute(dict(zip(list(V.GetVariables()), x))))
     V0 = (V0.Substitute(dict(zip(list(V0.GetVariables()), x))))
-    env = dict(zip(x, np.array([1,2.31])))
+    env = dict(zip(x, np.array([1, 2.31])))
     print('V0 is %s' % (V0.Evaluate(env)))
     print('V is %s' % (V.Evaluate(env)))
-        # % construct multipliers for Vdot
+    # % construct multipliers for Vdot
     L2 = prog.NewFreePolynomial(Variables(x), options.degL2).ToExpression()
     # % construct slack var
     slack = prog.NewContinuousVariables(1, "s")[0]
@@ -235,7 +236,7 @@ def optimizeV(old_x, f, L1, L2, V0, sigma1, options):
     V0 = (V0.Substitute(dict(zip(list(V0.GetVariables()), x))))
     f = np.array([i.Substitute(dict(zip(list(i.GetVariables()), x))) for i in
                   f])
-    env = dict(zip(x, np.array([1,2.31])))
+    env = dict(zip(x, np.array([1, 2.31])))
     print('f0 is %s' % (f[0].Evaluate(env)))
     print('f1 is %s' % (f[1].Evaluate(env)))
     print('L1 is %s' % (L1.Evaluate(env)))
@@ -243,7 +244,9 @@ def optimizeV(old_x, f, L1, L2, V0, sigma1, options):
     print('V0 is %s' % (V0.Evaluate(env)))
 
     #% construct V
-    V = prog.NewFreePolynomial(Variables(x), options.degV).ToExpression()
+    # V = prog.NewFreePolynomial(Variables(x), options.degV).ToExpression()
+
+    V = prog.NewSosPolynomial(Variables(x), options.degV)[0].ToExpression()
     Vdot = V.Jacobian(x) @ f
     # % construct rho
     rho = prog.NewContinuousVariables(1, "r")[0]
@@ -256,7 +259,7 @@ def optimizeV(old_x, f, L1, L2, V0, sigma1, options):
     # % run SeDuMi/MOSEK and check output
     prog.AddCost(-rho)
     solver = MosekSolver()
-    solver.set_stream_logging(False, "")
+    solver.set_stream_logging(True, "")
     result = solver.Solve(prog, None, None)
 
     # result = Solve(prog)
@@ -286,7 +289,7 @@ def optimizeV(old_x, f, L1, L2, V0, sigma1, options):
 #
 # class SOS_verifier():
 #
-#     def __init__(self, tag, num_inputs=1, num_nuerons=10, zero_nominal=False,
+#     def __init__(self, tag, num_inputs=1, num_nuerons=10, zero_nominal=True,
 #                  step_or_total='step'):
 #         self.zero_nominal = zero_nominal
 #         self.num_inputs = num_inputs
