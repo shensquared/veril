@@ -9,7 +9,8 @@ import pydrake.symbolic as sym
 from pydrake.all import (MathematicalProgram, Polynomial,
                          Expression, SolutionResult,
                          Variables, Solve, Jacobian, Evaluate,
-                         RealContinuousLyapunovEquation, Substitute)
+                         RealContinuousLyapunovEquation, Substitute,
+                         MosekSolver)
 # import Plants
 from Veril import Plants
 # from keras import backend as K
@@ -100,7 +101,9 @@ def balanceQuadForm(S, P):
     # Tests if S positive def. for us.
     V = np.linalg.inv(np.linalg.cholesky(S).T)
     [N, l, U] = np.linalg.svd((V.T.dot(P)).dot(V))
-    T = (V.dot(U)).dot(np.diag(np.power(l, -.25, dtype=float)))
+    if N.ravel()[0] < 0:
+        N = -N
+    T = (V.dot(N)).dot(np.diag(np.power(l, -.25, dtype=float)))
     D = np.diag(np.power(l, -.5, dtype=float))
     return T, D
 
@@ -119,11 +122,11 @@ def balance(x, V, f, S, A):
     # Sbal = (T.T)@(S)@(T)
     Vbal = V.Substitute(dict(zip(x, T@x)))
     # print([i.Substitute(dict(zip(x,T@x))) for i in f])
-    fbal = inv(-T)@[i.Substitute(dict(zip(x, -T@x))) for i in f]
+    fbal = inv(T)@[i.Substitute(dict(zip(x, T@x))) for i in f]
     return T, Vbal, fbal, S, A
 
 
-def clean(poly, tol=1e-12):
+def clean(poly, tol=1e-9):
     if isinstance(poly, Expression):
         poly = Polynomial(poly)
     return poly.RemoveTermsWithSmallCoefficients(tol).ToExpression()
@@ -140,7 +143,10 @@ def bilinear(x, V0, f, S0, A, options):
 
         # balance on every iteration (since V and Vdot are changing):
         [T, Vbal, fbal] = balance(x, V, f, S0 / rho, A)[0:3]
+        print('T is %s' % (T))
         V0bal = V0.Substitute(dict(zip(x, T@x)))
+        env = dict(zip(list(V0bal.GetVariables()), np.array([1,2.31])))
+        print('V0bal is %s' % (V0bal.Evaluate(env)))
 
         [x, L1, sigma1] = findL1(x, fbal, Vbal, options)
         [x, L2] = findL2(x, Vbal, V0bal, rho, options)
@@ -162,18 +168,28 @@ def findL1(old_x, f, V, options):
     f = np.array([i.Substitute(dict(zip(list(i.GetVariables()), x))) for i in
                   f])
     # % construct multipliers for Vdot
-    L1 = prog.NewSosPolynomial(Variables(x), options.degL1)[0].ToExpression()
+    L1 = prog.NewFreePolynomial(Variables(x), options.degL1).ToExpression()
+    # L1 = prog.NewSosPolynomial(Variables(x), options.degL1)[0].ToExpression()
     # % construct Vdot
     Vdot = clean(V.Jacobian(x) @ f)
+    env = dict(zip(x, np.array([1,2.31])))
+    print('f0 is %s' % (f[0].Evaluate(env)))
+    print('f1 is %s' % (f[1].Evaluate(env)))
+    print('V is %s' % (V.Evaluate(env)))
+
     # print('Vdot')
     # % construct slack var
     sigma1 = prog.NewContinuousVariables(1, "s")[0]
     prog.AddConstraint(sigma1 >= 0)
     # % setup SOS constraints
     prog.AddSosConstraint(-Vdot + L1 * (V - 1) - sigma1 * V)
+    prog.AddSosConstraint(L1)
     # add cost
     prog.AddCost(-sigma1)
-    result = Solve(prog)
+    # result = Solve(prog)
+    solver = MosekSolver()
+    solver.set_stream_logging(False, "")
+    result = solver.Solve(prog, None, None)
     print(result.get_solution_result())
     assert result.is_success()
     L1 = (result.GetSolution(L1))
@@ -183,23 +199,27 @@ def findL1(old_x, f, V, options):
 
 
 def findL2(old_x, V, V0, rho, options):
-    # print('finding L2')
+    print('finding L2')
     prog = MathematicalProgram()
     x = prog.NewIndeterminates(options.nX, "l2x")
     V = (V.Substitute(dict(zip(list(V.GetVariables()), x))))
     V0 = (V0.Substitute(dict(zip(list(V0.GetVariables()), x))))
-    # env = dict(zip(x, np.array([1,2])))
-    # print(V.Evaluate(env))
-    # print(V0.Evaluate(env))
-    # % construct multipliers for Vdot
-    L2 = prog.NewSosPolynomial(Variables(x), options.degL2)[0].ToExpression()
+    env = dict(zip(x, np.array([1,2.31])))
+    print('V0 is %s' % (V0.Evaluate(env)))
+    print('V is %s' % (V.Evaluate(env)))
+        # % construct multipliers for Vdot
+    L2 = prog.NewFreePolynomial(Variables(x), options.degL2).ToExpression()
     # % construct slack var
     slack = prog.NewContinuousVariables(1, "s")[0]
     prog.AddConstraint(slack >= 0)
     # add normalizing constraint
     prog.AddSosConstraint(-(V - 1) + L2 * (V0 - rho))
+    prog.AddSosConstraint(L2)
     prog.AddCost(slack)
-    result = Solve(prog)
+    # result = Solve(prog)
+    solver = MosekSolver()
+    solver.set_stream_logging(False, "")
+    result = solver.Solve(prog, None, None)
     print(result.get_solution_result())
     L2 = (result.GetSolution(L2))
     # print(L2.Evaluate(env))
@@ -215,12 +235,15 @@ def optimizeV(old_x, f, L1, L2, V0, sigma1, options):
     V0 = (V0.Substitute(dict(zip(list(V0.GetVariables()), x))))
     f = np.array([i.Substitute(dict(zip(list(i.GetVariables()), x))) for i in
                   f])
-    env = dict(zip(x, np.array([1,2])))
-    # print(f[0].Evaluate(env))
-    # print(f[1].Evaluate(env))
-    # print(V0.Evaluate(env))
+    env = dict(zip(x, np.array([1,2.31])))
+    print('f0 is %s' % (f[0].Evaluate(env)))
+    print('f1 is %s' % (f[1].Evaluate(env)))
+    print('L1 is %s' % (L1.Evaluate(env)))
+    print('L2 is %s' % (L2.Evaluate(env)))
+    print('V0 is %s' % (V0.Evaluate(env)))
+
     #% construct V
-    V = prog.NewSosPolynomial(Variables(x), options.degV)[0].ToExpression()
+    V = prog.NewFreePolynomial(Variables(x), options.degV).ToExpression()
     Vdot = V.Jacobian(x) @ f
     # % construct rho
     rho = prog.NewContinuousVariables(1, "r")[0]
@@ -229,10 +252,14 @@ def optimizeV(old_x, f, L1, L2, V0, sigma1, options):
     # % setup SOS constraints
     prog.AddSosConstraint(-Vdot + L1 * (V - 1) - sigma1 * V / 2)
     prog.AddSosConstraint(-(V - 1) + L2 * (V0 - rho))
-
+    prog.AddSosConstraint(V)
     # % run SeDuMi/MOSEK and check output
     prog.AddCost(-rho)
-    result = Solve(prog)
+    solver = MosekSolver()
+    solver.set_stream_logging(False, "")
+    result = solver.Solve(prog, None, None)
+
+    # result = Solve(prog)
     print(result.get_solution_result())
     V = result.GetSolution(V)
     print(clean(V))
