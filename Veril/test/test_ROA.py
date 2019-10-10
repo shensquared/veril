@@ -32,7 +32,7 @@ A = np.array([[i.Evaluate(env) for i in j]for j in J])
 S0 = solve_lyapunov(A.T, -np.eye(nx))
 V0 = (x.T@S0@x)
 
-bilinear(x, V0, xdot, S0, A, options)
+bilinear(V0, xdot, S0, A, options)
 
 
 def levelsetMethod(old_x, f, V, options):
