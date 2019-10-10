@@ -90,7 +90,7 @@ def poly_dynamics(CL):
     delta_y = plant.get_obs(x) - plant.y0
     u = output_kernel@c + feedthrough_kernel@y
     xdot = plant.getCTSymbolicDynamics(x, u)
-    cdot = ((.5 * (c + c * tau_f + tau_c - tau_c * tau_f)) - c) / 2
+    cdot = ((.5 * (c + c * tau_f + tau_c - tau_c * tau_f)) - c) / CL.dt
     # TODO for now assume ydot is equal to xdot, need to change this for
     # generalization though
 
