@@ -21,10 +21,11 @@ from Veril import Plants
 
 class opt(object):
 
-    def __init__(self, nX, degL1=4, degL2=4, degV=2):
+    def __init__(self, nX, converged_tol=.01, max_iterations=10, degL1=4,
+                 degL2=4, degV=2):
         self.degV = degV
-        self.max_iterations = 10
-        self.converged_tol = .01
+        self.max_iterations = max_iterations
+        self.converged_tol = converged_tol
         self.degL1 = degL1
         self.degL2 = degL2
         self.nX = nX
@@ -110,14 +111,13 @@ def balanceQuadForm(S, P):
 
 
 def balance(x, V, f, S, A):
-    if S is None:
-        S = .5 * (Substitute(Jacobian(Jacobian(V, x).T, x), x, 0 * x))
-    if A is None:
-        J = Jacobian(f, x)
-        env = dict(zip(x, np.zeros(x.shape)))
-        mapping = dict(zip(x, x0))
-        A = np.array([[i.Evaluate(env) for i in j]for j in J])
-
+    # if S is None:
+    #     S = .5 * (Substitute(Jacobian(Jacobian(V, x).T, x), x, 0 * x))
+    # if A is None:
+    #     J = Jacobian(f, x)
+    #     env = dict(zip(x, np.zeros(x.shape)))
+    #     mapping = dict(zip(x, x0))
+    #     A = np.array([[i.Evaluate(env) for i in j]for j in J])
     [T, D] = balanceQuadForm(S, (S@A + A.T@S))
     # print('T is %s' % (T))
     # Sbal = (T.T)@(S)@(T)
@@ -139,12 +139,12 @@ def bilinear(V0, f, S0, A, options):
     rho = 1
     vol = 0
     for iter in range(options.max_iterations):
-        print('iteration  %s' % (iter))
+        # print('iteration  %s' % (iter))
         last_vol = vol
 
         # balance on every iteration (since V and Vdot are changing):
         [T, Vbal, fbal] = balance(x, V, f, S0 / rho, A)[0:3]
-        print('T is %s' % (T))
+        # print('T is %s' % (T))
         V0bal = V0.Substitute(dict(zip(x, T@x)))
         # env = dict(zip(list(V0bal.GetVariables()), np.array([1, 2.31])))
         # print('V0bal is %s' % (V0bal.Evaluate(env)))
@@ -158,14 +158,15 @@ def bilinear(V0, f, S0, A, options):
         V = Vbal.Substitute(dict(zip(x, inv(T)@x)))
         if ((vol - last_vol) < options.converged_tol * last_vol):
             break
-    print('rho is %s' % (rho))
-    env = dict(zip(x, np.array([1, 2.31])))
-    print('V is %s' % (V.Evaluate(env)))
+    # print('final rho is %s' % (rho))
+    # print(clean(V))
+    # env = dict(zip(x, np.array([1, 2.31])))
+    # print('V is %s' % (V.Evaluate(env)))
     return V
 
 
 def findL1(x, f, V, options):
-    print('finding L1')
+    # print('finding L1')
     prog = MathematicalProgram()
     prog.AddIndeterminates(x)
 
@@ -190,16 +191,16 @@ def findL1(x, f, V, options):
     solver = MosekSolver()
     solver.set_stream_logging(False, "")
     result = solver.Solve(prog, None, None)
-    print(result.get_solution_result())
+    # print(result.get_solution_result())
     assert result.is_success()
     L1 = (result.GetSolution(L1))
     sigma1 = result.GetSolution(sigma1)
-    print(sigma1)
+    # print('sigma1 is %s' % (sigma1))
     return L1, sigma1
 
 
 def findL2(x, V, V0, rho, options):
-    print('finding L2')
+    # print('finding L2')
     prog = MathematicalProgram()
     prog.AddIndeterminates(x)
     # env = dict(zip(x, np.array([1, 2.31])))
@@ -214,18 +215,18 @@ def findL2(x, V, V0, rho, options):
     prog.AddSosConstraint(-(V - 1) + L2 * (V0 - rho))
     prog.AddSosConstraint(L2)
     prog.AddCost(slack)
-    # result = Solve(prog)
+
     solver = MosekSolver()
     solver.set_stream_logging(False, "")
     result = solver.Solve(prog, None, None)
-    print(result.get_solution_result())
+    # print(result.get_solution_result())
     L2 = (result.GetSolution(L2))
     # print(L2.Evaluate(env))
     return L2
 
 
 def optimizeV(x, f, L1, L2, V0, sigma1, options):
-    print('finding V')
+    # print('finding V')
     prog = MathematicalProgram()
     prog.AddIndeterminates(x)
     # env = dict(zip(x, np.array([1, 2.31])))
@@ -248,13 +249,11 @@ def optimizeV(x, f, L1, L2, V0, sigma1, options):
     solver = MosekSolver()
     solver.set_stream_logging(False, "")
     result = solver.Solve(prog, None, None)
-
-    # result = Solve(prog)
-    print(result.get_solution_result())
+    # print(result.get_solution_result())
     V = result.GetSolution(V)
-    print(clean(V))
+    # print(clean(V))
     rho = result.GetSolution(rho)
-    print(rho)
+    # print('rho is %s' % (rho))
     return V, rho
 
 # def clean(a,tol=1e-6):
