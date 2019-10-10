@@ -121,10 +121,8 @@ def balance(x, V, f, S, A):
     [T, D] = balanceQuadForm(S, (S@A + A.T@S))
     # print('T is %s' % (T))
     # Sbal = (T.T)@(S)@(T)
-    Vbal = V.Substitute(dict(zip(list(V.GetVariables()), T@x)))
-    # print([i.Substitute(dict(zip(x,T@x))) for i in f])
-    fbal = inv(T)@[i.Substitute(dict(zip(list(i.GetVariables()), T@x))) for i
-    in f]
+    Vbal = V.Substitute(dict(zip(x, T@x)))
+    fbal = inv(T)@[i.Substitute(dict(zip(x, T@x))) for i in f]
     return T, Vbal, fbal, S, A
 
 
@@ -134,26 +132,26 @@ def clean(poly, tol=1e-9):
     return poly.RemoveTermsWithSmallCoefficients(tol).ToExpression()
 
 
-def bilinear(x, V0, f, S0, A, options):
+def bilinear(V0, f, S0, A, options):
+    x = list(V0.GetVariables())
     V = V0
     [T, V0bal, fbal, S0, A] = balance(x, V0, f, S0, A)
     rho = 1
     vol = 0
-    # for iter in range(options.max_iterations):
-    for iter in range(3):
+    for iter in range(options.max_iterations):
         print('iteration  %s' % (iter))
         last_vol = vol
 
         # balance on every iteration (since V and Vdot are changing):
         [T, Vbal, fbal] = balance(x, V, f, S0 / rho, A)[0:3]
         print('T is %s' % (T))
-        V0bal = V0.Substitute(dict(zip(list(V0.GetVariables()), T@x)))
-        env = dict(zip(list(V0bal.GetVariables()), np.array([1, 2.31])))
-        print('V0bal is %s' % (V0bal.Evaluate(env)))
+        V0bal = V0.Substitute(dict(zip(x, T@x)))
+        # env = dict(zip(list(V0bal.GetVariables()), np.array([1, 2.31])))
+        # print('V0bal is %s' % (V0bal.Evaluate(env)))
 
-        [x, L1, sigma1] = findL1(x, fbal, Vbal, options)
-        [x, L2] = findL2(x, Vbal, V0bal, rho, options)
-        [x, Vbal, rho] = optimizeV(x, fbal, L1, L2, V0bal, sigma1, options)
+        [L1, sigma1] = findL1(x, fbal, Vbal, options)
+        L2 = findL2(x, Vbal, V0bal, rho, options)
+        [Vbal, rho] = optimizeV(x, fbal, L1, L2, V0bal, sigma1, options)
         vol = rho
 
         #  undo balancing (for the next iteration, or if i'm done)
@@ -166,24 +164,20 @@ def bilinear(x, V0, f, S0, A, options):
     return V
 
 
-def findL1(old_x, f, V, options):
+def findL1(x, f, V, options):
     print('finding L1')
     prog = MathematicalProgram()
-    x = prog.NewIndeterminates(options.nX, 'l1x')
-    V = V.Substitute(dict(zip(list(V.GetVariables()), x)))
-    f = np.array([i.Substitute(dict(zip(list(i.GetVariables()), x))) for i in
-       f])
+    prog.AddIndeterminates(x)
+
     # % construct multipliers for Vdot
     L1 = prog.NewFreePolynomial(Variables(x), options.degL1).ToExpression()
     # L1 = prog.NewSosPolynomial(Variables(x), options.degL1)[0].ToExpression()
     # % construct Vdot
     Vdot = clean(V.Jacobian(x) @ f)
-    env = dict(zip(x, np.array([1, 2.31])))
-    print('f0 is %s' % (f[0].Evaluate(env)))
-    print('f1 is %s' % (f[1].Evaluate(env)))
-    print('V is %s' % (V.Evaluate(env)))
-
-    # print('Vdot')
+    # env = dict(zip(x, np.array([1, 2.31])))
+    # print('f0 is %s' % (f[0].Evaluate(env)))
+    # print('f1 is %s' % (f[1].Evaluate(env)))
+    # print('V is %s' % (V.Evaluate(env)))
     # % construct slack var
     sigma1 = prog.NewContinuousVariables(1, "s")[0]
     prog.AddConstraint(sigma1 >= 0)
@@ -201,18 +195,16 @@ def findL1(old_x, f, V, options):
     L1 = (result.GetSolution(L1))
     sigma1 = result.GetSolution(sigma1)
     print(sigma1)
-    return x, L1, sigma1
+    return L1, sigma1
 
 
-def findL2(old_x, V, V0, rho, options):
+def findL2(x, V, V0, rho, options):
     print('finding L2')
     prog = MathematicalProgram()
-    x = prog.NewIndeterminates(options.nX, "l2x")
-    V = (V.Substitute(dict(zip(list(V.GetVariables()), x))))
-    V0 = (V0.Substitute(dict(zip(list(V0.GetVariables()), x))))
-    env = dict(zip(x, np.array([1, 2.31])))
-    print('V0 is %s' % (V0.Evaluate(env)))
-    print('V is %s' % (V.Evaluate(env)))
+    prog.AddIndeterminates(x)
+    # env = dict(zip(x, np.array([1, 2.31])))
+    # print('V0 is %s' % (V0.Evaluate(env)))
+    # print('V is %s' % (V.Evaluate(env)))
     # % construct multipliers for Vdot
     L2 = prog.NewFreePolynomial(Variables(x), options.degL2).ToExpression()
     # % construct slack var
@@ -229,23 +221,14 @@ def findL2(old_x, V, V0, rho, options):
     print(result.get_solution_result())
     L2 = (result.GetSolution(L2))
     # print(L2.Evaluate(env))
-    return x, L2
+    return L2
 
 
-def optimizeV(old_x, f, L1, L2, V0, sigma1, options):
+def optimizeV(x, f, L1, L2, V0, sigma1, options):
     print('finding V')
     prog = MathematicalProgram()
-    x = prog.NewIndeterminates(options.nX, "Vx")
-    L1 = (L1.Substitute(dict(zip(list(L1.GetVariables()), x))))
-    L2 = (L2.Substitute(dict(zip(list(L2.GetVariables()), x))))
-    V0 = (V0.Substitute(dict(zip(list(V0.GetVariables()), x))))
-    f = np.array([i.Substitute(dict(zip(list(i.GetVariables()), x))) for i in f])
-    env = dict(zip(x, np.array([1, 2.31])))
-    print('f0 is %s' % (f[0].Evaluate(env)))
-    print('f1 is %s' % (f[1].Evaluate(env)))
-    print('L1 is %s' % (L1.Evaluate(env)))
-    print('L2 is %s' % (L2.Evaluate(env)))
-    print('V0 is %s' % (V0.Evaluate(env)))
+    prog.AddIndeterminates(x)
+    # env = dict(zip(x, np.array([1, 2.31])))
 
     #% construct V
     V = prog.NewFreePolynomial(Variables(x), options.degV).ToExpression()
@@ -272,7 +255,7 @@ def optimizeV(old_x, f, L1, L2, V0, sigma1, options):
     print(clean(V))
     rho = result.GetSolution(rho)
     print(rho)
-    return x, clean(V), rho
+    return V, rho
 
 # def clean(a,tol=1e-6):
 #     [x,p,M]=decomp(a)
