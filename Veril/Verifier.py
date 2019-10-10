@@ -38,34 +38,34 @@ def get_S0(CL):
         S0 = solve_lyapunov(A0.T, -np.eye(full_dim))
     else:
         prog = MathematicalProgram()
-        # add the constant basis
         # constant = prog.NewIndeterminates(1, 'constant')
         # basis = [sym.Monomial(constant[0], 0)]
-        x = prog.NewIndeterminates(plant.num_states, "x")
-        c = prog.NewIndeterminates(CL.units, "c")
-        full_states = np.hstack((x, c))
-        basis = [sym.Monomial(_) for _ in full_states]
+        x = prog.NewIndeterminates(full_dim, "x")
+        # c = prog.NewIndeterminates(CL.units, "c")
+        # full_states = np.hstack((x, c))
+        # basis = [sym.Monomial(_) for _ in full_states]
         P = prog.NewSymmetricContinuousVariables(full_dim, "P")
         prog.AddPositiveSemidefiniteConstraint(P)
         prog.AddPositiveSemidefiniteConstraint(P + P.T)
-        V = full_states.T@P@full_states
-        Vdot = full_states.T@P@A0@full_states + full_states.T@A0.T@P@full_states
+        # V = x.T@P@x
+        Vdot = x.T@P@A0@x + x.T@A0.T@P@x
         r = prog.NewContinuousVariables(1, "r")[0]
         Vdot = Vdot + r * plant.get_manifold(x)
         slack = prog.NewContinuousVariables(1, "s")[0]
         prog.AddConstraint(slack >= 0)
 
-        prog.AddSosConstraint(-Vdot - slack * full_states.T@np.eye
-                              (full_dim)@full_states)
+        prog.AddSosConstraint(-Vdot - slack * x.T@np.eye(full_dim)@x)
         prog.AddCost(-slack)
-        result = Solve(prog)
-        print('solve for S0')
-        print(result.get_solution_result())
+        solver = MosekSolver()
+        solver.set_stream_logging(False, "")
+        result = solver.Solve(prog, None, None)
+        # print(result.get_solution_result())
+        assert result.is_success()
         slack = result.GetSolution(slack)
-        print(slack)
+        print('slack is %s' % (slack))
         S0 = result.GetSolution(P)
-    print('eig A0  %s' % (eig(A0)[0]))
-    print('eig PA+A.TP  %s' % (eig(A0.T@S0 + S0@A0)[0]))
+    print('eig of A  %s' % (eig(A0)[0]))
+    print('eig of SA+A\'S  %s' % (eig(A0.T@S0 + S0@A0)[0]))
     return S0
 
 
