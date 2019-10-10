@@ -19,8 +19,8 @@ from Veril import Plants
 # matplotlib.use('TkAgg')
 
 
-class opt(object):
-
+class opt:
+    # optimization options
     def __init__(self, nX, converged_tol=.01, max_iterations=10, degL1=4,
                  degL2=4, degV=2):
         self.degV = degV
@@ -29,7 +29,6 @@ class opt(object):
         self.degL1 = degL1
         self.degL2 = degL2
         self.nX = nX
-
 
 def get_S0(CL):
     plant = Plants.get(CL.plant_name, CL.dt, CL.obs_idx)
@@ -273,7 +272,7 @@ def optimizeV(x, f, L1, L2, V0, sigma1, options):
 #     return T, Sbal
 
 #
-# class SOS_verifier():
+# class SOS_verifier:
 #
 #     def __init__(self, tag, num_inputs=1, num_nuerons=10, zero_nominal=True,
 #                  step_or_total='step'):

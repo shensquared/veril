@@ -13,7 +13,7 @@ def get(plant_name, dt, obs_idx):
         return globals()[identifier](dt=dt, obs_idx=obs_idx)
 
 
-class Plant():
+class Plant:
 
     def __init__(self, dt=1e-3, obs_idx=None, num_disturb=0):
         self.dt = dt

@@ -99,7 +99,7 @@ def simulate(CL,timesteps,init,num_samples):
 
 
 
-class CLoop(object):
+class CLoop:
 
     def __init__(self, this_layer, timesteps, tag):
         self.steps = timesteps
