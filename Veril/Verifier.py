@@ -13,7 +13,7 @@ from pydrake.all import (MathematicalProgram, Polynomial,
                          MosekSolver)
 # import Plants
 from Veril import Plants
-# from keras import backend as K
+from keras import backend as K
 # import matplotlib
 # import matplotlib.pyplot as plt
 # matplotlib.use('TkAgg')
@@ -21,6 +21,7 @@ from Veril import Plants
 
 class opt:
     # optimization options
+
     def __init__(self, nX, converged_tol=.01, max_iterations=10, degL1=4,
                  degL2=4, degV=2):
         self.degV = degV
@@ -29,6 +30,7 @@ class opt:
         self.degL1 = degL1
         self.degL2 = degL2
         self.nX = nX
+
 
 def get_S0(CL):
     plant = Plants.get(CL.plant_name, CL.dt, CL.obs_idx)
@@ -67,6 +69,35 @@ def get_S0(CL):
     print('eig of A  %s' % (eig(A0)[0]))
     print('eig of SA+A\'S  %s' % (eig(A0.T@S0 + S0@A0)[0]))
     return S0
+
+
+def poly_dynamics(CL):
+    # returns the CONTINUOUS TIME closed-loop dynamics of the augmented states,
+    # which include the plant state x, the RNN state c, the added two states
+    # from the tanh nonlinearity, tau_c, and tau_f
+    output_kernel = (K.eval(CL.cell.output_kernel)).T
+    feedthrough_kernel = (K.eval(CL.cell.feedthrough_kernel)).T
+    recurrent_kernel_f = (K.eval(CL.cell.recurrent_kernel_f)).T
+    kernel_f = (K.eval(CL.cell.kernel_f)).T
+    recurrent_kernel_c = (K.eval(CL.cell.recurrent_kernel_c)).T
+    kernel_c = (K.eval(CL.cell.kernel_c)).T
+
+    plant = Plants.get(CL.plant_name, CL.dt, CL.obs_idx)
+    x = prog.NewIndeterminates(plant.num_states, "x")
+    c = prog.NewIndeterminates(CL.units, "c")
+    tau_f = prog.NewIndeterminates(CL.units, "tf")
+    tau_c = prog.NewIndeterminates(CL.units, "tc")
+    delta_y = plant.get_obs(x) - plant.y0
+    u = output_kernel@c + feedthrough_kernel@y
+    xdot = plant.getCTSymbolicDynamics(x, u)
+    cdot = ((.5 * (c + c * tau_f + tau_c - tau_c * tau_f)) - c) / 2
+    # TODO for now assume ydot is equal to xdot, need to change this for
+    # generalization though
+
+    tau_f_dot = (1 - tau_f**2) * (kernel_f@ydot + recurrent_kernel_f@cdot)
+    tau_c_dot = (1 - tau_c**2) * (kernel_c@ydot + recurrent_kernel_c@cdot)
+
+    return xdot, cdot, tau_f_dot, tau_c_dot
 
 
 def IQC_tanh(x, y):
