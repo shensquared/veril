@@ -10,7 +10,7 @@ from keras.engine import Layer, InputSpec
 
 from keras import backend as K
 from keras.legacy import interfaces
-import tensorflow as tf
+# import tensorflow as tf
 from keras.layers.recurrent import RNN
 
 import numpy as np
@@ -415,6 +415,9 @@ class JanetControllerCell(Layer):
         # (1,self.plant.num_states)), tm1[1]:np.zeros((1,self.units))})
         # J22 = sess.run(J22, feed_dict={tm1[0]: np.reshape(self.plant.x0,
         # (1,self.plant.num_states)), tm1[1]:np.zeros((1,self.units))})
+        # TODO: do the stacking in K and return with K.eval() to get the
+        # numerics so as to not rely on import np.
+
         J = np.vstack((np.hstack((J11, J21)), np.hstack((J12, J22))))
         # for debugging (3 plant states 4 cell states)
         # tm2_np = np.hstack((K.eval(tm2[0]), K.eval(tm2[1])))
@@ -1062,157 +1065,157 @@ class DenseOnOff(Layer):
         return dict(list(base_config.items()) + list(config.items()))
 
 
-class Monomials(Layer):
+# class Monomials(Layer):
 
-    def __init__(self, units,
-                 activation=None,
-                 kernel_initializer='glorot_uniform',
-                 bias_initializer='zeros',
-                 kernel_regularizer=None,
-                 bias_regularizer=None,
-                 activity_regularizer=None,
-                 kernel_constraint=None,
-                 bias_constraint=None,
-                 **kwargs):
-        if 'input_shape' not in kwargs and 'input_dim' in kwargs:
-            kwargs['input_shape'] = (kwargs.pop('input_dim'),)
-        super(Monomials, self).__init__(**kwargs)
-        self.units = units
-        self.activation = activations.get(activation)
-        self.kernel_initializer = initializers.get(kernel_initializer)
-        self.bias_initializer = initializers.get(bias_initializer)
-        self.kernel_regularizer = regularizers.get(kernel_regularizer)
-        self.bias_regularizer = regularizers.get(bias_regularizer)
-        self.activity_regularizer = regularizers.get(activity_regularizer)
-        self.kernel_constraint = constraints.get(kernel_constraint)
-        self.bias_constraint = constraints.get(bias_constraint)
-        self.input_spec = InputSpec(min_ndim=2)
-        self.supports_masking = True
+#     def __init__(self, units,
+#                  activation=None,
+#                  kernel_initializer='glorot_uniform',
+#                  bias_initializer='zeros',
+#                  kernel_regularizer=None,
+#                  bias_regularizer=None,
+#                  activity_regularizer=None,
+#                  kernel_constraint=None,
+#                  bias_constraint=None,
+#                  **kwargs):
+#         if 'input_shape' not in kwargs and 'input_dim' in kwargs:
+#             kwargs['input_shape'] = (kwargs.pop('input_dim'),)
+#         super(Monomials, self).__init__(**kwargs)
+#         self.units = units
+#         self.activation = activations.get(activation)
+#         self.kernel_initializer = initializers.get(kernel_initializer)
+#         self.bias_initializer = initializers.get(bias_initializer)
+#         self.kernel_regularizer = regularizers.get(kernel_regularizer)
+#         self.bias_regularizer = regularizers.get(bias_regularizer)
+#         self.activity_regularizer = regularizers.get(activity_regularizer)
+#         self.kernel_constraint = constraints.get(kernel_constraint)
+#         self.bias_constraint = constraints.get(bias_constraint)
+#         self.input_spec = InputSpec(min_ndim=2)
+#         self.supports_masking = True
 
-    def build(self, input_shape):
-        assert len(input_shape) >= 2
-        input_dim = input_shape[-1]
-        # adding a power kernel
-        powers = tf.range(1, self.units + 1, 1, dtype='float32')
-        powers = K.reshape(powers, (self.units,))
-        self.pow_kernel = powers
-        self.input_spec = InputSpec(min_ndim=2, axes={-1: input_dim})
-        self.built = True
+#     def build(self, input_shape):
+#         assert len(input_shape) >= 2
+#         input_dim = input_shape[-1]
+#         # adding a power kernel
+#         powers = tf.range(1, self.units + 1, 1, dtype='float32')
+#         powers = K.reshape(powers, (self.units,))
+#         self.pow_kernel = powers
+#         self.input_spec = InputSpec(min_ndim=2, axes={-1: input_dim})
+#         self.built = True
 
-    def call(self, inputs):
-        output = K.pow(inputs, self.pow_kernel)
-        return output
+#     def call(self, inputs):
+#         output = K.pow(inputs, self.pow_kernel)
+#         return output
 
-    def compute_output_shape(self, input_shape):
-        assert input_shape and len(input_shape) >= 2
-        assert input_shape[-1]
-        output_shape = list(input_shape)
-        output_shape[-1] = self.units
-        return tuple(output_shape)
+#     def compute_output_shape(self, input_shape):
+#         assert input_shape and len(input_shape) >= 2
+#         assert input_shape[-1]
+#         output_shape = list(input_shape)
+#         output_shape[-1] = self.units
+#         return tuple(output_shape)
 
-    def get_config(self):
-        config = {
-            'units': self.units,
-            'activation': activations.serialize(self.activation),
-            'use_bias': self.use_bias,
-            'kernel_initializer': initializers.serialize(self.kernel_initializer),
-            'bias_initializer': initializers.serialize(self.bias_initializer),
-            'kernel_regularizer': regularizers.serialize(self.kernel_regularizer),
-            'bias_regularizer': regularizers.serialize(self.bias_regularizer),
-            'activity_regularizer': regularizers.serialize(self.activity_regularizer),
-            'kernel_constraint': constraints.serialize(self.kernel_constraint),
-            'bias_constraint': constraints.serialize(self.bias_constraint)
-        }
-        base_config = super(Monomials, self).get_config()
-        return dict(list(base_config.items()) + list(config.items()))
+#     def get_config(self):
+#         config = {
+#             'units': self.units,
+#             'activation': activations.serialize(self.activation),
+#             'use_bias': self.use_bias,
+#             'kernel_initializer': initializers.serialize(self.kernel_initializer),
+#             'bias_initializer': initializers.serialize(self.bias_initializer),
+#             'kernel_regularizer': regularizers.serialize(self.kernel_regularizer),
+#             'bias_regularizer': regularizers.serialize(self.bias_regularizer),
+#             'activity_regularizer': regularizers.serialize(self.activity_regularizer),
+#             'kernel_constraint': constraints.serialize(self.kernel_constraint),
+#             'bias_constraint': constraints.serialize(self.bias_constraint)
+#         }
+#         base_config = super(Monomials, self).get_config()
+#         return dict(list(base_config.items()) + list(config.items()))
 
 
-class Polynomials(Layer):
+# class Polynomials(Layer):
 
-    def __init__(self, units,
-                 activation=None,
-                 use_bias=True,
-                 kernel_initializer='glorot_uniform',
-                 bias_initializer='zeros',
-                 kernel_regularizer=None,
-                 bias_regularizer=None,
-                 activity_regularizer=None,
-                 kernel_constraint=None,
-                 bias_constraint=None,
-                 **kwargs):
-        if 'input_shape' not in kwargs and 'input_dim' in kwargs:
-            kwargs['input_shape'] = (kwargs.pop('input_dim'),)
-        super(Polynomials, self).__init__(**kwargs)
-        self.units = units
-        self.activation = activations.get(activation)
-        self.use_bias = use_bias
-        self.kernel_initializer = initializers.get(kernel_initializer)
-        self.bias_initializer = initializers.get(bias_initializer)
-        self.kernel_regularizer = regularizers.get(kernel_regularizer)
-        self.bias_regularizer = regularizers.get(bias_regularizer)
-        self.activity_regularizer = regularizers.get(activity_regularizer)
-        self.kernel_constraint = constraints.get(kernel_constraint)
-        self.bias_constraint = constraints.get(bias_constraint)
-        self.input_spec = InputSpec(min_ndim=2)
-        self.supports_masking = True
+#     def __init__(self, units,
+#                  activation=None,
+#                  use_bias=True,
+#                  kernel_initializer='glorot_uniform',
+#                  bias_initializer='zeros',
+#                  kernel_regularizer=None,
+#                  bias_regularizer=None,
+#                  activity_regularizer=None,
+#                  kernel_constraint=None,
+#                  bias_constraint=None,
+#                  **kwargs):
+#         if 'input_shape' not in kwargs and 'input_dim' in kwargs:
+#             kwargs['input_shape'] = (kwargs.pop('input_dim'),)
+#         super(Polynomials, self).__init__(**kwargs)
+#         self.units = units
+#         self.activation = activations.get(activation)
+#         self.use_bias = use_bias
+#         self.kernel_initializer = initializers.get(kernel_initializer)
+#         self.bias_initializer = initializers.get(bias_initializer)
+#         self.kernel_regularizer = regularizers.get(kernel_regularizer)
+#         self.bias_regularizer = regularizers.get(bias_regularizer)
+#         self.activity_regularizer = regularizers.get(activity_regularizer)
+#         self.kernel_constraint = constraints.get(kernel_constraint)
+#         self.bias_constraint = constraints.get(bias_constraint)
+#         self.input_spec = InputSpec(min_ndim=2)
+#         self.supports_masking = True
 
-    def build(self, input_shape):
-        assert len(input_shape) >= 2
-        input_dim = input_shape[-1]
+#     def build(self, input_shape):
+#         assert len(input_shape) >= 2
+#         input_dim = input_shape[-1]
 
-        self.kernel = self.add_weight(shape=(input_dim, self.units),
-                                      initializer=self.kernel_initializer,
-                                      name='kernel',
-                                      regularizer=self.kernel_regularizer,
-                                      constraint=self.kernel_constraint)
+#         self.kernel = self.add_weight(shape=(input_dim, self.units),
+#                                       initializer=self.kernel_initializer,
+#                                       name='kernel',
+#                                       regularizer=self.kernel_regularizer,
+#                                       constraint=self.kernel_constraint)
 
-        # self.kernel = (K.ones(shape=(input_dim, self.units),dtype='float32'))
-        if self.use_bias:
-            self.bias = self.add_weight(shape=(self.units,),
-                                        initializer=self.bias_initializer,
-                                        name='bias',
-                                        regularizer=self.bias_regularizer,
-                                        constraint=self.bias_constraint)
-        else:
-            self.bias = None
-        # adding a power kernel
-        powers = tf.range(1, self.units + 1, 1, dtype='float32')
-        powers = K.reshape(powers, (self.units,))
-        self.pow_kernel = powers
-        self.input_spec = InputSpec(min_ndim=2, axes={-1: input_dim})
-        self.built = True
+#         # self.kernel = (K.ones(shape=(input_dim, self.units),dtype='float32'))
+#         if self.use_bias:
+#             self.bias = self.add_weight(shape=(self.units,),
+#                                         initializer=self.bias_initializer,
+#                                         name='bias',
+#                                         regularizer=self.bias_regularizer,
+#                                         constraint=self.bias_constraint)
+#         else:
+#             self.bias = None
+#         # adding a power kernel
+#         powers = tf.range(1, self.units + 1, 1, dtype='float32')
+#         powers = K.reshape(powers, (self.units,))
+#         self.pow_kernel = powers
+#         self.input_spec = InputSpec(min_ndim=2, axes={-1: input_dim})
+#         self.built = True
 
-    def call(self, inputs):
-        output = K.dot(inputs, self.kernel)
-        if self.use_bias:
-            output = K.bias_add(output, self.bias)
-        if self.activation is not None:
-            output = self.activation(output)
-        output = K.pow(output, self.pow_kernel)
-        return output
+#     def call(self, inputs):
+#         output = K.dot(inputs, self.kernel)
+#         if self.use_bias:
+#             output = K.bias_add(output, self.bias)
+#         if self.activation is not None:
+#             output = self.activation(output)
+#         output = K.pow(output, self.pow_kernel)
+#         return output
 
-    def compute_output_shape(self, input_shape):
-        assert input_shape and len(input_shape) >= 2
-        assert input_shape[-1]
-        output_shape = list(input_shape)
-        output_shape[-1] = self.units
-        return tuple(output_shape)
+#     def compute_output_shape(self, input_shape):
+#         assert input_shape and len(input_shape) >= 2
+#         assert input_shape[-1]
+#         output_shape = list(input_shape)
+#         output_shape[-1] = self.units
+#         return tuple(output_shape)
 
-    def get_config(self):
-        config = {
-            'units': self.units,
-            'activation': activations.serialize(self.activation),
-            'use_bias': self.use_bias,
-            'kernel_initializer': initializers.serialize(self.kernel_initializer),
-            'bias_initializer': initializers.serialize(self.bias_initializer),
-            'kernel_regularizer': regularizers.serialize(self.kernel_regularizer),
-            'bias_regularizer': regularizers.serialize(self.bias_regularizer),
-            'activity_regularizer': regularizers.serialize(self.activity_regularizer),
-            'kernel_constraint': constraints.serialize(self.kernel_constraint),
-            'bias_constraint': constraints.serialize(self.bias_constraint)
-        }
-        base_config = super(Polynomials, self).get_config()
-        return dict(list(base_config.items()) + list(config.items()))
+#     def get_config(self):
+#         config = {
+#             'units': self.units,
+#             'activation': activations.serialize(self.activation),
+#             'use_bias': self.use_bias,
+#             'kernel_initializer': initializers.serialize(self.kernel_initializer),
+#             'bias_initializer': initializers.serialize(self.bias_initializer),
+#             'kernel_regularizer': regularizers.serialize(self.kernel_regularizer),
+#             'bias_regularizer': regularizers.serialize(self.bias_regularizer),
+#             'activity_regularizer': regularizers.serialize(self.activity_regularizer),
+#             'kernel_constraint': constraints.serialize(self.kernel_constraint),
+#             'bias_constraint': constraints.serialize(self.bias_constraint)
+#         }
+#         base_config = super(Polynomials, self).get_config()
+#         return dict(list(base_config.items()) + list(config.items()))
 
 
 class ReluOnOff(Layer):
