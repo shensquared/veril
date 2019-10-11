@@ -7,6 +7,7 @@ import numpy as np
 import six
 from keras import backend as K
 
+
 def get(plant_name, dt, obs_idx):
     if isinstance(plant_name, six.string_types):
         identifier = str(plant_name)
@@ -156,7 +157,7 @@ class Satellite(Plant):
                                                              [0, 0]], [-alpha[0, 1], alpha[0, 0], 0]])
         return sigma
 
-    def cross(self,u,v):
+    def cross(self, u, v):
         u1 = K.dot(u, K.constant([1, 0, 0], shape=(3, 1)))
         u2 = K.dot(u, K.constant([0, 1, 0], shape=(3, 1)))
         u3 = K.dot(u, K.constant([0, 0, 1], shape=(3, 1)))
@@ -165,8 +166,8 @@ class Satellite(Plant):
         v3 = K.dot(v, K.constant([0, 0, 1], shape=(3, 1)))
         # u1, u2, u3 = tf.split(u, 3)
         # v1, v2, v3 = tf.split(v, 3)
-        return K.concatenate( [(u2 * v3) - (u3 * v2),(u3 * v1) - (u1 * v3), (u1 *
-            v2) - (u2 * v1)])
+        return K.concatenate([(u2 * v3) - (u3 * v2), (u3 * v1) - (u1 * v3), (u1 *
+                                                                             v2) - (u2 * v1)])
 
     def step(self, x, u):
         H = K.constant(np.diag([2, 1, .5]))
@@ -432,7 +433,6 @@ class VanderPol():
 
 
 class DoubleIntegrator(Plant):
-
     def __init__(self, dt=1, obs_idx=None, num_disturb=0):
         self.name = 'DoubleIntegrator'
         self.num_states = 2
@@ -444,6 +444,7 @@ class DoubleIntegrator(Plant):
         self.y0 = self.np_get_obs(self.x0)
         self.u0 = 0
         self.manifold = False
+        self.dt=dt
 
     def step(self, x, u):
         x1 = K.dot(x, K.constant([1, 0], shape=(2, 1)))
@@ -453,6 +454,19 @@ class DoubleIntegrator(Plant):
         x2_next = x2 + u
         self.states = K.concatenate([x1_next, x2_next])
         return self.states
+
+    def xdot(self, x, u):
+        [x1, x2] = x
+        x1_next = x1 + x2
+        x2_next = x2 + u
+        return np.array([(x1_next - x1) / self.dt, (x2_next - x2) / self.dt])
+
+    def ydot(self, x, u):
+        xdot = self.xdot(x, u)
+        if self.obs_idx is None:
+            return xdot
+        else:
+            return xdot[0, np.nonzero(self.obs_idx)]
 
     def sim_traj(self, timesteps, full_states, stable_sample, u=0,
                  scale_time=1, given_initial=None):

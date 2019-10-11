@@ -81,8 +81,8 @@ def get_NNorCL(num_units, plant_name, timesteps, tag='', NNorCL='CL'):
 
 CL = get_NNorCL(num_units, plant_name, timesteps, NNorCL='CL')
 
-
-get_S0(CL)
+f = poly_dynamics(CL)
+f
 # do_plotting(CL)
 
 # NN = get_NNorCL(num_units, plant_name, timesteps, NNorCL='NN')

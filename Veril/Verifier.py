@@ -83,21 +83,22 @@ def poly_dynamics(CL):
     kernel_c = (K.eval(CL.cell.kernel_c)).T
 
     plant = Plants.get(CL.plant_name, CL.dt, CL.obs_idx)
+    prog = MathematicalProgram()
     x = prog.NewIndeterminates(plant.num_states, "x")
     c = prog.NewIndeterminates(CL.units, "c")
     tau_f = prog.NewIndeterminates(CL.units, "tf")
     tau_c = prog.NewIndeterminates(CL.units, "tc")
-    delta_y = plant.get_obs(x) - plant.y0
-    u = output_kernel@c + feedthrough_kernel@y
-    xdot = plant.getCTSymbolicDynamics(x, u)
-    cdot = ((.5 * (c + c * tau_f + tau_c - tau_c * tau_f)) - c) / CL.dt
-    # TODO for now assume ydot is equal to xdot, need to change this for
-    # generalization though
 
+    delta_y = plant.get_obs(x) - plant.y0
+    u = output_kernel@c + feedthrough_kernel@delta_y
+    xdot = plant.xdot(x, u)
+    ydot = plant.ydot(x, u)
+    cdot = (.5 * (- c + c * tau_f + tau_c - tau_c * tau_f)) / CL.dt
+    # TODO: should be y0dot but let's for now assume the two are the same
+    # (since currently all y0=zeros)
     tau_f_dot = (1 - tau_f**2) * (kernel_f@ydot + recurrent_kernel_f@cdot)
     tau_c_dot = (1 - tau_c**2) * (kernel_c@ydot + recurrent_kernel_c@cdot)
-
-    return xdot, cdot, tau_f_dot, tau_c_dot
+    return np.hstack((xdot, cdot, tau_f_dot, tau_c_dot))
 
 
 def IQC_tanh(x, y):
