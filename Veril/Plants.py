@@ -433,6 +433,7 @@ class VanderPol():
 
 
 class DoubleIntegrator(Plant):
+
     def __init__(self, dt=1, obs_idx=None, num_disturb=0):
         self.name = 'DoubleIntegrator'
         self.num_states = 2
@@ -444,7 +445,7 @@ class DoubleIntegrator(Plant):
         self.y0 = self.np_get_obs(self.x0)
         self.u0 = 0
         self.manifold = False
-        self.dt=dt
+        self.dt = dt
 
     def step(self, x, u):
         x1 = K.dot(x, K.constant([1, 0], shape=(2, 1)))
@@ -456,10 +457,10 @@ class DoubleIntegrator(Plant):
         return self.states
 
     def xdot(self, x, u):
-        [x1, x2] = x
-        x1_next = x1 + x2
-        x2_next = x2 + u
-        return np.array([(x1_next - x1) / self.dt, (x2_next - x2) / self.dt])
+        A = np.array([[1, 1], [0, 1]])
+        B = np.array([[0], [1]])
+        xplus = A@x + B@u
+        return (xplus - x) / self.dt
 
     def ydot(self, x, u):
         xdot = self.xdot(x, u)

@@ -71,7 +71,7 @@ def get_S0(CL):
     return S0
 
 
-def poly_dynamics(CL):
+def polyDynamics(CL):
     # returns the CONTINUOUS TIME closed-loop dynamics of the augmented states,
     # which include the plant state x, the RNN state c, the added two states
     # from the tanh nonlinearity, tau_c, and tau_f
@@ -98,7 +98,18 @@ def poly_dynamics(CL):
     # (since currently all y0=zeros)
     tau_f_dot = (1 - tau_f**2) * (kernel_f@ydot + recurrent_kernel_f@cdot)
     tau_c_dot = (1 - tau_c**2) * (kernel_c@ydot + recurrent_kernel_c@cdot)
-    return np.hstack((xdot, cdot, tau_f_dot, tau_c_dot))
+
+    augStates = np.hstack((x, c, tau_f, tau_c))
+    f = np.hstack((xdot, cdot, tau_f_dot, tau_c_dot))
+    return [augStates, f]
+
+
+def linearizePolyDynamics(x, f):
+    J = Jacobian(f, x)
+    env = dict(zip(x, np.zeros(x.shape)))
+    A = np.array([[i.Evaluate(env) for i in j]for j in J])
+    print('eig of linearized poly dynamics A  %s' % (eig(A)[0]))
+    return A
 
 
 def IQC_tanh(x, y):
