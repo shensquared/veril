@@ -12,6 +12,7 @@ from keras import backend as K
 from keras.legacy import interfaces
 # import tensorflow as tf
 from keras.layers.recurrent import RNN
+from keras.layers.merge import _Merge
 
 import numpy as np
 import Plants
@@ -468,6 +469,7 @@ class JanetControllerCell(Layer):
 #     J = tf.map_fn(lambda m: tf.gradients(y[:,:,m:m+1], X)[0], tf.range(tf.shape(y)[-1]), tf.float32)
 #     J = tf.transpose(tf.squeeze(J), perm = [1,0,2])
 #     return J
+
 
 class JanetCell(Layer):
     """Cell class for the LSTM layer.
@@ -980,6 +982,149 @@ class Janet(RNN):
         if 'implementation' in config and config['implementation'] == 0:
             config['implementation'] = 1
         return cls(**config)
+
+
+class TransLayer(Layer):
+    # @interfaces.legacy_dense_support
+
+    def __init__(self, old_layer,
+                 activation=None,
+                 use_bias=False,
+                 kernel_initializer='glorot_uniform',
+                 bias_initializer='zeros',
+                 kernel_regularizer=None,
+                 bias_regularizer=None,
+                 activity_regularizer=None,
+                 kernel_constraint=None,
+                 bias_constraint=None,
+                 **kwargs):
+        if 'input_shape' not in kwargs and 'input_dim' in kwargs:
+            kwargs['input_shape'] = (kwargs.pop('input_dim'),)
+        super(TransLayer, self).__init__(**kwargs)
+        # self.units = units
+        self.old_layer = old_layer
+        self.activation = activations.get(activation)
+        self.use_bias = use_bias
+        self.kernel_initializer = initializers.get(kernel_initializer)
+        self.bias_initializer = initializers.get(bias_initializer)
+        self.kernel_regularizer = regularizers.get(kernel_regularizer)
+        self.bias_regularizer = regularizers.get(bias_regularizer)
+        self.activity_regularizer = regularizers.get(activity_regularizer)
+        self.kernel_constraint = constraints.get(kernel_constraint)
+        self.bias_constraint = constraints.get(bias_constraint)
+        self.input_spec = InputSpec(min_ndim=2)
+        self.supports_masking = True
+
+    def build(self, input_shape):
+        assert len(input_shape) >= 2
+        input_dim = input_shape[-1]
+        self.kernel = K.transpose(self.old_layer.kernel)
+        self.bias = None
+        self.input_spec = InputSpec(min_ndim=2, axes={-1: input_dim})
+        self.built = True
+
+    def call(self, inputs):
+        output = K.dot(inputs, self.kernel)
+        if self.use_bias:
+            output = K.bias_add(output, self.bias, data_format='channels_last')
+        if self.activation is not None:
+            output = self.activation(output)
+        return output
+
+    def compute_output_shape(self, input_shape):
+        # output_shape = list(input_shape)
+        # output_shape[-1] = self.out_dim
+        # return tuple(output_shape)
+        return self.old_layer.input_shape
+
+    def get_config(self):
+        config = {
+        }
+        base_config = super(TransLayer, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))
+
+
+class DotKernel(Layer):
+
+    # @interfaces.legacy_dense_support
+    def __init__(self, A=None, **kwargs):
+        if 'input_shape' not in kwargs and 'input_dim' in kwargs:
+            kwargs['input_shape'] = (kwargs.pop('input_dim'),)
+        super(DotKernel, self).__init__(**kwargs)
+        self.A = A
+        self.input_spec = InputSpec(min_ndim=2)
+
+    def build(self, input_shape):
+        assert len(input_shape) >= 2
+        input_dim = input_shape[-1]
+
+        self.input_spec = InputSpec(min_ndim=2, axes={-1: input_dim})
+        self.built = True
+
+    def call(self, inputs):
+        if self.A is not None:
+            A = K.variable(self.A)
+            output = K.dot(inputs, A)
+        else:
+            output = K.dot(K.transpose(inputs), inputs)
+        return output
+
+    def compute_output_shape(self, input_shape):
+        assert input_shape and len(input_shape) >= 2
+        assert input_shape[-1]
+        if self.A is not None:
+            output_shape = list(input_shape)
+            output_shape[-1] = self.A.shape[0]
+        else:
+            output_shape = list(input_shape)
+            output_shape[-1] = input_shape[-1]
+
+        return tuple(output_shape)
+
+    def get_config(self):
+        config = {
+            'A': self.A,
+        }
+        base_config = super(DotKernel, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))
+
+
+class Divide(_Merge):
+    """Layer that subtracts two inputs.
+
+    It takes as input a list of tensors of size 2,
+    both of the same shape, and returns a single tensor, (inputs[0] / inputs
+    [1]),
+    also of the same shape.
+
+    # Examples
+
+    ```python
+        import keras
+
+        input1 = keras.layers.Input(shape=(16,))
+        x1 = keras.layers.Dense(8, activation='relu')(input1)
+        input2 = keras.layers.Input(shape=(32,))
+        x2 = keras.layers.Dense(8, activation='relu')(input2)
+        # Equivalent to subtracted = keras.layers.subtract([x1, x2])
+        subtracted = keras.layers.Subtract()([x1, x2])
+
+        out = keras.layers.Dense(4)(subtracted)
+        model = keras.models.Model(inputs=[input1, input2], outputs=out)
+    ```
+    """
+
+    def build(self, input_shape):
+        super(Divide, self).build(input_shape)
+        if len(input_shape) != 2:
+            raise ValueError('A `Subtract` layer should be called '
+                             'on exactly 2 inputs')
+
+    def _merge_function(self, inputs):
+        if len(inputs) != 2:
+            raise ValueError('A `Subtract` layer should be called '
+                             'on exactly 2 inputs')
+        return inputs[0] / inputs[1]
 
 
 class DenseOnOff(Layer):
