@@ -81,8 +81,8 @@ def get_NNorCL(num_units, plant_name, timesteps, tag='', NNorCL='CL'):
 
 CL = get_NNorCL(num_units, plant_name, timesteps, NNorCL='CL')
 
-f = poly_dynamics(CL)
-f
+[x,f] = polyDynamics(CL)
+linearizePolyDynamics(x,f)
 # do_plotting(CL)
 
 # NN = get_NNorCL(num_units, plant_name, timesteps, NNorCL='NN')
@@ -90,7 +90,7 @@ f
 # timesteps=timesteps, batch_size=1,epochs=3)
 
 # train(pre_trained=None, plant_name=plant_name, num_units=num_units,
-#       timesteps=timesteps, batch_size=1,epochs=3)
+      # timesteps=timesteps, batch_size=1,epochs=3)
 
 # class CLoop:
 
