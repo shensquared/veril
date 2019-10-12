@@ -21,7 +21,6 @@ from keras import backend as K
 
 class opt:
     # optimization options
-
     def __init__(self, nX, converged_tol=.01, max_iterations=10, degL1=4,
                  degL2=4, degV=2):
         self.degV = degV
@@ -32,20 +31,21 @@ class opt:
         self.nX = nX
 
 
-def get_S0(CL):
+def originalSysInitialV(CL):
     plant = Plants.get(CL.plant_name, CL.dt, CL.obs_idx)
     A0 = CL.linearize()
     full_dim = plant.num_states + CL.units
+
     if not plant.manifold:
         S0 = solve_lyapunov(A0.T, -np.eye(full_dim))
     else:
-        prog = MathematicalProgram()
-        # constant = prog.NewIndeterminates(1, 'constant')
-        # basis = [sym.Monomial(constant[0], 0)]
-        x = prog.NewIndeterminates(full_dim, "x")
         # c = prog.NewIndeterminates(CL.units, "c")
         # full_states = np.hstack((x, c))
         # basis = [sym.Monomial(_) for _ in full_states]
+        prog = MathematicalProgram()
+            # constant = prog.NewIndeterminates(1, 'constant')
+            # basis = [sym.Monomial(constant[0], 0)]
+        x = prog.NewIndeterminates(full_dim, "x")
         P = prog.NewSymmetricContinuousVariables(full_dim, "P")
         prog.AddPositiveSemidefiniteConstraint(P)
         prog.AddPositiveSemidefiniteConstraint(P + P.T)
@@ -66,12 +66,12 @@ def get_S0(CL):
         slack = result.GetSolution(slack)
         print('slack is %s' % (slack))
         S0 = result.GetSolution(P)
-    print('eig of A  %s' % (eig(A0)[0]))
-    print('eig of SA+A\'S  %s' % (eig(A0.T@S0 + S0@A0)[0]))
-    return S0
+    print('eig of orignal A  %s' % (eig(A0)[0]))
+    print('eig of orignal SA+A\'S  %s' % (eig(A0.T@S0 + S0@A0)[0]))
+    return x.T@S0@x
 
 
-def polyDynamics(CL):
+def augDynamics(CL):
     # returns the CONTINUOUS TIME closed-loop dynamics of the augmented states,
     # which include the plant state x, the RNN state c, the added two states
     # from the tanh nonlinearity, tau_c, and tau_f
@@ -104,11 +104,13 @@ def polyDynamics(CL):
     return [augStates, f]
 
 
-def linearizePolyDynamics(x, f):
+def linearizeAugDynamics(x, f):
     J = Jacobian(f, x)
     env = dict(zip(x, np.zeros(x.shape)))
     A = np.array([[i.Evaluate(env) for i in j]for j in J])
-    print('eig of linearized poly dynamics A  %s' % (eig(A)[0]))
+    print('augmented A  %s' % A)
+    print('eig of augmented A  %s' % (eig(A)[0]))
+    S = solve_lyapunov(A.T, -np.eye(x.shape[0]))
     return A
 
 

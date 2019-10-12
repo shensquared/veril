@@ -80,9 +80,9 @@ def get_NNorCL(num_units, plant_name, timesteps, tag='', NNorCL='CL'):
 
 
 CL = get_NNorCL(num_units, plant_name, timesteps, NNorCL='CL')
-
-[x,f] = polyDynamics(CL)
-linearizePolyDynamics(x,f)
+originalSysInitialV(CL)
+# [x,f] = augDynamics(CL)
+# linearizeAugDynamics(x,f)
 # do_plotting(CL)
 
 # NN = get_NNorCL(num_units, plant_name, timesteps, NNorCL='NN')
