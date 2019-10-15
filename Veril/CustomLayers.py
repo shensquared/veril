@@ -1052,6 +1052,8 @@ class DotKernel(Layer):
             kwargs['input_shape'] = (kwargs.pop('input_dim'),)
         super(DotKernel, self).__init__(**kwargs)
         self.A = A
+        if K.is_tensor(self.A):
+            self._outdim = K.eval(K.shape(self.A)[-1])
         self.input_spec = InputSpec(min_ndim=2)
 
     def build(self, input_shape):
@@ -1063,8 +1065,9 @@ class DotKernel(Layer):
 
     def call(self, inputs):
         if self.A is not None:
-            A = K.variable(self.A)
-            output = K.dot(inputs, A)
+            if not K.is_tensor(self.A):
+                self.A = K.variable(self.A)
+            output = K.dot(inputs, self.A)
         else:
             output = K.dot(K.transpose(inputs), inputs)
         return output
@@ -1074,11 +1077,13 @@ class DotKernel(Layer):
         assert input_shape[-1]
         if self.A is not None:
             output_shape = list(input_shape)
-            output_shape[-1] = self.A.shape[0]
+            if not K.is_tensor(self.A):
+                output_shape[-1] = self.A.shape[-1]
+            else:
+                output_shape[-1] = self._outdim
         else:
             output_shape = list(input_shape)
             output_shape[-1] = input_shape[-1]
-
         return tuple(output_shape)
 
     def get_config(self):
@@ -1275,13 +1280,14 @@ class Polynomials(Layer):
         assert len(input_shape) >= 2
         input_dim = input_shape[-1]
         # adding a power kernel
-        emponents = K.arange(0, stop=self.max_deg, step=1, dtype='float32')
-        self.emponents = emponents
         self.input_spec = InputSpec(min_ndim=2, axes={-1: input_dim})
         self.built = True
 
     def call(self, inputs):
-        output = K.concatenate([K.pow(inputs, i) for i in self.emponents])
+        #
+        output = K.concatenate([K.pow(inputs, i) for i in range(1, self.max_deg
+                                                                + 1)])
+        # output = K.concatenate([output,K.ones((1,))])
         return output
 
     def compute_output_shape(self, input_shape):
@@ -1289,24 +1295,59 @@ class Polynomials(Layer):
         assert input_shape[-1]
         output_shape = list(input_shape)
         # TODO: assuming all monomials are independent of each other for now
-        output_shape[-1] = (self.max_deg + 1) * input_shape[-1]
+        output_shape[-1] = (self.max_deg) * input_shape[-1]
         return tuple(output_shape)
 
     def get_config(self):
         config = {
-            'units': self.units,
-            'activation': activations.serialize(self.activation),
-            'use_bias': self.use_bias,
-            'kernel_initializer': initializers.serialize(self.kernel_initializer),
-            'bias_initializer': initializers.serialize(self.bias_initializer),
-            'kernel_regularizer': regularizers.serialize(self.kernel_regularizer),
-            'bias_regularizer': regularizers.serialize(self.bias_regularizer),
-            'activity_regularizer': regularizers.serialize(self.activity_regularizer),
-            'kernel_constraint': constraints.serialize(self.kernel_constraint),
-            'bias_constraint': constraints.serialize(self.bias_constraint)
+            'max_deg': self.max_deg,
         }
         base_config = super(Polynomials, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
+
+
+class DiffPoly(Layer):
+
+    def __init__(self, max_deg,
+                 activation=None,
+                 **kwargs):
+        if 'input_shape' not in kwargs and 'input_dim' in kwargs:
+            kwargs['input_shape'] = (kwargs.pop('input_dim'),)
+        super(DiffPoly, self).__init__(**kwargs)
+        self.max_deg = max_deg
+        self.input_spec = InputSpec(min_ndim=2)
+        self.supports_masking = True
+
+    def build(self, input_shape):
+        assert len(input_shape) >= 2
+        input_dim = input_shape[-1]
+        # adding a power kernel
+        self.input_spec = InputSpec(min_ndim=2, axes={-1: input_dim})
+        self.built = True
+
+    def call(self, inputs):
+        #
+        output = K.concatenate([K.pow(inputs, i) for i in range(1, self.max_deg
+                                                                + 1)])
+        output = jacobian(output, inputs)
+        # output = K.concatenate([output,K.ones((1,))])
+        return output
+
+    def compute_output_shape(self, input_shape):
+        assert input_shape and len(input_shape) >= 2
+        assert input_shape[-1]
+        output_shape = list(input_shape)
+        # TODO: assuming all monomials are independent of each other for now
+        output_shape.insert(-1,(self.max_deg) * input_shape[-1])
+        return tuple(output_shape)
+
+    def get_config(self):
+        config = {
+            'max_deg': self.max_deg,
+        }
+        base_config = super(DiffPoly, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))
+
 
 
 class ReluOnOff(Layer):
