@@ -1047,13 +1047,11 @@ class TransLayer(Layer):
 class DotKernel(Layer):
 
     # @interfaces.legacy_dense_support
-    def __init__(self, A=None, **kwargs):
+    def __init__(self, A, **kwargs):
         if 'input_shape' not in kwargs and 'input_dim' in kwargs:
             kwargs['input_shape'] = (kwargs.pop('input_dim'),)
         super(DotKernel, self).__init__(**kwargs)
-        self.A = A
-        if K.is_tensor(self.A):
-            self._outdim = K.eval(K.shape(self.A)[-1])
+        self.A = K.variable(A)
         self.input_spec = InputSpec(min_ndim=2)
 
     def build(self, input_shape):
@@ -1064,23 +1062,14 @@ class DotKernel(Layer):
         self.built = True
 
     def call(self, inputs):
-        if self.A is not None:
-            if not K.is_tensor(self.A):
-                self.A = K.variable(self.A)
-            output = K.dot(inputs, self.A)
-        else:
-            output = K.dot(K.transpose(inputs), inputs)
+        output = K.dot(inputs, self.A)
         return output
 
     def compute_output_shape(self, input_shape):
         assert input_shape and len(input_shape) >= 2
         assert input_shape[-1]
-        if self.A is not None:
-            output_shape = list(input_shape)
-            output_shape[-1] = self.A.shape[0]
-        else:
-            output_shape = list(input_shape)
-            output_shape[-1] = input_shape[-1]
+        output_shape = list(input_shape)
+        output_shape[-1] = self.A.shape[0]
         return tuple(output_shape)
 
     def get_config(self):
