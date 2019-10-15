@@ -16,7 +16,7 @@ from keras.layers.merge import _Merge
 
 import numpy as np
 import Plants
-from tensorflow.python.ops.parallel_for.gradients import jacobian
+from tensorflow.python.ops.parallel_for.gradients import jacobian, batch_jacobian
 
 
 class JanetController(RNN):
@@ -1077,10 +1077,7 @@ class DotKernel(Layer):
         assert input_shape[-1]
         if self.A is not None:
             output_shape = list(input_shape)
-            if not K.is_tensor(self.A):
-                output_shape[-1] = self.A.shape[-1]
-            else:
-                output_shape[-1] = self._outdim
+            output_shape[-1] = self.A.shape[0]
         else:
             output_shape = list(input_shape)
             output_shape[-1] = input_shape[-1]
@@ -1329,7 +1326,7 @@ class DiffPoly(Layer):
         #
         output = K.concatenate([K.pow(inputs, i) for i in range(1, self.max_deg
                                                                 + 1)])
-        output = jacobian(output, inputs)
+        output = batch_jacobian(output, inputs)
         # output = K.concatenate([output,K.ones((1,))])
         return output
 
@@ -1338,7 +1335,7 @@ class DiffPoly(Layer):
         assert input_shape[-1]
         output_shape = list(input_shape)
         # TODO: assuming all monomials are independent of each other for now
-        output_shape.insert(-1,(self.max_deg) * input_shape[-1])
+        output_shape.insert(-1, (self.max_deg) * input_shape[-1])
         return tuple(output_shape)
 
     def get_config(self):
@@ -1347,7 +1344,6 @@ class DiffPoly(Layer):
         }
         base_config = super(DiffPoly, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
-
 
 
 class ReluOnOff(Layer):

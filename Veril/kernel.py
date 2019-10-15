@@ -87,7 +87,8 @@ def linear_train():
     A = np.array([[-.1, 0], [1, -2]])
     model = linear_model(2, A)
 
-    # print(model.predict(x))
+    print(model.predict(x))
+
     history = model.fit(x, y, epochs=15, verbose=True, callbacks=callbacks)
     weights = [K.eval(i) for i in model.weights]
     print(weights)
@@ -121,22 +122,26 @@ def threeDdot(x):
     return K.dot(x1,x2)
 
 def threeDdot_shape(input_shapes):
-    # shape1=list(input_shapes[0])
-    # print(shape1)
+
+    shape1=list(input_shapes[0])
     shape2=list(input_shapes[1])
-    del shape2[1]
-    output_shapes = tuple(shape2)
-    print(output_shapes)
-    return output_shapes
+    # print(shape1)
+    # print(shape2)
+    shape1.pop(1)
+    shape2.pop(1)
+    shape2.pop(0)
+    output_shapes = shape1 + shape2
+    # print(output_shapes)
+    return tuple(output_shapes)
 
 def poly_train():
     callbacks = []
-    x, y = get_data(d=1.5,num_grid=4)
+    x, y = get_data(d=1.5,num_grid=2)
     # print(x.shape, y.shape)
     model = polynomial_model(2,3)
-
-    history = model.fit(x, y, epochs=15, verbose=True,
-    callbacks=callbacks)
+    print(model.predict(x))
+    # history = model.fit(x, y, epochs=15, verbose=True,
+    # callbacks=callbacks)
     # weights = [K.eval(i) for i in model.weights]
     # print(weights)
     # weights = np.linalg.multi_dot(weights)
@@ -145,5 +150,6 @@ def poly_train():
     # print(np.linalg.eig(P@A + A.T@P)[0])
     # model_file_name = '/Users/shenshen/Veril/data/Kernel/lyap_model.h5'
     # model.save(model_file_name)
-    return P
-P = poly_train()
+    # return P
+
+poly_train()
