@@ -36,6 +36,36 @@ def linear_model(sys_dim, A):
     return model
 
 
+def polynomial_model(sys_dim, max_deg):
+    # constant = Input(shape=(1,))
+    x = Input(shape=(sys_dim,))
+    phi = Polynomials(max_deg)(x)
+    # phi = Concatenate()([constant,phi])
+
+    layers = [
+        Dense(5, use_bias=False, kernel_regularizer=keras.regularizers.l2(0.)),
+        Dense(3, use_bias=False, kernel_regularizer=keras.regularizers.l2(0.)),
+        Dense(2, use_bias=False, kernel_regularizer=keras.regularizers.l2(0.))
+    ]
+    layers = layers + [TransLayer(i) for i in layers[::-1]]
+    seq_model = Sequential(layers)
+    phiLL = seq_model(phi)
+    # # need to avoid 0 in the denominator (by adding a strictly positive scalar
+    # # to V)
+    V = Dot(1)([phiLL, phiLL])
+    dphidx = DiffPoly(max_deg)(x)
+    fx = Permute((1,2))(Lambda(VDP, Poly_dynamics_shape)(x))
+    dVdx = Lambda(threeDdot,threeDdot_shape)([phiLL,dphidx])
+    # dVdx = Dot((1,2))([phiLL,dphidx])
+    Vdot = Lambda(threeDdot,threeDdot_shape)([dVdx,fx])
+
+    rate = Divide()([Vdot, V])
+    model = Model(inputs=x, outputs=rate)
+    model.compile(loss=negativity, optimizer='adam')
+    print(model.summary())
+    return model
+
+
 def get_data(d=30, num_grid=100):
     x1 = np.linspace(-d, d, num_grid)
     x2 = np.linspace(-d, d, num_grid)
@@ -46,7 +76,7 @@ def get_data(d=30, num_grid=100):
     return [np.array([x1, x2]).T, np.zeros(x1.shape)]
 
 
-def train():
+def linear_train():
     callbacks = []
     # if write_log:
     #     logs_dir = "/Users/shenshen/Veril/data/lyapunov"
@@ -58,13 +88,12 @@ def train():
     model = linear_model(2, A)
 
     # print(model.predict(x))
-    history = model.fit(x, y, epochs=15, verbose=True,
-                        callbacks=callbacks)
+    history = model.fit(x, y, epochs=15, verbose=True, callbacks=callbacks)
     weights = [K.eval(i) for i in model.weights]
     print(weights)
     weights = np.linalg.multi_dot(weights)
     P = weights@weights.T
-    print(np.linalg.eig(P)[0])
+    # print(np.linalg.eig(P)[0]
     print(np.linalg.eig(P@A + A.T@P)[0])
     model_file_name = '/Users/shenshen/Veril/data/Kernel/lyap_model.h5'
     model.save(model_file_name)
@@ -73,4 +102,48 @@ def train():
     # print("Saved model" + model_file_name + "to disk")
     # model
 
-P = train()
+
+def VDP(x):
+    x1 = (K.dot(x, K.constant([1, 0], shape=(2, 1))))
+    x2 = (K.dot(x, K.constant([0, 1], shape=(2, 1))))
+    dx = (K.concatenate([-x2, -(1 - x1**2) * x2 + x1]))
+    return K.expand_dims(dx)
+
+def Poly_dynamics_shape(input_shapes):
+    input_shape = list(input_shapes)
+    input_shape.append(1)
+    output_shapes = tuple(input_shape)
+    return output_shapes
+
+def threeDdot(x):
+    # TODO: write for more than 2 input list
+    x1,x2=x
+    return K.dot(x1,x2)
+
+def threeDdot_shape(input_shapes):
+    # shape1=list(input_shapes[0])
+    # print(shape1)
+    shape2=list(input_shapes[1])
+    del shape2[1]
+    output_shapes = tuple(shape2)
+    print(output_shapes)
+    return output_shapes
+
+def poly_train():
+    callbacks = []
+    x, y = get_data(d=1.5,num_grid=4)
+    # print(x.shape, y.shape)
+    model = polynomial_model(2,3)
+
+    history = model.fit(x, y, epochs=15, verbose=True,
+    callbacks=callbacks)
+    # weights = [K.eval(i) for i in model.weights]
+    # print(weights)
+    # weights = np.linalg.multi_dot(weights)
+    # P = weights@weights.T
+    # print(np.linalg.eig(P)[0])
+    # print(np.linalg.eig(P@A + A.T@P)[0])
+    # model_file_name = '/Users/shenshen/Veril/data/Kernel/lyap_model.h5'
+    # model.save(model_file_name)
+    return P
+P = poly_train()
