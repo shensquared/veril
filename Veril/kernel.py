@@ -6,6 +6,7 @@ from CustomLayers import *
 import keras
 from keras.utils import CustomObjectScope
 
+# TODO: understand K.dot vs K.batch_dot
 
 def negativity(y_true, y_pred):
     return K.max(y_pred)
@@ -43,24 +44,26 @@ def polynomial_model(sys_dim, max_deg):
     # phi = Concatenate()([constant,phi])
 
     layers = [
-        Dense(5, use_bias=False, kernel_regularizer=keras.regularizers.l2(0.)),
-        Dense(3, use_bias=False, kernel_regularizer=keras.regularizers.l2(0.)),
-        Dense(2, use_bias=False, kernel_regularizer=keras.regularizers.l2(0.))
+        Dense(1, use_bias=False, kernel_regularizer=keras.regularizers.l2(0.)),
+        Dense(1, use_bias=False, kernel_regularizer=keras.regularizers.l2(0.)),
+        Dense(1, use_bias=False, kernel_regularizer=keras.regularizers.l2(0.))
     ]
     layers = layers + [TransLayer(i) for i in layers[::-1]]
     seq_model = Sequential(layers)
     phiLL = seq_model(phi)
     # # need to avoid 0 in the denominator (by adding a strictly positive scalar
     # # to V)
-    V = Dot(1)([phiLL, phiLL])
+    # V = Dot(1)([phiLL, phiLL])
     dphidx = DiffPoly(max_deg)(x)
     fx = Permute((1,2))(Lambda(VDP, Poly_dynamics_shape)(x))
-    dVdx = Lambda(threeDdot,threeDdot_shape)([phiLL,dphidx])
-    # dVdx = Dot((1,2))([phiLL,dphidx])
-    Vdot = Lambda(threeDdot,threeDdot_shape)([dVdx,fx])
+    # dVdx = Lambda(threeDdot,threeDdot_shape)([phiLL,dphidx])
+    dVdx = Dot(1)([phiLL,dphidx])
+    Vdot = Dot(1)([dVdx, fx])
+    # dVdx = SimpleDot(-1)([dphidx,phiLL])
+    # Vdot = Lambda(threeDdot,threeDdot_shape)([dVdx,fx])
 
-    rate = Divide()([Vdot, V])
-    model = Model(inputs=x, outputs=rate)
+    # rate = Divide()([Vdot, dVdx])
+    model = Model(inputs=x, outputs=Vdot)
     model.compile(loss=negativity, optimizer='adam')
     print(model.summary())
     return model
