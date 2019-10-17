@@ -26,38 +26,14 @@ elif plant is 'vdp':
     xdot = -np.array([x[1], -x[0] - x[1] * (x[0]**2 - 1)])
 
 options = opt(nx, converged_tol = 1e-2, degL1=6, degL2=6, degV=4,
-   max_iterations=100)
+   max_iterations=100, degVdot = 6)
 J = Jacobian(xdot, x)
 env = dict(zip(x, np.zeros(x.shape)))
 A = np.array([[i.Evaluate(env) for i in j]for j in J])
 S0 = solve_lyapunov(A.T, -np.eye(nx))
 V0 = (x.T@S0@x)
 
-bilinear(V0, xdot, S0, A, options)
-
-
-def levelsetMethod(x, f, V, options):
-    prog = MathematicalProgram()
-    prog.AddIndeterminates(x)
-    # % construct multipliers for Vdot
-    L1 = prog.NewFreePolynomial(Variables(x), options.degL1).ToExpression()
-    # % construct Vdot
-    Vdot = clean(V.Jacobian(x) @ f)
-    # % construct slack var
-    sigma1 = prog.NewContinuousVariables(1, "s")[0]
-    prog.AddSosConstraint((x.T@x)**4 * (V - sigma1) + L1 * Vdot)
-    # add cost
-    prog.AddCost(-sigma1)
-
-    solver = MosekSolver()
-    solver.set_stream_logging(False, "")
-    result = solver.Solve(prog, None, None)
-    # print('w/ solver %s' % (result.get_solver_id().name()))
-    assert result.is_success()
-    L1 = result.GetSolution(L1)
-    sigma1 = result.GetSolution(sigma1)
-    print(sigma1)
-    return sigma1
+levelsetMethod(x, V0, xdot, options)
 
 
 # def findL1(old_x, f, V, options):
