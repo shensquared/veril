@@ -21,14 +21,16 @@ from keras import backend as K
 
 class opt:
     # optimization options
+
     def __init__(self, nX, converged_tol=.01, max_iterations=10, degL1=4,
-                 degL2=4, degV=2):
+                 degL2=4, degV=2, degVdot=0):
         self.degV = degV
         self.max_iterations = max_iterations
         self.converged_tol = converged_tol
         self.degL1 = degL1
         self.degL2 = degL2
         self.nX = nX
+        self.degVdot = degVdot
 
 
 def originalSysInitialV(CL):
@@ -43,8 +45,8 @@ def originalSysInitialV(CL):
         # full_states = np.hstack((x, c))
         # basis = [sym.Monomial(_) for _ in full_states]
         prog = MathematicalProgram()
-            # constant = prog.NewIndeterminates(1, 'constant')
-            # basis = [sym.Monomial(constant[0], 0)]
+        # constant = prog.NewIndeterminates(1, 'constant')
+        # basis = [sym.Monomial(constant[0], 0)]
         x = prog.NewIndeterminates(full_dim, "x")
         P = prog.NewSymmetricContinuousVariables(full_dim, "P")
         prog.AddPositiveSemidefiniteConstraint(P)
@@ -155,13 +157,14 @@ def balanceQuadForm(S, P):
 
 
 def balance(x, V, f, S, A):
-    # if S is None:
-    #     S = .5 * (Substitute(Jacobian(Jacobian(V, x).T, x), x, 0 * x))
-    # if A is None:
-    #     J = Jacobian(f, x)
-    #     env = dict(zip(x, np.zeros(x.shape)))
-    #     mapping = dict(zip(x, x0))
-    #     A = np.array([[i.Evaluate(env) for i in j]for j in J])
+    if S is None:
+        H = Jacobian(V.Jacobian(x).T, x)
+        env = dict(zip(x, np.zeros(x.shape)))
+        S = .5 * np.array([[i.Evaluate(env) for i in j]for j in H])
+    if A is None:
+        J = Jacobian(f, x)
+        env = dict(zip(x, np.zeros(x.shape)))
+        A = np.array([[i.Evaluate(env) for i in j]for j in J])
     [T, D] = balanceQuadForm(S, (S@A + A.T@S))
     # print('T is %s' % (T))
     # Sbal = (T.T)@(S)@(T)
@@ -300,6 +303,39 @@ def optimizeV(x, f, L1, L2, V0, sigma1, options):
     # print('rho is %s' % (rho))
     return V, rho
 
+
+def levelsetMethod(x, V0, f, options):
+    prog = MathematicalProgram()
+    prog.AddIndeterminates(x)
+    [T, V, f, _, _] = balance(x, V0, f, None, None)
+    # % construct Vdot
+    Vdot = clean(V.Jacobian(x) @ f)
+
+    H = Jacobian(Vdot.Jacobian(x).T, x)
+    env = dict(zip(x, np.zeros(x.shape)))
+    H = .5 * np.array([[i.Evaluate(env) for i in j]for j in H])
+    assert (np.all(eig(H)[0] <= 0))
+    # % construct slack var
+    sigma1 = prog.NewContinuousVariables(1, "s")[0]
+    L1 = prog.NewFreePolynomial(Variables(x), options.degL1).ToExpression()
+
+    prog.AddSosConstraint((x.T@x)**np.floor(options.degL1 + options.degV / 2 -
+                                            options.degVdot) * (V - sigma1) + L1 * Vdot)
+    # add cost
+    prog.AddCost(-sigma1)
+
+    solver = MosekSolver()
+    solver.set_stream_logging(False, "")
+    result = solver.Solve(prog, None, None)
+    # print('w/ solver %s' % (result.get_solver_id().name()))
+    assert result.is_success()
+    L1 = result.GetSolution(L1)
+    sigma1 = result.GetSolution(sigma1)
+    print(sigma1)
+    V = V / sigma1
+    V = V.Substitute(dict(zip(x, inv(T) @ x)))
+    print(V)
+    return V
 # def clean(a,tol=1e-6):
 #     [x,p,M]=decomp(a)
 #     M(abs(M)<tol)=0

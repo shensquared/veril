@@ -5,7 +5,7 @@ from keras import backend as K
 from CustomLayers import *
 import keras
 from keras.utils import CustomObjectScope
-
+from Verifier import *
 '''
 A note about the DOT layer: if input is 1: (None, a) and 2: (None, a) then no
 need to do transpose, direct Dot()(1,2) and the output works correctly with
@@ -51,7 +51,7 @@ def linear_model(sys_dim, A):
     # need to avoid 0 in the denominator (by adding a strictly positive scalar
     # to V)
     V = Dot(1)([xLL, x])  # V: (None, 1)
-    xLLA = DotKernel(A)(xLL) # A: (sys_dim,sys_dim), xLLA: (None, sys_dim)
+    xLLA = DotKernel(A)(xLL)  # A: (sys_dim,sys_dim), xLLA: (None, sys_dim)
     Vdot = Dot(1)([xLLA, x])  # Vdot: (None,1)
     rate = Divide()([Vdot, V])
 
@@ -99,7 +99,7 @@ def poly_model(sys_dim, max_deg=4):
     V = Dot(1)([phiLL, phi])  # V: (None,1)
     dphidx = DiffPoly(max_deg)(x)  # dphidx: (None, monomial_dim, sys_dm)
     phiLLdphidx = Dot(1)([phiLL, dphidx])  # (None, sys_dim)
-    fx = Lambda(VDP, Poly_dynamics_shape)(x) # (None, sys_dim)
+    fx = Lambda(VDP, Poly_dynamics_shape)(x)  # (None, sys_dim)
     Vdot = Dot(1)([phiLLdphidx, fx])  # (None, 1)
 
     rate = Divide()([Vdot, V])
@@ -120,21 +120,35 @@ def Poly_dynamics_shape(input_shapes):
     return input_shapes
 
 
-def poly_train():
+def poly_train(max_deg=1,model=None,V=None):
     callbacks = []
-    sys_dim =2
-    x, y = get_data(d=1)
-    model = poly_model(sys_dim, max_deg = 3)
+    sys_dim = 2
+    x, y = get_data(d=.5)
+    if model is None:
+        model = poly_model(sys_dim, max_deg=max_deg)
     # print(model.predict(x))
     history = model.fit(x, y, epochs=150, verbose=True,
                         callbacks=callbacks)
-    # weights = [K.eval(i) for i in model.weights]
-    # print(weights)
-    # weights = np.linalg.multi_dot(weights)
-    # P = weights@weights.T
+    weights = [K.eval(i) for i in model.weights]
+    weights = np.linalg.multi_dot(weights)
+    P = weights@weights.T
     # print(np.linalg.eig(P)[0])
     # print(np.linalg.eig(P@A + A.T@P)[0])
-    # model_file_name = '/Users/shenshen/Veril/data/Kernel/lyap_model.h5'
-    # model.save(model_file_name)
-    # return P
-poly_train()
+    model_file_name = '/Users/shenshen/Veril/data/Kernel/poly_model.h5'
+    model.save(model_file_name)
+    return P
+nx=2
+options = opt(nx, converged_tol = 1e-2, degL1=6, degL2=6, degV=4,
+   max_iterations=100)
+max_deg=2
+# P = poly_train(max_deg=max_deg)
+# np.save('/Users/shenshen/Veril/data/Kernel/poly_P.npy',P)
+P = np.load('/Users/shenshen/Veril/data/Kernel/poly_P.npy')
+prog = MathematicalProgram()
+x = prog.NewIndeterminates(nx, "x")
+f = -np.array([x[1], -x[0] - x[1] * (x[0]**2 - 1)])
+phi = np.array([sym.pow(j, i) for i in range(1, max_deg+1)  for j in x ])
+V0 = phi.T@P@phi
+V = levelsetMethod(x, V0, f, options)
+
+
