@@ -23,7 +23,7 @@ class opt:
     # optimization options
 
     def __init__(self, nX, converged_tol=.01, max_iterations=10, degL1=4,
-                 degL2=4, degV=2, degVdot=0):
+                 degL2=4, degV=2, degVdot=0, do_balance = False):
         self.degV = degV
         self.max_iterations = max_iterations
         self.converged_tol = converged_tol
@@ -31,6 +31,7 @@ class opt:
         self.degL2 = degL2
         self.nX = nX
         self.degVdot = degVdot
+        self.do_balance = do_balance
 
 
 def originalSysInitialV(CL):
@@ -180,9 +181,12 @@ def clean(poly, tol=1e-9):
 
 
 def bilinear(V0, f, S0, A, options):
-    x = list(V0.GetVariables())
+    x = np.array(list(V0.GetVariables()))
     V = V0
-    [T, V0bal, fbal, S0, A] = balance(x, V0, f, S0, A)
+    if options.do_balance:
+        [T, V0bal, fbal, S0, A] = balance(x, V0, f, S0, A)
+    else:
+        T, V0bal, fbal = np.eye(options.nX), V0, f
     rho = 1
     vol = 0
     for iter in range(options.max_iterations):
@@ -190,7 +194,10 @@ def bilinear(V0, f, S0, A, options):
         last_vol = vol
 
         # balance on every iteration (since V and Vdot are changing):
-        [T, Vbal, fbal] = balance(x, V, f, S0 / rho, A)[0:3]
+        if options.do_balance:
+            [T, Vbal, fbal] = balance(x, V, f, S0 / rho, A)[0:3]
+        else:
+            T, Vbal, fbal = np.eye(options.nX), V, f
         # print('T is %s' % (T))
         V0bal = V0.Substitute(dict(zip(x, T@x)))
         # env = dict(zip(list(V0bal.GetVariables()), np.array([1, 2.31])))
@@ -236,9 +243,9 @@ def findL1(x, f, V, options):
     prog.AddCost(-sigma1)
     # result = Solve(prog)
     solver = MosekSolver()
-    solver.set_stream_logging(False, "")
+    solver.set_stream_logging(True, "")
     result = solver.Solve(prog, None, None)
-    # print(result.get_solution_result())
+    print(result.get_solution_result())
     assert result.is_success()
     L1 = (result.GetSolution(L1))
     sigma1 = result.GetSolution(sigma1)
@@ -307,13 +314,18 @@ def optimizeV(x, f, L1, L2, V0, sigma1, options):
 def levelsetMethod(x, V0, f, options):
     prog = MathematicalProgram()
     prog.AddIndeterminates(x)
-    [T, V, f, _, _] = balance(x, V0, f, None, None)
+    if options.do_balance:
+        [T, V, f, _, _] = balance(x, V0, f, None, None)
+    else:
+        T, V, f = np.eye(options.nX), V0, f
     # % construct Vdot
     Vdot = clean(V.Jacobian(x) @ f)
 
     H = Jacobian(Vdot.Jacobian(x).T, x)
     env = dict(zip(x, np.zeros(x.shape)))
     H = .5 * np.array([[i.Evaluate(env) for i in j]for j in H])
+    print((eig(H)[0]))
+
     assert (np.all(eig(H)[0] <= 0))
     # % construct slack var
     sigma1 = prog.NewContinuousVariables(1, "s")[0]
@@ -325,16 +337,17 @@ def levelsetMethod(x, V0, f, options):
     prog.AddCost(-sigma1)
 
     solver = MosekSolver()
-    solver.set_stream_logging(False, "")
+    solver.set_stream_logging(True, "")
     result = solver.Solve(prog, None, None)
+    print(result.get_solution_result())
     # print('w/ solver %s' % (result.get_solver_id().name()))
     assert result.is_success()
     L1 = result.GetSolution(L1)
     sigma1 = result.GetSolution(sigma1)
-    print(sigma1)
+    # print(sigma1)
     V = V / sigma1
-    V = V.Substitute(dict(zip(x, inv(T) @ x)))
-    print(V)
+    # V = V.Substitute(dict(zip(x, inv(T) @ x)))
+    # print(V)
     return V
 # def clean(a,tol=1e-6):
 #     [x,p,M]=decomp(a)
