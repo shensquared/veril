@@ -1399,3 +1399,56 @@ class Scaling(Layer):
         return input_shape
 
 
+class ConstantLayer(Layer):
+    def __init__(self,
+                 activation=None,
+                 use_bias=False,
+                 kernel_initializer='glorot_uniform',
+                 bias_initializer='zeros',
+                 kernel_regularizer=None,
+                 bias_regularizer=None,
+                 activity_regularizer=None,
+                 kernel_constraint=None,
+                 bias_constraint=None,
+                 **kwargs):
+        if 'input_shape' not in kwargs and 'input_dim' in kwargs:
+            kwargs['input_shape'] = (kwargs.pop('input_dim'),)
+        super(ConstantLayer, self).__init__(**kwargs)
+        self.activation = activations.get(activation)
+        self.use_bias = use_bias
+        self.kernel_initializer = initializers.get(kernel_initializer)
+        self.bias_initializer = initializers.get(bias_initializer)
+        self.kernel_regularizer = regularizers.get(kernel_regularizer)
+        self.bias_regularizer = regularizers.get(bias_regularizer)
+        self.activity_regularizer = regularizers.get(activity_regularizer)
+        self.kernel_constraint = constraints.get(kernel_constraint)
+        self.bias_constraint = constraints.get(bias_constraint)
+        self.input_spec = InputSpec(min_ndim=2)
+        self.supports_masking = True
+
+
+    def build(self, input_shape):
+        assert len(input_shape) >= 2
+        input_dim = input_shape[-1]
+        self.kernel = self.add_weight(shape=(1,5),
+                                      initializer=self.kernel_initializer,
+                                      name='kernel',
+                                      regularizer=self.kernel_regularizer,
+                                      constraint=self.kernel_constraint)
+        self.input_spec = InputSpec(min_ndim=2, axes={-1: input_dim})
+        self.built = True
+
+    def call(self, inputs):
+        # TODO: the rho values needs work
+        rho = K.batch_dot(self.kernel, K.transpose(self.kernel))
+        output = K.tile(rho,3)
+        return output
+
+    def compute_output_shape(self, input_shape):
+        return tuple(input_shape)
+
+    def get_config(self):
+        config = {
+        }
+        base_config = super(ConstantLayer, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))

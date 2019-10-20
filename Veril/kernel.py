@@ -81,10 +81,10 @@ def linear_train():
 
 
 def poly_model(sys_dim, max_deg=4):
-    # constant = Input(shape=(1,))
+    # ones = Input(shape=(1,))
     x = Input(shape=(sys_dim,))  # x: (None, sys_dim)
     phi = Polynomials(max_deg)(x)  # phi: (None, monomial_dim)
-    # phi = Concatenate()([constant,phi])
+    # phi = Concatenate()([ones,phi])
 
     layers = [
         Dense(10, use_bias=False, kernel_regularizer=keras.regularizers.l2(0.)),
@@ -93,7 +93,7 @@ def poly_model(sys_dim, max_deg=4):
     ]
     layers = layers + [TransLayer(i) for i in layers[::-1]]
     phiLL = Sequential(layers)(phi)  # phiLL: (None, monomial_dim)
-
+    # rho = ConstantLayer()(x)
     # # need to avoid 0 in the denominator (by adding a strictly positive scalar
     # # to V)
     V = Dot(1)([phiLL, phi])  # V: (None,1)
@@ -103,7 +103,7 @@ def poly_model(sys_dim, max_deg=4):
     Vdot = Dot(1)([phiLLdphidx, fx])  # (None, 1)
 
     rate = Divide()([Vdot, V])
-    model = Model(inputs=x, outputs=rate)
+    model = Model(inputs=x, outputs=rho)
     model.compile(loss=negativity, optimizer='adam')
     print(model.summary())
     return model
@@ -120,7 +120,7 @@ def Poly_dynamics_shape(input_shapes):
     return input_shapes
 
 
-def poly_train(max_deg=1,model=None,V=None):
+def poly_train(max_deg=1, model=None, V=None):
     callbacks = []
     sys_dim = 2
     x, y = get_data(d=.5)
@@ -137,18 +137,17 @@ def poly_train(max_deg=1,model=None,V=None):
     model_file_name = '/Users/shenshen/Veril/data/Kernel/poly_model.h5'
     model.save(model_file_name)
     return P
-nx=2
-options = opt(nx, converged_tol = 1e-2, degL1=6, degL2=6, degV=4,
-   max_iterations=100)
-max_deg=2
-# P = poly_train(max_deg=max_deg)
+nx = 2
+options = opt(nx, converged_tol=1e-2, degL1=6, degL2=6, degV=4,
+              max_iterations=100)
+max_deg = 2
+P = poly_train(max_deg=max_deg)
+
 # np.save('/Users/shenshen/Veril/data/Kernel/poly_P.npy',P)
-P = np.load('/Users/shenshen/Veril/data/Kernel/poly_P.npy')
-prog = MathematicalProgram()
-x = prog.NewIndeterminates(nx, "x")
-f = -np.array([x[1], -x[0] - x[1] * (x[0]**2 - 1)])
-phi = np.array([sym.pow(j, i) for i in range(1, max_deg+1)  for j in x ])
-V0 = phi.T@P@phi
-V = levelsetMethod(x, V0, f, options)
-
-
+# P = np.load('/Users/shenshen/Veril/data/Kernel/poly_P.npy')
+# prog = MathematicalProgram()
+# x = prog.NewIndeterminates(nx, "x")
+# f = -np.array([x[1], -x[0] - x[1] * (x[0]**2 - 1)])
+# phi = np.array([sym.pow(j, i) for i in range(1, max_deg+1)  for j in x ])
+# V0 = phi.T@P@phi
+# V = levelsetMethod(x, V0, f, options)
