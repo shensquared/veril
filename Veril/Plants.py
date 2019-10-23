@@ -255,7 +255,7 @@ class Satellite(Plant):
         print(K.eval(K.concatenate([w2, phi2])))
 
 
-class VanderPol():
+class VanderPol(Plant):
 
     def __init__(self, dt, num_states=2, num_inputs=1, num_outputs=1):
         self.name = 'VDP'
