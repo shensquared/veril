@@ -166,8 +166,8 @@ class Satellite(Plant):
         v3 = K.dot(v, K.constant([0, 0, 1], shape=(3, 1)))
         # u1, u2, u3 = tf.split(u, 3)
         # v1, v2, v3 = tf.split(v, 3)
-        return K.concatenate([(u2 * v3) - (u3 * v2), (u3 * v1) - (u1 * v3), (u1 *
-                                                                             v2) - (u2 * v1)])
+        return K.concatenate([(u2 * v3) - (u3 * v2), (u3 * v1) - (u1 * v3),
+                              (u1 * v2) - (u2 * v1)])
 
     def step(self, x, u):
         H = K.constant(np.diag([2, 1, .5]))
@@ -179,7 +179,8 @@ class Satellite(Plant):
         w = K.dot(x, K.constant([[1, 0, 0], [0, 1, 0], [0, 0, 1], [0, 0, 0],
                                  [0, 0, 0], [0, 0, 0]], shape=(6, 3)))
         phi = K.dot(x, K.constant([[0, 0, 0], [0, 0, 0], [0, 0, 0],
-                                   [1, 0, 0], [0, 1, 0], [0, 0, 1]], shape=(6, 3)))
+                                   [1, 0, 0], [0, 1, 0], [0, 0, 1]],
+                                  shape=(6, 3)))
         # CT dynamics:
         # H*dot(w)=-Sigma(w)*H*w+u, or equivalently:
         # dot(w)=H_inv*(-Sigma(w)*H*w+u), forward Euler
@@ -244,14 +245,15 @@ class Satellite(Plant):
         # w2=w+(H_inv.dot(np.dot(-self.Sigma(w),np.dot(H,w))+u))*self.dt
         # _ = np.linalg.multi_dot([H_inv,-self.Sigma(w),H,w])*self.dt
         # dot prod realization
-        _ = K.transpose(K.dot(K.dot(K.dot(H_inv, -self.Sigma(w)), H), K.transpose
-                              (w))) * self.dt
+        _ = K.transpose(K.dot(K.dot(K.dot(H_inv, -self.Sigma(w)), H),
+                              K.transpose(w))) * self.dt
         w2 = (w + _) + K.transpose(K.dot(H_inv, K.transpose(u)) * self.dt)
 
         # dot(phi)=.5*(eye+phi*phi.T+Sigma(phi))*w
         # dot product realization
-        phi2 = phi + K.transpose(.5 * K.dot((eye3 + self.Sigma(phi) + K.dot(K.transpose
-                                                                            (phi), phi)), K.transpose(w))) * self.dt
+        phi2 = phi + K.transpose(.5 * K.dot((eye3 + self.Sigma(phi) +
+                                             K.dot(K.transpose(phi), phi)),
+                                            K.transpose(w))) * self.dt
         print(K.eval(K.concatenate([w2, phi2])))
 
 
