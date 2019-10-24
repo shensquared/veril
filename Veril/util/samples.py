@@ -11,16 +11,22 @@ def get_data(d=10, num_grid=100):
     x1, x2 = x1.ravel(), x2.ravel()
     return [np.array([x1, x2]).T, np.zeros(x1.shape)]
 
-def withinLevelSet(x,V):
-    y, max_r, min_r = levelsetData(x,V)
-    samples = get_data(max_r,num_grid=200)[0]
-    points = np.zeros((1, 2))
+
+def withinLevelSet(x, V):
+    y, max_r, min_r = levelsetData(x, V)
+    samples = get_data(max_r, num_grid=200)[0]
+    in_points = np.zeros((1, 2))
+    # out_points = np.zeros((1, 2))
     for s in samples:
         env = dict(zip(x, s.T))
         if V.Evaluate(env) <= 1:
-            points = np.vstack((points, s))
-    points = points[1:,:]
-    return points,np.zeros(points.shape[0])
+            in_points = np.vstack((in_points, s))
+        # else:
+            # out_points = np.vstack((out_points, s))
+    in_points = in_points[1:, :]
+    # out_points = out_points[1:, :]
+    return in_points, np.zeros(in_points.shape[0])
+
 
 def levelsetData(x, V, num_grid=100):
     # TODO  % move to origin
@@ -61,6 +67,7 @@ def levelsetData(x, V, num_grid=100):
 
 # Assumes that the function is radially monotonic.  This could
 # break things later.
+
 
 def getRadii(thetas, x, V):  # needs to be vectorized
     n = thetas.shape[0]
