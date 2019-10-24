@@ -144,7 +144,15 @@ def run():
     phi = np.hstack((phi, x[0] * x[1]))
     options = opt(nx, do_balance=False, degV=4, degVdot=6,
                       converged_tol=1e-2, degL1=6, degL2=6, max_iterations=20)
-    V=None
+    # V=None
+
+    x1 = x[0]
+    x2 = x[1]
+    V = (1.8027e-06) + (0.28557) * x1**2 + (0.0085754) * x1**4 + (0.18442) * x2**2 + (0.016538) * x2**4 + \
+        (-0.34562) * x2 * x1 + (0.064721) * x2 * x1**3 + \
+        (0.10556) * x2**2 * x1**2 + (-0.060367) * x2**3 * x1
+
+    plotFunnel(x, V)
     for i in range(options.max_iterations):
         P, model, history = poly_train(nx, x, V, max_deg=max_deg)
         if history.history['loss'][-1] >= 0:
