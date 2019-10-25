@@ -17,8 +17,6 @@ from keras import backend as K
 
 
 class opt:
-    # optimization options
-
     def __init__(self, nX, converged_tol=.01, max_iterations=10, degL1=4,
                  degL2=4, degV=2, degVdot=0, do_balance = False):
         self.degV = degV
@@ -72,9 +70,19 @@ def originalSysInitialV(CL):
 
 
 def augDynamics(CL):
+    """Summary
     # returns the CONTINUOUS TIME closed-loop dynamics of the augmented states,
     # which include the plant state x, the RNN state c, the added two states
     # from the tanh nonlinearity, tau_c, and tau_f
+    Args:
+        CL (TYPE): closed-loop system dynamics
+
+    Returns:
+        all states (plant, controller, plus the recasted ones)
+        polynomial dynamics of the all-states
+
+    """
+
     output_kernel = (K.eval(CL.cell.output_kernel)).T
     feedthrough_kernel = (K.eval(CL.cell.feedthrough_kernel)).T
     recurrent_kernel_f = (K.eval(CL.cell.recurrent_kernel_f)).T
@@ -105,6 +113,18 @@ def augDynamics(CL):
 
 
 def linearizeAugDynamics(x, f):
+    """
+    linearize f, which is the augmented (via the change of variable recasting)
+    w.r.t. the states x.
+
+    Args:
+        x (TYPE): States
+        f (TYPE): the augmented dynamics
+
+    Returns:
+        TYPE: the linearization, evaluated at zero
+    """
+    # TODO: for now linearize at zero, need to linearize at plant.x0
     J = Jacobian(f, x)
     env = dict(zip(x, np.zeros(x.shape)))
     A = np.array([[i.Evaluate(env) for i in j]for j in J])
@@ -348,6 +368,49 @@ def levelsetMethod(x, V0, f, options):
     V = V.Substitute(dict(zip(x, inv(T) @ x)))
     # print(V)
     return V
+
+
+# def signFlipMethod(x, V0, f, options):
+#     prog = MathematicalProgram()
+#     prog.AddIndeterminates(x)
+#     if options.do_balance:
+#         [T, V, f, _, _] = balance(x, V0, f, None, None)
+#     else:
+#         T, V, f = np.eye(options.nX), V0, f
+#     # % construct Vdot
+#     Vdot = clean(V.Jacobian(x) @ f)
+
+#     H = Jacobian(Vdot.Jacobian(x).T, x)
+#     env = dict(zip(x, np.zeros(x.shape)))
+#     H = .5 * np.array([[i.Evaluate(env) for i in j]for j in H])
+#     print((eig(H)[0]))
+
+#     assert (np.all(eig(H)[0] <= 0))
+#     # % construct slack var
+#     rho = prog.NewContinuousVariables(1, "r")[0]
+#     sigma1 = prog.NewContinuousVariables(1, "s")[0]
+#     prog.AddConstraint(sigma1 >= 0)
+
+#     # L1 = prog.NewFreePolynomial(Variables(x), options.degL1).ToExpression()
+
+#     prog.AddSosConstraint(Vdot*(V - rho))
+#     # add cost
+#     prog.AddCost(-rho)
+
+#     solver = MosekSolver()
+#     solver.set_stream_logging(True, "")
+#     result = solver.Solve(prog, None, None)
+#     print(result.get_solution_result())
+#     # print('w/ solver %s' % (result.get_solver_id().name()))
+#     assert result.is_success()
+#     # L1 = result.GetSolution(L1)
+#     rho = result.GetSolution(rho)
+#     # print(sigma1)
+#     V = V / rho
+#     V = V.Substitute(dict(zip(x, inv(T) @ x)))
+#     # print(V)
+#     return V
+
 # def clean(a,tol=1e-6):
 #     [x,p,M]=decomp(a)
 #     M(abs(M)<tol)=0
