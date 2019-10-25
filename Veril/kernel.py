@@ -142,7 +142,7 @@ def run():
     f = -np.array([x[1], -x[0] - x[1] * (x[0]**2 - 1)])
     phi = np.array([sym.pow(j, i) for i in range(1, max_deg + 1) for j in x])
     phi = np.hstack((phi, x[0] * x[1]))
-    options = opt(nx, do_balance=False, degV=4, degVdot=6,
+    options = opt(nx, do_balance=True, degV=4, degVdot=6,
                       converged_tol=1e-2, degL1=6, degL2=6, max_iterations=20)
     # V=None
 
@@ -151,9 +151,10 @@ def run():
     V = (1.8027e-06) + (0.28557) * x1**2 + (0.0085754) * x1**4 + (0.18442) * x2**2 + (0.016538) * x2**4 + \
         (-0.34562) * x2 * x1 + (0.064721) * x2 * x1**3 + \
         (0.10556) * x2**2 * x1**2 + (-0.060367) * x2**3 * x1
+    V=V/1.1
 
-    plotFunnel(x, V)
-    for i in range(options.max_iterations):
+    # plotFunnel(x, V)
+    for i in range(1):
         P, model, history = poly_train(nx, x, V, max_deg=max_deg)
         if history.history['loss'][-1] >= 0:
             break
@@ -164,6 +165,8 @@ def run():
             V0 = phi.T@P@phi
             V = levelsetMethod(x, V0, f, options)
             plotFunnel(x, V)
+            # V = bilinear(x, V0, f, None, None, options)
+            # plotFunnel(x, V)
     return V
 
 run()

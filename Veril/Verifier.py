@@ -11,12 +11,9 @@ from pydrake.all import (MathematicalProgram, Polynomial,
                          Variables, Solve, Jacobian, Evaluate,
                          RealContinuousLyapunovEquation, Substitute,
                          MosekSolver)
-# import Plants
+
 from Veril import Plants
 from keras import backend as K
-# import matplotlib
-# import matplotlib.pyplot as plt
-# matplotlib.use('TkAgg')
 
 
 class opt:
@@ -180,8 +177,8 @@ def clean(poly, tol=1e-9):
     return poly.RemoveTermsWithSmallCoefficients(tol).ToExpression()
 
 
-def bilinear(V0, f, S0, A, options):
-    x = np.array(list(V0.GetVariables()))
+def bilinear(x, V0, f, S0, A, options):
+    # x = np.array(list(V0.GetVariables()))
     V = V0
     if options.do_balance:
         [T, V0bal, fbal, S0, A] = balance(x, V0, f, S0, A)
@@ -274,6 +271,7 @@ def findL2(x, V, V0, rho, options):
     solver.set_stream_logging(False, "")
     result = solver.Solve(prog, None, None)
     # print(result.get_solution_result())
+    assert result.is_success()
     L2 = (result.GetSolution(L2))
     # print(L2.Evaluate(env))
     return L2
@@ -304,6 +302,7 @@ def optimizeV(x, f, L1, L2, V0, sigma1, options):
     solver.set_stream_logging(False, "")
     result = solver.Solve(prog, None, None)
     # print(result.get_solution_result())
+    assert result.is_success()
     V = result.GetSolution(V)
     # print(clean(V))
     rho = result.GetSolution(rho)
@@ -346,7 +345,7 @@ def levelsetMethod(x, V0, f, options):
     sigma1 = result.GetSolution(sigma1)
     # print(sigma1)
     V = V / sigma1
-    # V = V.Substitute(dict(zip(x, inv(T) @ x)))
+    V = V.Substitute(dict(zip(x, inv(T) @ x)))
     # print(V)
     return V
 # def clean(a,tol=1e-6):
