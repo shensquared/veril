@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from util.samples import *
 
 def plotFunnel(x, V):
-  xlim = np.load('../data/VanDerPol_limitCycle.npy')
+  xlim = np.load('../data/VDP/VanDerPol_limitCycle.npy')
   fig, ax = plt.subplots()
   bdry = ax.plot(xlim[0, :], xlim[1, :], label='ROA boundary')
   samples = levelsetData(x,V)[0]
