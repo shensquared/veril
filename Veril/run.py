@@ -18,16 +18,16 @@ from CustomLayers import JanetController
 from Verifier import *
 
 
-num_units = 2
-# plant_name = "DoubleIntegrator"
-plant_name = "Satellite"
+num_units = 4
+plant_name = "DoubleIntegrator"
+# plant_name = "Satellite"
 # plant_name = "Pendulum"
-timesteps = 500
+timesteps = 100
 NNorCL = 'CL'
 
 
 def train(plant_name=None, num_units=4, timesteps=100,
-          num_samples=10000, batch_size=1, epochs=3, dt=1e-3, obs_idx=None,
+          num_samples=100, batch_size=1, epochs=3, dt=1e-3, obs_idx=None,
           tag='', pre_trained=None):
     plant = Plants.get(plant_name, dt, obs_idx)
     if pre_trained is None:
@@ -55,9 +55,12 @@ def train(plant_name=None, num_units=4, timesteps=100,
                                  period=1)]
     print('Train...')
     [x_train, y_train] = plant.get_data(num_samples, timesteps, num_units)
-    model.fit(x_train, y_train, batch_size=batch_size,
-              epochs=epochs, callbacks=callbacks)
-
+    history = model.fit(x_train, y_train, batch_size=batch_size,
+                        epochs=epochs, callbacks=callbacks)
+    last_loss = history.history['loss'][-1]
+    model_file_name = dirname + plant.name + '/' + \
+        'unit' + str(num_units) + 'step' + str(timesteps) + 'loss' + \
+        str(last_loss) + tag + '.h5'
     model.save(model_file_name)
     print("Saved model " + model_file_name + " to disk")
 
@@ -88,6 +91,5 @@ def get_NNorCL(num_units, plant_name, timesteps, tag='', NNorCL='CL'):
 # train(pre_trained=NN, plant_name=plant_name, num_units=num_units,
 # timesteps=timesteps, batch_size=1,epochs=3)
 
-# train(pre_trained=None, plant_name=plant_name, num_units=num_units,
-      # timesteps=timesteps, batch_size=1,epochs=3)
-
+train(pre_trained=None, plant_name=plant_name, num_units=num_units,
+      timesteps=timesteps, batch_size=10, epochs=3)
