@@ -22,12 +22,12 @@ num_units = 4
 plant_name = "DoubleIntegrator"
 # plant_name = "Satellite"
 # plant_name = "Pendulum"
-timesteps = 100
+timesteps = 1000
 NNorCL = 'CL'
 
 
 def train(plant_name=None, num_units=4, timesteps=100,
-          num_samples=100, batch_size=1, epochs=3, dt=1e-3, obs_idx=None,
+          num_samples=10000, batch_size=1, epochs=3, dt=1e-3, obs_idx=None,
           tag='', pre_trained=None):
     plant = Plants.get(plant_name, dt, obs_idx)
     if pre_trained is None:
@@ -82,8 +82,8 @@ def get_NNorCL(num_units, plant_name, timesteps, tag='', NNorCL='CL'):
                 return this_layer
 
 
-# CL = get_NNorCL(num_units, plant_name, timesteps, NNorCL='CL')
-# originalSysInitialV(CL)
+CL = get_NNorCL(num_units, plant_name, timesteps, NNorCL='CL')
+originalSysInitialV(CL)
 # [x,f] = augDynamics(CL)
 # linearizeAugDynamics(x,f)
 
@@ -91,5 +91,5 @@ def get_NNorCL(num_units, plant_name, timesteps, tag='', NNorCL='CL'):
 # train(pre_trained=NN, plant_name=plant_name, num_units=num_units,
 # timesteps=timesteps, batch_size=1,epochs=3)
 
-train(pre_trained=None, plant_name=plant_name, num_units=num_units,
-      timesteps=timesteps, batch_size=10, epochs=3)
+# train(pre_trained=None, plant_name=plant_name, num_units=num_units,
+#       timesteps=timesteps, batch_size=10, epochs=3)

@@ -504,7 +504,7 @@ class JanetCell(Layer):
             (see [activations](../activations.md)).
             Default: hard sigmoid (`hard_sigmoid`).
             If you pass `None`, no activation is applied
-            (ie. "linear" activation:self. `a(x) = x`).x
+            (ie. "linear" activation: `a(x) = x`).x
         use_bias: Boolean, whether the layer uses a bias vector.
         kernel_initializer: Initializer for the `kernel` weights matrix,
             used for the linear transformation of the inputs
