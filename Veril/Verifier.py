@@ -17,8 +17,9 @@ from keras import backend as K
 
 
 class opt:
+
     def __init__(self, nX, converged_tol=.01, max_iterations=10, degL1=4,
-                 degL2=4, degV=2, degVdot=0, do_balance = False):
+                 degL2=4, degV=2, degVdot=0, do_balance=False):
         self.degV = degV
         self.max_iterations = max_iterations
         self.converged_tol = converged_tol
@@ -243,7 +244,7 @@ def findL1(x, f, V, options):
 
     # % construct multipliers for Vdot
     L1 = prog.NewFreePolynomial(Variables(x), options.degL1).ToExpression()
-    # L1 = prog.NewSosPolynomial(Variables(x), options.degL1)[0].ToExpression()
+
     # % construct Vdot
     Vdot = clean(V.Jacobian(x) @ f)
     # env = dict(zip(x, np.array([1, 2.31])))
@@ -349,9 +350,9 @@ def levelsetMethod(x, V0, f, options):
     # % construct slack var
     sigma1 = prog.NewContinuousVariables(1, "s")[0]
     L1 = prog.NewFreePolynomial(Variables(x), options.degL1).ToExpression()
+    deg = options.degL1 + options.degV / 2 - options.degVdot
 
-    prog.AddSosConstraint((x.T@x)**np.floor(options.degL1 + options.degV / 2 -
-                                            options.degVdot) * (V - sigma1) + L1 * Vdot)
+    prog.AddSosConstraint((x.T@x)**np.floor(deg) * (V - sigma1) + L1 * Vdot)
     # add cost
     prog.AddCost(-sigma1)
 
