@@ -33,6 +33,10 @@ def originalSysInitialV(CL):
     plant = Plants.get(CL.plant_name, CL.dt, CL.obs_idx)
     A0 = CL.linearize()
     full_dim = plant.num_states + CL.units
+    prog = MathematicalProgram()
+    # constant = prog.NewIndeterminates(1, 'constant')
+    # basis = [sym.Monomial(constant[0], 0)]
+    x = prog.NewIndeterminates(full_dim, "x")
 
     if not plant.manifold:
         S0 = solve_lyapunov(A0.T, -np.eye(full_dim))
@@ -40,10 +44,6 @@ def originalSysInitialV(CL):
         # c = prog.NewIndeterminates(CL.units, "c")
         # full_states = np.hstack((x, c))
         # basis = [sym.Monomial(_) for _ in full_states]
-        prog = MathematicalProgram()
-        # constant = prog.NewIndeterminates(1, 'constant')
-        # basis = [sym.Monomial(constant[0], 0)]
-        x = prog.NewIndeterminates(full_dim, "x")
         P = prog.NewSymmetricContinuousVariables(full_dim, "P")
         prog.AddPositiveSemidefiniteConstraint(P)
         prog.AddPositiveSemidefiniteConstraint(P + P.T)
