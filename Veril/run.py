@@ -11,16 +11,15 @@ from keras import backend as K
 import h5py
 import numpy as np
 
-from Veril import Plants
+import Plants, Verifier
 from CustomLayers import JanetController
-from Verifier import *
 
 
-num_units = 4
-plant_name = "DoubleIntegrator"
+num_units = 2
+# plant_name = "DoubleIntegrator"
 # plant_name = "Satellite"
-# plant_name = "Pendulum"
-timesteps = 100
+plant_name = "Pendulum"
+timesteps = 500
 NNorCL = 'CL'
 
 
@@ -116,9 +115,9 @@ def batchSim(CL, timesteps, num_samples=10000):
 # final = batchSim(CL, 10, num_samples=100)
 
 
-# originalSysInitialV(CL)
-# [x,f] = augDynamics(CL)
-# linearizeAugDynamics(x,f)
+# Verifier.originalSysInitialV(CL)
+# [x,f] = Verifier.augDynamics(CL)
+# Verifier.linearizeAugDynamics(x,f)
 
 # NN = get_NNorCL(num_units, plant_name, timesteps, NNorCL='NN')
 # train(pre_trained=NN, plant_name=plant_name, num_units=num_units,
