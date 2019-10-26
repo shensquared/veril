@@ -115,6 +115,18 @@ class JanetController(RNN):
     @property
     def obs_idx(self):
         return self.cell.obs_idx
+    
+    @property
+    def num_plant_states(self):
+        return self.cell.num_plant_states
+    
+    @property
+    def num_plant_output(self):
+        return self.cell.num_plant_output
+    
+    @property
+    def num_plant_disturb(self):
+        return self.cell.num_plant_disturb
 
     @property
     def activation(self):
@@ -226,7 +238,7 @@ class JanetControllerCell(Layer):
                  use_bias=False,
                  external_input=False,
                  kernel_initializer='glorot_uniform',
-                 recurrent_initializer=' orthogonal',
+                 recurrent_initializer='orthogonal',
                  bias_initializer='zeros',
                  unit_forget_bias=True,
                  kernel_regularizer=None,
@@ -245,6 +257,9 @@ class JanetControllerCell(Layer):
         self.dt = dt
         self.obs_idx = obs_idx
         self.plant = Plants.get(plant_name, dt, obs_idx)
+        self.num_plant_states = self.plant.num_states
+        self.num_plant_output = self.plant.num_outputs
+        self.num_plant_disturb = self.plant.num_disturb
 
         self.activation = activations.get(activation)
         self.recurrent_activation = activations.get(recurrent_activation)
@@ -445,6 +460,9 @@ class JanetControllerCell(Layer):
                   'plant_name': self.plant_name,
                   'dt': self.dt,
                   'obs_idx': self.obs_idx,
+                  'num_plant_disturb' : self.num_plant_disturb,
+                  'num_plant_states': self.num_plant_states,
+                  'num_plant_output': self.num_plant_output,
                   'activation': activations.serialize(self.activation),
                   'recurrent_activation': activations.serialize(self.recurrent_activation),
                   'use_bias': self.use_bias,
@@ -486,7 +504,7 @@ class JanetCell(Layer):
             (see [activations](../activations.md)).
             Default: hard sigmoid (`hard_sigmoid`).
             If you pass `None`, no activation is applied
-            (ie. "linear" activation: `a(x) = x`).x
+            (ie. "linear" activation:self. `a(x) = x`).x
         use_bias: Boolean, whether the layer uses a bias vector.
         kernel_initializer: Initializer for the `kernel` weights matrix,
             used for the linear transformation of the inputs
