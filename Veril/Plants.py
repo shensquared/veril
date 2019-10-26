@@ -108,7 +108,7 @@ class Pendulum(Plant):
         u = np.linspace(-np.pi, np.pi, np.sqrt(num_samples))
         v = np.linspace(-1, 1, np.sqrt(num_samples))
         u, v = np.meshgrid(u, v)
-        theta, thetadot = u.flatten(), v.flatten()
+        theta, thetadot = u.ravel(), v.ravel()
 
         # init_theta = np.random.uniform(np.pi-.1,np.pi+.1, (num_samples, 1))
         # init_thetadot = np.random.uniform(-1, 1, (num_samples, 1))
@@ -222,7 +222,7 @@ class Satellite(Plant):
         # x6 = np.linspace(lb,ub, ticks)
 
         # x1,x2,x3,x4,x5,x6 = np.meshgrid(x1,x2,x3,x4,x5,x6)
-        # x1,x2,x3,x4,x5,x6 = x1.flatten(),x2.flatten(),x3.flatten(),x4.flatten(),x5.flatten(),x6.flatten()
+        # x1,x2,x3,x4,x5,x6 = x1.ravel(),x2.ravel(),x3.ravel(),x4.ravel(),x5.ravel(),x6.ravel()
         # init_x_train = np.array([x1,x2,x3,x4,x5,x6]).T
 
         init_x_train = np.random.uniform(
@@ -348,7 +348,7 @@ class VanderPol(Plant):
         u = np.linspace(-ax_max, ax_max, num=num)
         v = np.linspace(-ax_max, ax_max, num=num)
         u, v = np.meshgrid(u, v)
-        u, v = u.flatten(), v.flatten()
+        u, v = u.ravel(), v.ravel()
         x = -v
         y = u - v + v * u**2
         # angles='xy', width=1e-3,scale_units='xy', scale=12, color='r'
@@ -510,7 +510,7 @@ class DoubleIntegrator(Plant):
         u = np.linspace(-1, 1, np.sqrt(num_samples))
         v = np.linspace(-1, 1, np.sqrt(num_samples))
         u, v = np.meshgrid(u, v)
-        x1, x2 = u.flatten(), v.flatten()
+        x1, x2 = u.ravel(), v.ravel()
 
         # init_theta = np.random.uniform(np.pi-.1,np.pi+.1, (num_samples, 1))
         # init_thetadot = np.random.uniform(-1, 1, (num_samples, 1))
@@ -590,7 +590,7 @@ class HybridPlant():
         u = np.linspace(-3, 3, num=num)
         v = np.linspace(-3, 3, num=num)
         u, v = np.meshgrid(u, v)
-        u, v = u.flatten(), v.flatten()
+        u, v = u.ravel(), v.ravel()
         x = np.array([u, v]).T
 
         for i in range(x.shape[0]):
