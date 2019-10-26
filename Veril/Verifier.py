@@ -11,8 +11,7 @@ from pydrake.all import (MathematicalProgram, Polynomial,
                          Variables, Solve, Jacobian, Evaluate,
                          RealContinuousLyapunovEquation, Substitute,
                          MosekSolver)
-
-from Veril import Plants
+import Plants
 from keras import backend as K
 
 
