@@ -163,12 +163,9 @@ def run():
             np.save(file_name,P)
             # P = np.load('/Users/shenshen/Veril/data/Kernel/poly_P_new.npy')
             V0 = phi.T@P@phi
-            # V = levelsetMethod(x, V0, f, options)
-            # V = signFlipMethod(x, V0, f, options)
-
-            plotFunnel(x, V)
+            V = levelsetMethod(x, V0, f, options)
             # V = bilinear(x, V0, f, None, None, options)
-            # plotFunnel(x, V)
+            plotFunnel(x, V)
     return V
 
 run()
