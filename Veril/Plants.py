@@ -38,15 +38,13 @@ class Plant:
             return x
         else:
             # TODO: need a keras version of this but differentiable
-            pass
-            # return (x * K.constant(self.obs_idx, shape=(1, self.num_states)))
-            # return tf.gather(x, self.obs_idx, axis=1)
-
-    def np_get_obs(self, x):
-        if self.obs_idx is None:
-            return x
-        else:
-            return x[0, np.nonzero(self.obs_idx)]
+            if K.is_tensor(x):
+                print('needs implementation')
+                # return (x * K.constant(self.obs_idx, shape=(1, self.num_states)))
+                # return tf.gather(x, self.obs_idx, axis=1)
+                pass
+            else:
+                return x[0, np.nonzero(self.obs_idx)]
 
     def get_data(self, num_samples, timesteps, num_units, lb=-1, ub=1):
         init_x = np.random.uniform(lb, ub, (num_samples, self.num_states))
@@ -77,24 +75,27 @@ class Pendulum(Plant):
 
         self.dt = dt
         self.x0 = np.array([0, -1, 0])
-        self.y0 = self.np_get_obs(self.x0)
+        self.y0 = self.get_obs(self.x0)
         self.u0 = 0
         self.manifold = True
 
     def step(self, x, u):
-        # s = tf.gather(x, [0], axis=1)
-        # c = tf.gather(x, [1], axis=1)
-        # thetadot = tf.gather(x, [2], axis=1)
-        s = K.dot(x, K.constant([1, 0, 0], shape=(3, 1)))
-        c = K.dot(x, K.constant([0, 1, 0], shape=(3, 1)))
-        thetadot = K.dot(x, K.constant([0, 0, 1], shape=(3, 1)))
+        delta_func = lambda s, c, thetadot: [c * thetadot,
+                                             -s * thetadot,
+                                             (-self.b * thetadot + u) /
+                                             (self.m * self.l * self.l) - self.g * s /
+                                             self.l]
+        if K.is_tensor(x):
+            s = K.dot(x, K.constant([1, 0, 0], shape=(3, 1)))
+            c = K.dot(x, K.constant([0, 1, 0], shape=(3, 1)))
+            thetadot = K.dot(x, K.constant([0, 0, 1], shape=(3, 1)))
+            delta = K.concatenate(delta_func(s, c, thetadot))
+
+        else:
+            [s, c, thetadot] = x
+            delta = np.array(delta_func(s, c, thetadot))
 
         # desired fixed point should be sin(pi)=0, cos(pi)=-1, thetadot =0
-        delta = K.concatenate([c * thetadot,
-                               -s * thetadot,
-                               (-self.b * thetadot + u) /
-                               (self.m * self.l * self.l) - self.g * s /
-                               self.l])
         self.states = x + delta * self.dt
         return self.states
 
@@ -102,17 +103,6 @@ class Pendulum(Plant):
         return [[0, thetadot, c],
                 [-thetadot, 0, -s],
                 [-self.g / self.l, 0, (-self.b) / (self.m * self.l * self.l)]]
-
-    def np_step(self, x, u):
-        [s, c, thetadot] = x
-        # desired fixed point should be sin(pi)=0, cos(pi)=-1, thetadot =0
-
-        delta = np.array([c * thetadot,
-                          -s * thetadot,
-                          (-self.b * thetadot + u[0]) /
-                          (self.m * self.l * self.l) - self.g * s / self.l])
-        self.states = x + delta * self.dt
-        return self.states
 
     def get_data(self, num_samples, timesteps, num_units):
         u = np.linspace(-np.pi, np.pi, np.sqrt(num_samples))
@@ -149,7 +139,7 @@ class Satellite(Plant):
         self.dt = dt
         self.num_disturb = num_disturb
         self.x0 = np.array([0, 0, 0, 0, 0, 0])
-        self.y0 = self.np_get_obs(self.x0)
+        self.y0 = self.get_obs(self.x0)
         self.u0 = 0
         self.manifold = False
     # def reset(self, lb=-2.5, ub=2.5):
@@ -317,10 +307,12 @@ class VanderPol(Plant):
         #     return sol[:, -1].reshape(timesteps, 1)
         # return np.array([self.step_once(full_states) for i in
         # range(timesteps)])
-        sol = integrate.solve_ivp(self.inward_vdp, 
-            [0, scale_time * self.dt * timesteps], self.states,
-            t_eval=np.linspace(0, self.dt * timesteps * scale_time, timesteps),
-            rtol=1e-9)
+        sol = integrate.solve_ivp(self.inward_vdp,
+                                  [0, scale_time * self.dt *
+                                      timesteps], self.states,
+                                  t_eval=np.linspace(
+                                      0, self.dt * timesteps * scale_time, timesteps),
+                                  rtol=1e-9)
         # atol=np.max(np.abs(self.states))
         if sol.status is not 0:
             print(self.states)
@@ -435,7 +427,7 @@ class DoubleIntegrator(Plant):
         self.obs(obs_idx)
         self.num_disturb = num_disturb
         self.x0 = np.array([0, 0])
-        self.y0 = self.np_get_obs(self.x0)
+        self.y0 = self.get_obs(self.x0)
         self.u0 = 0
         self.manifold = False
         self.dt = dt
