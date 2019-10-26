@@ -16,9 +16,8 @@ def get(plant_name, dt, obs_idx):
 
 class Plant:
 
-    def __init__(self, dt=1e-3, obs_idx=None, num_disturb=0):
-        self.dt = dt
-        self.num_disturb = num_disturb
+    def __init__(self):
+        pass
 
     def obs(self, obs_idx):
         if obs_idx is None:
@@ -48,6 +47,14 @@ class Plant:
             return x
         else:
             return x[0, np.nonzero(self.obs_idx)]
+
+    def get_data(self, num_samples, timesteps, num_units, lb=-1, ub=1):
+        init_x = np.random.uniform(lb, ub, (num_samples, self.num_states))
+        init_c = np.zeros((num_samples, num_units))
+        ext_in = np.zeros((num_samples, timesteps, self.num_disturb))
+        x = [init_x, init_c, ext_in]
+        y = np.tile(self.y0, (num_samples, 1))
+        return x, y
 
 
 class Pendulum(Plant):
@@ -85,13 +92,16 @@ class Pendulum(Plant):
         # desired fixed point should be sin(pi)=0, cos(pi)=-1, thetadot =0
         delta = K.concatenate([c * thetadot,
                                -s * thetadot,
-                               (-self.b * thetadot + u) / (self.m * self.l *
-                                                           self.l) - self.g * s / self.l])
+                               (-self.b * thetadot + u) /
+                               (self.m * self.l * self.l) - self.g * s /
+                               self.l])
         self.states = x + delta * self.dt
         return self.states
 
     def A0(self):
-        return [[0, thetadot, c], [-thetadot, 0, -s], [-self.g / self.l, 0, (-self.b) / (self.m * self.l * self.l)]]
+        return [[0, thetadot, c],
+                [-thetadot, 0, -s],
+                [-self.g / self.l, 0, (-self.b) / (self.m * self.l * self.l)]]
 
     def np_step(self, x, u):
         [s, c, thetadot] = x
@@ -99,8 +109,8 @@ class Pendulum(Plant):
 
         delta = np.array([c * thetadot,
                           -s * thetadot,
-                          (-self.b * thetadot + u[0]) / (self.m * self.l * self.l) -
-                          self.g * s / self.l])
+                          (-self.b * thetadot + u[0]) /
+                          (self.m * self.l * self.l) - self.g * s / self.l])
         self.states = x + delta * self.dt
         return self.states
 
@@ -148,13 +158,13 @@ class Satellite(Plant):
         # self.states = K.random_uniform((self.num_states,), lb, ub)
 
     def Sigma(self, alpha):
-        # pass
         # accepts alpha of shape (None,3)
         # [a1, a2, a3] = alpha
         # return np.array([[0, -a3, a2], [a3, 0, -a1], [-a2, a1, 0]])
 
-        sigma = K.variable([[0, -alpha[0, 2], alpha[0, 1]], [alpha[0, 2], 0, -alpha
-                                                             [0, 0]], [-alpha[0, 1], alpha[0, 0], 0]])
+        sigma = K.variable([[0, -alpha[0, 2], alpha[0, 1]],
+                            [alpha[0, 2], 0, -alpha[0, 0]],
+                            [-alpha[0, 1], alpha[0, 0], 0]])
         return sigma
 
     def cross(self, u, v):
@@ -212,27 +222,6 @@ class Satellite(Plant):
     def _get_openu(self):
         return self.open_u
 
-    def get_data(self, num_samples, timesteps, num_units, lb=-1, ub=1):
-        # ticks= np.power(num_samples,self.num_states)
-        # x1 = np.linspace(lb,ub, ticks)
-        # x2 = np.linspace(lb,ub, ticks)
-        # x3 = np.linspace(lb,ub, ticks)
-        # x4 = np.linspace(lb,ub, ticks)
-        # x5 = np.linspace(lb,ub, ticks)
-        # x6 = np.linspace(lb,ub, ticks)
-
-        # x1,x2,x3,x4,x5,x6 = np.meshgrid(x1,x2,x3,x4,x5,x6)
-        # x1,x2,x3,x4,x5,x6 = x1.ravel(),x2.ravel(),x3.ravel(),x4.ravel(),x5.ravel(),x6.ravel()
-        # init_x_train = np.array([x1,x2,x3,x4,x5,x6]).T
-
-        init_x_train = np.random.uniform(
-            lb, ub, (num_samples, self.num_states))
-        init_c_train = np.zeros((num_samples, num_units))
-        ext_in_train = np.zeros((num_samples, timesteps, self.num_disturb))
-        x_train = [init_x_train, init_c_train, ext_in_train]
-        y_train = np.tile(self.x0, (num_samples, 1))
-        return x_train, y_train
-
     def _compare_dotcross(self, x, u):
         H = K.constant(np.diag([2, 1, .5]))
         H_inv = K.constant(np.diag([.5, 1, 2]))
@@ -281,7 +270,8 @@ class VanderPol(Plant):
     def in_true_ROA(self, x):
         x1 = x[:, 0]
         x2 = x[:, 1]
-        V = (1.8027e-06) + (0.28557) * x1**2 + (0.0085754) * x1**4 + (0.18442) * x2**2 + (0.016538) * x2**4 + \
+        V = (1.8027e-06) + (0.28557) * x1**2 + (0.0085754) * x1**4 + \
+            (0.18442) * x2**2 + (0.016538) * x2**4 + \
             (-0.34562) * x2 * x1 + (0.064721) * x2 * x1**3 + \
             (0.10556) * x2**2 * x1**2 + (-0.060367) * x2**3 * x1
         rho = 1.1
@@ -327,9 +317,10 @@ class VanderPol(Plant):
         #     return sol[:, -1].reshape(timesteps, 1)
         # return np.array([self.step_once(full_states) for i in
         # range(timesteps)])
-        sol = integrate.solve_ivp(self.inward_vdp, [0, scale_time * self.dt *
-                                                    timesteps], self.states, t_eval=np.linspace(0, self.dt * timesteps *
-                                                                                                scale_time, timesteps), rtol=1e-9)
+        sol = integrate.solve_ivp(self.inward_vdp, 
+            [0, scale_time * self.dt * timesteps], self.states,
+            t_eval=np.linspace(0, self.dt * timesteps * scale_time, timesteps),
+            rtol=1e-9)
         # atol=np.max(np.abs(self.states))
         if sol.status is not 0:
             print(self.states)
@@ -505,23 +496,6 @@ class DoubleIntegrator(Plant):
                 plt.xticks(fontsize=8)
                 plt.yticks(fontsize=8)
         plt.show()
-
-    def get_data(self, num_samples, timesteps, num_units):
-        u = np.linspace(-1, 1, np.sqrt(num_samples))
-        v = np.linspace(-1, 1, np.sqrt(num_samples))
-        u, v = np.meshgrid(u, v)
-        x1, x2 = u.ravel(), v.ravel()
-
-        # init_theta = np.random.uniform(np.pi-.1,np.pi+.1, (num_samples, 1))
-        # init_thetadot = np.random.uniform(-1, 1, (num_samples, 1))
-
-        init_x_train = np.array([x1, x2]).T
-        # init_c_train = np.random.uniform(-1, 1, (num_samples, num_units))
-        init_c_train = np.zeros((num_samples, num_units))
-        ext_in_train = np.zeros((num_samples, timesteps, self.num_disturb))
-        x_train = [init_x_train, init_c_train, ext_in_train]
-        y_train = np.tile(self.y0, (num_samples, 1))
-        return x_train, y_train
 
 
 class HybridPlant():
