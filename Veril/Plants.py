@@ -104,24 +104,19 @@ class Pendulum(Plant):
                 [-thetadot, 0, -s],
                 [-self.g / self.l, 0, (-self.b) / (self.m * self.l * self.l)]]
 
-    def get_data(self, num_samples, timesteps, num_units):
-        u = np.linspace(-np.pi, np.pi, np.sqrt(num_samples))
-        v = np.linspace(-1, 1, np.sqrt(num_samples))
-        u, v = np.meshgrid(u, v)
-        theta, thetadot = u.ravel(), v.ravel()
+    def get_data(self, num_samples, timesteps, num_units, lb=-1, ub=1):
+        # u = np.linspace(-np.pi, np.pi, np.sqrt(num_samples))
+        # v = np.linspace(-1, 1, np.sqrt(num_samples))
+        # u, v = np.meshgrid(u, v)
+        # theta, thetadot = u.ravel(), v.ravel()
 
-        # init_theta = np.random.uniform(np.pi-.1,np.pi+.1, (num_samples, 1))
-        # init_thetadot = np.random.uniform(-1, 1, (num_samples, 1))
+        theta = np.random.uniform(np.pi-.1,np.pi+.1, (num_samples,))
+        thetadot = np.random.uniform(lb, ub, (num_samples,))
 
         init_x_train = np.array([np.sin(theta), np.cos(theta), thetadot]).T
-        # init_c_train = np.random.uniform(-1, 1, (num_samples, num_units))
         init_c_train = np.zeros((num_samples, num_units))
         ext_in_train = np.zeros((num_samples, timesteps, self.num_disturb))
         x_train = [init_x_train, init_c_train, ext_in_train]
-
-        # y_train = np.zeros((num_samples, self.num_states))
-        # cos(pi)=-1
-        # y_train[:, 1] = -np.ones((num_samples,))
         y_train = np.tile(self.y0, (num_samples, 1))
         return x_train, y_train
 
