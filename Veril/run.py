@@ -11,21 +11,37 @@ from keras import backend as K
 import h5py
 import numpy as np
 
-import Plants, Verifier
+import Plants
+import Verifier
 from CustomLayers import JanetController
 
-
-num_units = 2
-# plant_name = "DoubleIntegrator"
-# plant_name = "Satellite"
-plant_name = "Pendulum"
-timesteps = 500
 NNorCL = 'CL'
 
+# plant_name = 'DoubleIntegrator'
+# plant_name = 'Pendulum'
+plant_name = 'Satellite'
 
-def train(plant_name=None, num_units=4, timesteps=100,
-          num_samples=10000, batch_size=1, epochs=3, dt=1e-3, obs_idx=None,
-          tag='', pre_trained=None):
+options = {
+    'num_units': 2,
+    'timesteps': 50,
+    'num_samples': 100,
+    'dt': 1e-3,
+    'obs_idx': None,
+    'tag': '',
+    'epochs': 3,
+    'batch_size': 1
+}
+
+
+def train(plant_name, pre_trained=None, **kwargs):
+
+    num_samples = kwargs.pop('num_samples')
+    num_units = kwargs.pop('num_units')
+    timesteps = kwargs.pop('timesteps')
+    dt = kwargs.pop('dt')
+    obs_idx = kwargs.pop('obs_idx')
+    tag = kwargs.pop('tag')
+
     plant = Plants.get(plant_name, dt, obs_idx)
     if pre_trained is None:
         [init_x, init_c, ext_in] = [
@@ -45,21 +61,18 @@ def train(plant_name=None, num_units=4, timesteps=100,
 
     dirname = os.path.join('/users/shenshen/Veril/data/')
     model_file_name = dirname + plant.name + '/' + \
-        'unit' + str(num_units) + 'step' + str(timesteps) + tag + '.h5'
+        'unit' + str(num_units) + 'step' + str(timesteps) + tag
 
-    callbacks = [ModelCheckpoint(model_file_name,
+    callbacks = [ModelCheckpoint(model_file_name + '.h5',
                                  monitor='val_loss', verbose=0,
                                  save_best_only=False,
                                  save_weights_only=False, mode='auto',
                                  period=1)]
     print('Train...')
     [x_train, y_train] = plant.get_data(num_samples, timesteps, num_units)
-    history = model.fit(x_train, y_train, batch_size=batch_size,
-                        epochs=epochs, callbacks=callbacks)
+    history = model.fit(x_train, y_train, callbacks=callbacks, **kwargs)
     last_loss = history.history['loss'][-1]
-    model_file_name = dirname + plant.name + '/' + \
-        'unit' + str(num_units) + 'step' + str(timesteps) + 'loss' + \
-        str(last_loss) + tag + '.h5'
+    model_file_name = model_file_name + 'loss' + str(last_loss) + tag + '.h5'
     model.save(model_file_name)
     print("Saved model " + model_file_name + " to disk")
 
@@ -79,8 +92,6 @@ def get_NNorCL(num_units, plant_name, timesteps, tag='', NNorCL='CL'):
         for this_layer in model.layers:
             if hasattr(this_layer, 'cell'):
                 return this_layer
-
-# CL = get_NNorCL(num_units, plant_name, timesteps, NNorCL='CL')
 
 
 def call_CLsys(CL, tm1, num_samples):
@@ -114,14 +125,11 @@ def batchSim(CL, timesteps, num_samples=10000):
 
 # final = batchSim(CL, 10, num_samples=100)
 
-
 # Verifier.originalSysInitialV(CL)
 # [x,f] = Verifier.augDynamics(CL)
 # Verifier.linearizeAugDynamics(x,f)
 
+# CL = get_NNorCL(num_units, plant_name, timesteps, NNorCL='CL')
 # NN = get_NNorCL(num_units, plant_name, timesteps, NNorCL='NN')
-# train(pre_trained=NN, plant_name=plant_name, num_units=num_units,
-# timesteps=timesteps, batch_size=1,epochs=3)
 
-train(pre_trained=None, plant_name=plant_name, num_units=num_units,
-      timesteps=timesteps, batch_size=10, epochs=3)
+train(plant_name, pre_trained=None, **options)
