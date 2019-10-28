@@ -17,7 +17,7 @@ from keras.layers.merge import _Merge
 import numpy as np
 from Veril import Plants
 from tensorflow.python.ops.parallel_for.gradients import jacobian, batch_jacobian
-
+import itertools
 
 class JanetController(RNN):
 
@@ -1288,11 +1288,17 @@ class Polynomials(Layer):
         self.built = True
 
     def call(self, inputs):
-        #
-        output = K.concatenate([K.pow(inputs, i) for i in range(1, self.max_deg
-                                                                + 1)])
-        cross = K.expand_dims(K.prod(K.pow(inputs,1),axis=-1))
-        output = K.concatenate([output,cross])
+        # n = self.input_shape[1]
+        # nANDdMINUS1 = range(self.max_deg + n -1)
+
+        exponents = list(itertools.combinations_with_replacement
+            (inputs,self.max_deg))
+
+        # output = K.concatenate([K.pow(inputs, i) for i in range(1, self.max_deg
+                                                                # + 1)])
+        # cross = K.expand_dims(K.prod(K.pow(inputs,1),axis=-1))
+        # output = K.concatenate([output,cross])
+        output = K.variable([np.linalg.multi_dot(i) for i in aa])
         return output
 
     def compute_output_shape(self, input_shape):
