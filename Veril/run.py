@@ -17,13 +17,13 @@ from CustomLayers import JanetController
 
 NNorCL = 'CL'
 
-# plant_name = 'DoubleIntegrator'
+plant_name = 'DoubleIntegrator'
 # plant_name = 'Pendulum'
-plant_name = 'Satellite'
+# plant_name = 'Satellite'
 
 options = {
-    'num_units': 2,
-    'timesteps': 50,
+    'num_units': 4,
+    'timesteps': 1000,
     'num_samples': 100,
     'dt': 1e-3,
     'obs_idx': None,
@@ -77,7 +77,14 @@ def train(plant_name, pre_trained=None, **kwargs):
     print("Saved model " + model_file_name + " to disk")
 
 
-def get_NNorCL(num_units, plant_name, timesteps, tag='', NNorCL='CL'):
+def get_NNorCL(NNorCL='CL', **kwargs):
+    num_samples = kwargs.pop('num_samples')
+    num_units = kwargs.pop('num_units')
+    timesteps = kwargs.pop('timesteps')
+    dt = kwargs.pop('dt')
+    obs_idx = kwargs.pop('obs_idx')
+    tag = kwargs.pop('tag')
+
     # dirname = os.path.dirname(__file__)
     dirname = os.path.join('/users/shenshen/Veril/data/')
     model_file_name = dirname + plant_name + '/' + \
@@ -123,13 +130,11 @@ def batchSim(CL, timesteps, num_samples=10000):
         init = call_CLsys(CL, init, num_samples)
     return init
 
-# final = batchSim(CL, 10, num_samples=100)
-
-# Verifier.originalSysInitialV(CL)
-# [x,f] = Verifier.augDynamics(CL)
-# Verifier.linearizeAugDynamics(x,f)
-
-# CL = get_NNorCL(num_units, plant_name, timesteps, NNorCL='CL')
+CL = get_NNorCL(**options)
 # NN = get_NNorCL(num_units, plant_name, timesteps, NNorCL='NN')
+Verifier.originalSysInitialV(CL)
+[x,f] = Verifier.augDynamics(CL)
+Verifier.linearizeAugDynamics(x,f)
 
-train(plant_name, pre_trained=None, **options)
+final = batchSim(CL, 10, num_samples=100)
+# train(plant_name, pre_trained=None, **options)
