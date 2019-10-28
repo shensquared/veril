@@ -115,15 +115,15 @@ class JanetController(RNN):
     @property
     def obs_idx(self):
         return self.cell.obs_idx
-    
+
     @property
     def num_plant_states(self):
         return self.cell.num_plant_states
-    
+
     @property
     def num_plant_output(self):
         return self.cell.num_plant_output
-    
+
     @property
     def num_plant_disturb(self):
         return self.cell.num_plant_disturb
