@@ -1,46 +1,7 @@
 import plotly.graph_objects as go
 
 
-def call_CLsys(CL, tm1, num_samples):
-    num_plant_states = CL.num_plant_states
-    inputs = K.placeholder()
-    states = [K.placeholder(shape=(num_samples, num_plant_states)), K.placeholder
-              (shape=(num_samples, CL.units))]
-    [x_tm2, c_tm2] = CL.cell.call(inputs, states, training=False)[1]
-    feed_dict = dict(zip(states, tm1))
-    sess = K.get_session()
-    x_tm2 = sess.run(x_tm2, feed_dict=feed_dict)
-    c_tm2 = sess.run(c_tm2, feed_dict=feed_dict)
-    return [x_tm2, c_tm2]
-
-
-def simOneTraj(CL, timesteps, init, num_samples):
-    for i in range(timesteps):
-        init = call_CLsys(CL, init, num_samples)
-    return init
-
-def batchSim(CL, timesteps, init, num_samples=10000):
-    """return two sets of initial conditions based on the simulated results.
-    One set is the stable trajectory and the other set is the unstable one.
-
-    Args:
-        CL (TYPE): Description
-        timesteps (TYPE): Description
-        init (TYPE): Description
-        num_samples (TYPE): Description
-    """
-
-
-
-
-
 def do_plotting(CL, sim=True):
-    u = np.linspace(-4, 4, np.sqrt(num_samples))
-    v = np.linspace(-2, 2, np.sqrt(num_samples))
-    u, v = np.meshgrid(u, v)
-    u, v = u.flatten(), v.flatten()
-    init_x_train = np.array([u.flatten(), v.flatten()]).T
-    init_c = np.zeros((num_samples, num_units))
     if sim:
         final = simOneTraj(CL, 100, [init_x_train, init_c], num_samples)
         finalx = final[0]
