@@ -31,6 +31,7 @@ If debug, use kernel_initializer= keras.initializers.Ones()
 def negativity(y_true, y_pred):
     return K.max(y_pred)
 
+
 def linear_model(sys_dim, A):
     x = Input(shape=(sys_dim,))  # x: (None, sys_dim)
     layers = [
@@ -80,6 +81,7 @@ def VDP(x):
     dx = (K.concatenate([-x2, -(1 - x1**2) * x2 + x1]))
     return dx
 
+
 def Poly_dynamics_shape(input_shapes):
     return input_shapes
 
@@ -87,7 +89,7 @@ def Poly_dynamics_shape(input_shapes):
 def poly_model(sys_dim, max_deg=2):
     # constant = Input(shape=(1,))
     x = Input(shape=(sys_dim,))  # x: (None, sys_dim)
-    phi = Polynomials(max_deg)(x)  # phi: (None, monomial_dim)
+    phi = Polynomials(sys_dim, max_deg)(x)  # phi: (None, monomial_dim)
     # phi = Concatenate()([constant,phi])
     # kernel_regularizer=keras.regularizers.l2(0.))
     layers = [
@@ -102,7 +104,7 @@ def poly_model(sys_dim, max_deg=2):
     # # need to avoid 0 in the denominator (by adding a strictly positive scalar
     # # to V)
     V = Dot(1)([phiLL, phi])  # V: (None,1)
-    dphidx = DiffPoly(max_deg)(x)  # dphidx: (None, monomial_dim, sys_dm)
+    dphidx = DiffPoly(sys_dim, max_deg)(x)  # (None, monomial_dim,sys_dm)
     phiLLdphidx = Dot(1)([phiLL, dphidx])  # (None, sys_dim)
     fx = Lambda(VDP, Poly_dynamics_shape)(x)  # (None, sys_dim)
     Vdot = Dot(1)([phiLLdphidx, fx])  # (None, 1)
@@ -119,13 +121,13 @@ def poly_train(nx, x, V=None, max_deg=2, model=None):
     if V is None:
         train_x, train_y = get_data(d=1, num_grid=200)
     else:
-        train_x, train_y = withinLevelSet(x,V)
+        train_x, train_y = withinLevelSet(x, V)
 
     if model is None:
         model = poly_model(nx, max_deg=max_deg)
-    # print(model.predict(x))
+    # print(model.predict(train_x))
     history = model.fit(train_x, train_y, epochs=15, verbose=True,
-       callbacks=callbacks)
+                        callbacks=callbacks)
     weights = [K.eval(i) for i in model.weights]
     weights = np.linalg.multi_dot(weights)
     P = weights@weights.T
@@ -134,16 +136,17 @@ def poly_train(nx, x, V=None, max_deg=2, model=None):
     print("Saved model" + model_file_name + " to disk")
     return P, model, history
 
+
 def run():
-    nx=2
-    max_deg = 2
+    nx = 2
+    max_deg = 3
     prog = MathematicalProgram()
     x = prog.NewIndeterminates(nx, "x")
     f = -np.array([x[1], -x[0] - x[1] * (x[0]**2 - 1)])
-    phi = np.array([sym.pow(j, i) for i in range(1, max_deg + 1) for j in x])
-    phi = np.hstack((phi, x[0] * x[1]))
-    options = opt(nx, do_balance=True, degV=4, degVdot=6,
-                      converged_tol=1e-2, degL1=6, degL2=6, max_iterations=20)
+    y = list(itertools.combinations_with_replacement(x, max_deg))
+    phi = np.stack([np.prod(j) for j in y])
+    options = opt(nx, do_balance=False, degV=6, degVdot=6,
+                  converged_tol=1e-2, degL1=6, degL2=6, max_iterations=20)
     # V=None
 
     x1 = x[0]
@@ -151,7 +154,7 @@ def run():
     V = (1.8027e-06) + (0.28557) * x1**2 + (0.0085754) * x1**4 + (0.18442) * x2**2 + (0.016538) * x2**4 + \
         (-0.34562) * x2 * x1 + (0.064721) * x2 * x1**3 + \
         (0.10556) * x2**2 * x1**2 + (-0.060367) * x2**3 * x1
-    V=V/1.1
+    V = V / 1.1
 
     # plotFunnel(x, V)
     for i in range(1):
@@ -160,7 +163,7 @@ def run():
             break
         else:
             file_name = '../data/Kernel/poly_P.npy'
-            np.save(file_name,P)
+            np.save(file_name, P)
             # P = np.load('/Users/shenshen/Veril/data/Kernel/poly_P_new.npy')
             V0 = phi.T@P@phi
             V = levelsetMethod(x, V0, f, options)
@@ -169,4 +172,3 @@ def run():
     return V
 
 run()
-

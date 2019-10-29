@@ -18,6 +18,8 @@ import numpy as np
 from Veril import Plants
 from tensorflow.python.ops.parallel_for.gradients import jacobian, batch_jacobian
 import itertools
+import math
+
 
 class JanetController(RNN):
 
@@ -460,7 +462,7 @@ class JanetControllerCell(Layer):
                   'plant_name': self.plant_name,
                   'dt': self.dt,
                   'obs_idx': self.obs_idx,
-                  'num_plant_disturb' : self.num_plant_disturb,
+                  'num_plant_disturb': self.num_plant_disturb,
                   'num_plant_states': self.num_plant_states,
                   'num_plant_output': self.num_plant_output,
                   'activation': activations.serialize(self.activation),
@@ -1270,13 +1272,14 @@ class DenseOnOff(Layer):
 
 class Polynomials(Layer):
 
-    def __init__(self, max_deg,
+    def __init__(self, n, max_deg,
                  activation=None,
                  **kwargs):
         if 'input_shape' not in kwargs and 'input_dim' in kwargs:
             kwargs['input_shape'] = (kwargs.pop('input_dim'),)
         super(Polynomials, self).__init__(**kwargs)
         self.max_deg = max_deg
+        self.n = n
         self.input_spec = InputSpec(min_ndim=2)
         self.supports_masking = True
 
@@ -1288,30 +1291,31 @@ class Polynomials(Layer):
         self.built = True
 
     def call(self, inputs):
-        # n = self.input_shape[1]
-        # nANDdMINUS1 = range(self.max_deg + n -1)
-
-        exponents = list(itertools.combinations_with_replacement
-            (inputs,self.max_deg))
-
-        # output = K.concatenate([K.pow(inputs, i) for i in range(1, self.max_deg
-                                                                # + 1)])
+        y = list(itertools.combinations_with_replacement(
+            range(self.n), self.max_deg))
+        exponents = [[i.count(j) for j in range(self.n)] for i in y]
+        output = K.concatenate([K.prod(j, axis=-1, keepdims=True) for j in
+                                [K.pow(inputs, i) for i in exponents]])
         # cross = K.expand_dims(K.prod(K.pow(inputs,1),axis=-1))
         # output = K.concatenate([output,cross])
-        output = K.variable([np.linalg.multi_dot(i) for i in aa])
+        # output = K.variable([np.linalg.multi_dot(i) for i in aa])
         return output
 
     def compute_output_shape(self, input_shape):
         assert input_shape and len(input_shape) >= 2
-        assert input_shape[-1]
+        # n = input_shape[-1]
+        assert self.n
         output_shape = list(input_shape)
-        # TODO: assuming all monomials are independent of each other for now
-        output_shape[-1] = (self.max_deg) * input_shape[-1] +1
+        # TODO: figure out the shape
+        f = lambda x: math.factorial(x)
+        output_shape[-1] = f(self.n + self.max_deg -
+                             1) // f(self.max_deg) // f(self.n - 1)
         return tuple(output_shape)
 
     def get_config(self):
         config = {
             'max_deg': self.max_deg,
+            'n': self.n,
         }
         base_config = super(Polynomials, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
@@ -1319,13 +1323,14 @@ class Polynomials(Layer):
 
 class DiffPoly(Layer):
 
-    def __init__(self, max_deg,
+    def __init__(self, n, max_deg,
                  activation=None,
                  **kwargs):
         if 'input_shape' not in kwargs and 'input_dim' in kwargs:
             kwargs['input_shape'] = (kwargs.pop('input_dim'),)
         super(DiffPoly, self).__init__(**kwargs)
         self.max_deg = max_deg
+        self.n = n
         self.input_spec = InputSpec(min_ndim=2)
         self.supports_masking = True
 
@@ -1337,11 +1342,11 @@ class DiffPoly(Layer):
         self.built = True
 
     def call(self, inputs):
-        output = K.concatenate([K.pow(inputs, i) for i in range(1, self.max_deg
-                                                                + 1)])
-        cross = K.expand_dims(K.prod(K.pow(inputs,1),axis=-1))
-        output = K.concatenate([output,cross])
-        output = batch_jacobian(output, inputs)
+        y = list(itertools.combinations_with_replacement(
+            range(self.n), self.max_deg))
+        exponents = [[i.count(j) for j in range(self.n)] for i in y]
+        phi = K.concatenate([K.prod(j, axis=-1, keepdims=True) for j in [K.pow(inputs, i) for i in exponents]])
+        output = batch_jacobian(phi, inputs)
         # output = K.concatenate([output,K.ones((1,))])
         return output
 
@@ -1349,13 +1354,15 @@ class DiffPoly(Layer):
         assert input_shape and len(input_shape) >= 2
         assert input_shape[-1]
         output_shape = list(input_shape)
-        # TODO: assuming all monomials are independent of each other for now
-        output_shape.insert(-1, (self.max_deg) * input_shape[-1]+1)
+        f = lambda x: math.factorial(x)
+        output_shape.insert(-1, f(self.n + self.max_deg - 1) // f(self.max_deg)
+                            // f(self.n - 1))
         return tuple(output_shape)
 
     def get_config(self):
         config = {
             'max_deg': self.max_deg,
+            'n': self.n,
         }
         base_config = super(DiffPoly, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
@@ -1423,5 +1430,3 @@ class Scaling(Layer):
 
     def compute_output_shape(self, input_shape):
         return input_shape
-
-
