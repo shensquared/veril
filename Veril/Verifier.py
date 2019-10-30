@@ -348,6 +348,7 @@ def levelsetMethod(x, V0, f, options):
     assert (np.all(eig(H)[0] <= 0))
     # % construct slack var
     sigma1 = prog.NewContinuousVariables(1, "s")[0]
+    prog.AddConstraint(sigma1 >= 0)
     L1 = prog.NewFreePolynomial(Variables(x), options.degL1).ToExpression()
     deg = options.degL1 + options.degV / 2 - options.degVdot
 
@@ -363,9 +364,9 @@ def levelsetMethod(x, V0, f, options):
     assert result.is_success()
     L1 = result.GetSolution(L1)
     sigma1 = result.GetSolution(sigma1)
-    # print(sigma1)
+    print(sigma1)
     V = V / sigma1
-    V = V.Substitute(dict(zip(x, inv(T) @ x)))
+    V = (V.Substitute(dict(zip(x, inv(T) @ x))))
     # print(V)
     return V
 
