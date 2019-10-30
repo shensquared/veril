@@ -1293,7 +1293,7 @@ class Polynomials(Layer):
     def call(self, inputs):
         y = list(itertools.combinations_with_replacement(
             range(self.n+1), self.max_deg))
-        exponents = [[i.count(j) for j in range(1,self.n)] for i in y][1:]
+        exponents = [[i.count(j) for j in range(1,self.n+1)] for i in y][1:]
         output = K.concatenate([K.prod(j, axis=-1, keepdims=True) for j in
                                 [K.pow(inputs, i) for i in exponents]])
         # cross = K.expand_dims(K.prod(K.pow(inputs,1),axis=-1))
@@ -1342,7 +1342,7 @@ class DiffPoly(Layer):
 
     def call(self, inputs):
         y = list(itertools.combinations_with_replacement(range(self.n+1), self.max_deg))
-        exponents = [[i.count(j) for j in range(1,self.n)] for i in y][1:]
+        exponents = [[i.count(j) for j in range(1,self.n+1)] for i in y][1:]
         phi = K.concatenate([K.prod(j, axis=-1, keepdims=True) for j in [K.pow(inputs, i) for i in exponents]])
         output = batch_jacobian(phi, inputs)
         # output = K.concatenate([output,K.ones((1,))])
