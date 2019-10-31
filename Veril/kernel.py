@@ -28,12 +28,12 @@ If debug, use kernel_initializer= keras.initializers.Ones()
 '''
 
 
-def negativity(y_true, y_pred):
+def max_negativity(y_true, y_pred):
     return K.max(y_pred)
     # return K.mean(y_pred)
 
 
-def linear_model(sys_dim, A):
+def linearModel(sys_dim, A):
     x = Input(shape=(sys_dim,))  # x: (None, sys_dim)
     layers = [
         Dense(5, input_shape=(sys_dim,), use_bias=False,
@@ -52,16 +52,16 @@ def linear_model(sys_dim, A):
     rate = Divide()([Vdot, V])
 
     model = Model(inputs=x, outputs=rate)
-    model.compile(loss=negativity, optimizer='adam')
+    model.compile(loss=max_negativity, optimizer='adam')
     print(model.summary())
     return model
 
 
-def linear_train():
+def linearTrain():
     callbacks = []
     x, y = get_data()
     A = np.array([[-.1, 0], [1, -2]])
-    model = linear_model(2, A)
+    model = linearModel(2, A)
     print(model.predict(x))
     history = model.fit(x, y, epochs=15, verbose=True, callbacks=callbacks)
     # getting the weights and verify the eigs
@@ -83,11 +83,11 @@ def VDP(x):
     return dx
 
 
-def Poly_dynamics_shape(input_shapes):
+def PolyDynamicsOutputShape(input_shapes):
     return input_shapes
 
 
-def poly_model(sys_dim, max_deg=2):
+def polyModel(sys_dim, max_deg=2):
     # constant = Input(shape=(1,))
     x = Input(shape=(sys_dim,))  # x: (None, sys_dim)
     phi = Polynomials(sys_dim, max_deg)(x)  # phi: (None, monomial_dim)
@@ -107,17 +107,17 @@ def poly_model(sys_dim, max_deg=2):
     V = Dot(1)([phiLL, phi])  # V: (None,1)
     dphidx = DiffPoly(sys_dim, max_deg)(x)  # (None, monomial_dim,sys_dm)
     phiLLdphidx = Dot(1)([phiLL, dphidx])  # (None, sys_dim)
-    fx = Lambda(VDP, Poly_dynamics_shape)(x)  # (None, sys_dim)
+    fx = Lambda(VDP, PolyDynamicsOutputShape)(x)  # (None, sys_dim)
     Vdot = Dot(1)([phiLLdphidx, fx])  # (None, 1)
 
     rate = Divide()([Vdot, V])
     model = Model(inputs=x, outputs=rate)
-    model.compile(loss=negativity, optimizer='adam')
+    model.compile(loss=max_negativity, optimizer='adam')
     print(model.summary())
     return model
 
 
-def poly_train(nx, x, V=None, max_deg=2, model=None):
+def polyTrain(nx, x, V=None, max_deg=2, model=None):
     callbacks = []
     if V is None:
         train_x, train_y = get_data(d=1, num_grid=200)
@@ -125,7 +125,7 @@ def poly_train(nx, x, V=None, max_deg=2, model=None):
         train_x, train_y = withinLevelSet(x, V)
 
     if model is None:
-        model = poly_model(nx, max_deg=max_deg)
+        model = polyModel(nx, max_deg=max_deg)
     # prog = MathematicalProgram()
     # x = prog.NewIndeterminates(nx, "x")
     # f = -np.array([x[1], -x[0] - x[1] * (x[0]**2 - 1)])
@@ -148,7 +148,7 @@ def poly_train(nx, x, V=None, max_deg=2, model=None):
     # V0 = phi.T@P@phi
     # Vdot = V0.Jacobian(x) @ f
     # print(Vdot.Substitute(env))
-    model_file_name = '../data/Kernel/poly_model.h5'
+    model_file_name = '../data/Kernel/polyModel.h5'
     model.save(model_file_name)
     print("Saved model" + model_file_name + " to disk")
     return P, model, history
@@ -176,7 +176,7 @@ def run():
 
     # plotFunnel(x, V)
     for i in range(1):
-        P, model, history = poly_train(nx, x, V, max_deg=max_deg)
+        P, model, history = polyTrain(nx, x, V, max_deg=max_deg)
         if history.history['loss'][-1] >= 0:
             break
         else:

@@ -73,7 +73,7 @@ def originalSysInitialV(CL):
     return x.T@S0@x
 
 
-def augDynamics(CL):
+def augmentedTanhPolySys(CL):
     """Summary
     # returns the CONTINUOUS TIME closed-loop dynamics of the augmented states,
     # which include the plant state x, the RNN state c, the added two states
@@ -116,7 +116,7 @@ def augDynamics(CL):
     return [augStates, f]
 
 
-def linearizeAugDynamics(x, f):
+def linearizeAugmentedTanhPolySys(x, f):
     """
     linearize f, which is the augmented (via the change of variable recasting)
     w.r.t. the states x.
@@ -722,58 +722,6 @@ def levelsetMethod(x, V0, f, options):
 #     #         print result
 #     #         return -1
 #
-#
-# def find_scales(S, S0, rho):
-#     prog = MathematicalProgram()
-#     prog = prog.withIndeterminate(x)
-#
-#     [prog, L2] = prog.newFreePoly(Lxmonom)
-#
-#     [prog, slack] = prog.newPos(1)
-#
-#     prog = prog.withSOS(-(V - 1) + L2 * (V0 - rho))
-#     prog = prog.withSOS(L2)
-#
-#     prog.AddCost(-slack[0])
-#     result = prog.Solve()
-#
-#     if result == SolutionResult.kSolutionFound:
-#         scales = prog.GetSolution(scales)
-#         return scales
-#     else:
-#         print result
-#         raise RuntimeError(result)
-#
-#
-# def optimizeV(L1, L2, V0, sigma1):
-#     prog = spotsosprog
-#     prog = prog.withIndeterminate(x)
-#
-#     [prog, V] = prog.newFreePoly(Vxmonom)
-#     Vdot = diff(V, x) * f
-#
-#     [prog, rho] = prog.newPos(1)
-#
-#     prog = prog.withSOS(-Vdot + L1 * (V - 1) - sigma1 * V / 2)
-#     prog = prog.withSOS(-(V - 1) + L2 * (V0 - rho))
-#     prog = prog.withSOS(V)
-#
-#     prog.AddCost(-rho[0])
-#     result = prog.Solve()
-#
-#     if result == SolutionResult.kSolutionFound:
-#         S = prog.GetSolution(S)
-#         r = prog.GetSolution(r)
-#         l = prog.GetSolution(l)
-#         m = prog.GetSolution(m)
-#         rho = prog.GetSolution(rho)
-#         return S, r, l, m, rho
-#     else:
-#         print result
-#         raise RuntimeError(result)
-#
-#
-
 #     def explicit_Jacobian(self):
 #         c = self.xhat1
 #         u = self.uhat

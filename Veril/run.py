@@ -133,8 +133,8 @@ def batchSim(CL, timesteps, num_samples=10000):
 CL = get_NNorCL(**options)
 # NN = get_NNorCL(num_units, plant_name, timesteps, NNorCL='NN')
 Verifier.originalSysInitialV(CL)
-[x,f] = Verifier.augDynamics(CL)
-Verifier.linearizeAugDynamics(x,f)
+[x,f] = Verifier.augmentedTanhPolySys(CL)
+Verifier.linearizeAugmentedTanhPolySys(x,f)
 
 final = batchSim(CL, 10, num_samples=100)
 # train(plant_name, pre_trained=None, **options)
