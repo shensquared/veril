@@ -18,15 +18,16 @@ plant = 'vdp'
 prog = MathematicalProgram()
 if plant is 'Cubic':
     nx = 1
+    degf=3
     x = prog.NewIndeterminates(nx, "x")
     xdot = [-x[0] + x[0]**3]
 elif plant is 'vdp':
     nx=2
+    degf=3
     x = prog.NewIndeterminates(nx, "x")
     xdot = -np.array([x[1], -x[0] - x[1] * (x[0]**2 - 1)])
 
-options = opt(nx, converged_tol = 1e-2, degL1=6, degL2=6, degV=4,
-   max_iterations=100, degVdot = 6)
+options = opt(nx, degf, converged_tol = 1e-2, degV=4, max_iterations=100)
 J = Jacobian(xdot, x)
 env = dict(zip(x, np.zeros(x.shape)))
 A = np.array([[i.Evaluate(env) for i in j]for j in J])

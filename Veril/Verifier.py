@@ -17,15 +17,19 @@ from keras import backend as K
 
 class opt:
 
-    def __init__(self, nX, converged_tol=.01, max_iterations=10, degL1=4,
-                 degL2=4, degV=2, degVdot=0, do_balance=False):
-        self.degV = degV
-        self.max_iterations = max_iterations
-        self.converged_tol = converged_tol
-        self.degL1 = degL1
-        self.degL2 = degL2
+    def __init__(self, nX, degf, degV=4, converged_tol=.01, max_iterations=10,
+                 degL1=None, degL2=None, do_balance=False):
         self.nX = nX
-        self.degVdot = degVdot
+        self.degf = degf
+        self.degV = degV
+        self.converged_tol = converged_tol
+        self.max_iterations = max_iterations
+        if degL1 is None:
+            degL1 = degV - 1 + degf
+        self.degL1 = degL1
+        if degL2 is None:
+            degL2 = degL1
+        self.degL2 = degL2
         self.do_balance = do_balance
 
 
@@ -350,8 +354,15 @@ def levelsetMethod(x, V0, f, options):
     sigma1 = prog.NewContinuousVariables(1, "s")[0]
     prog.AddConstraint(sigma1 >= 0)
     L1 = prog.NewFreePolynomial(Variables(x), options.degL1).ToExpression()
-    deg = options.degL1 + options.degV / 2 - options.degVdot
 
+    # p1 = Polynomial(e)
+    # print(p1.TotalDegree())  # This should print 3
+    # print(p1.indeterminates()) # This should print both a and x
+    # p2 = Polynomial(e, Variables([x])) # Only x is the indeterminate
+    # print(p2.TotalDegree()) # This should print 2
+    # print(p2.indeterminates()) # This should print x only
+
+    deg = (options.degL1 + Polynomial(Vdot, x).TotalDegree() - options.degV) / 2
     prog.AddSosConstraint((x.T@x)**np.floor(deg) * (V - sigma1) + L1 * Vdot)
     # add cost
     prog.AddCost(-sigma1)
