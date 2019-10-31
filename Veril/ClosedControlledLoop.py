@@ -136,7 +136,7 @@ def augmentedTanhPolySys(CL, return_weights=False):
         return [augStates, f]
 
 
-def linearizeAugmentedTanhPolySys(x, f):
+def linearizeAugmentedTanhPolySys(CL):
     """
     linearize f, which is the augmented (via the change of variable recasting)
     w.r.t. the states x.
@@ -149,6 +149,7 @@ def linearizeAugmentedTanhPolySys(x, f):
         TYPE: the linearization, evaluated at zero
     """
     # TODO: for now linearize at zero, need to linearize at plant.x0
+    [x, f] = augmentedTanhPolySys(CL)
     J = Jacobian(f, x)
     env = dict(zip(x, np.zeros(x.shape)))
     A = np.array([[i.Evaluate(env) for i in j]for j in J])
@@ -157,31 +158,3 @@ def linearizeAugmentedTanhPolySys(x, f):
         eig(A)[0]))
     S = solve_lyapunov(A.T, -np.eye(x.shape[0]))
     return A, S
-
-
-def sampleAugmentdTanhPolySys(CL, num_samples, timesteps):
-    """sample initial states in [x,c,tau_f,tau_c] space. But since really only
-    x and c are independent, bake in the relationship that tau_f=tanh(arg_f)
-    and tau_c=tanh(arg_c) here. Also return the augmented poly system dyanmcis
-    f for the downstream verification analysis.
-
-    Args:
-        CL (TYPE): closedcontrolledsystem
-
-    Returns:
-        TYPE: Description
-    """
-    [augStates, f, recurrent_kernel_f, kernel_f, recurrent_kernel_c, kernel_c]\
-        = augmentedTanhPolySys(CL, return_weights=True)
-    plant = Plants.get(CL.plant_name, CL.dt, CL.obs_idx)
-
-    [init_x, init_c, _] = plant.get_data(num_samples, timesteps, CL.units)[0]
-    shift_y_tm1 = plant.get_obs(init_x) - plant.y0
-
-    shift_y_tm1 = shift_y_tm1.T
-    init_c = init_c.T
-    init_x = init_x.T
-    init_tanh_f = np.tanh(kernel_f@shift_y_tm1 + recurrent_kernel_f@init_c)
-    init_tanh_c = np.tanh(kernel_c@shift_y_tm1 + recurrent_kernel_c@init_c)
-    augStatesSamples = np.vstack([init_x, init_c, init_tanh_f, init_tanh_c])
-    return [augStates, f, augStatesSamples]
