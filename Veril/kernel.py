@@ -157,7 +157,7 @@ def poly_train(nx, x, V=None, max_deg=2, model=None):
 def run():
     nx = 2
     degf = 3
-    max_deg = 2
+    max_deg = 3
     prog = MathematicalProgram()
     x = prog.NewIndeterminates(nx, "x")
     f = -np.array([x[1], -x[0] - x[1] * (x[0]**2 - 1)])
