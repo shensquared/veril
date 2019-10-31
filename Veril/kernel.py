@@ -87,7 +87,7 @@ def PolyDynamicsOutputShape(input_shapes):
     return input_shapes
 
 
-def polyModel(sys_dim, max_deg=2):
+def polyModel(sys_dim, max_deg):
     # constant = Input(shape=(1,))
     x = Input(shape=(sys_dim,))  # x: (None, sys_dim)
     phi = Polynomials(sys_dim, max_deg)(x)  # phi: (None, monomial_dim)
@@ -117,7 +117,7 @@ def polyModel(sys_dim, max_deg=2):
     return model
 
 
-def polyTrain(nx, x, V=None, max_deg=2, model=None):
+def polyTrain(nx, max_deg,  x, V=None, model=None):
     callbacks = []
     if V is None:
         train_x, train_y = get_data(d=1, num_grid=200)
@@ -125,7 +125,7 @@ def polyTrain(nx, x, V=None, max_deg=2, model=None):
         train_x, train_y = withinLevelSet(x, V)
 
     if model is None:
-        model = polyModel(nx, max_deg=max_deg)
+        model = polyModel(nx, max_deg)
     # prog = MathematicalProgram()
     # x = prog.NewIndeterminates(nx, "x")
     # f = -np.array([x[1], -x[0] - x[1] * (x[0]**2 - 1)])
@@ -139,7 +139,7 @@ def polyTrain(nx, x, V=None, max_deg=2, model=None):
     # print([i.Substitute(env) for i in phi])
 
     history = model.fit(train_x, train_y, batch_size=32,
-                        shuffle=True, epochs=10,
+                        shuffle=True, epochs=15,
                         verbose=True,
                         callbacks=callbacks)
     weights = [K.eval(i) for i in model.weights]
@@ -173,10 +173,12 @@ def run():
         (0.18442) * x2**2 + (0.016538) * x2**4 + \
         (-0.34562) * x2 * x1 + (0.064721) * x2 * x1**3 + \
         (0.10556) * x2**2 * x1**2 + (-0.060367) * x2**3 * x1
+    V=5*V
 
     # plotFunnel(x, V)
-    for i in range(1):
-        P, model, history = polyTrain(nx, x, V, max_deg=max_deg)
+    model = None
+    for i in range(options.max_iterations):
+        P, model, history = polyTrain(nx, max_deg, x, V, model)
         if history.history['loss'][-1] >= 0:
             break
         else:
