@@ -368,8 +368,7 @@ class JanetControllerCell(Layer):
         plant = self.plant
         x_tm1 = states[0]
         c_tm1 = states[1]  # previous cell memory state
-        y_tm1 = plant.get_obs(x_tm1)
-        shift_y_tm1 = y_tm1 - plant.y0
+        shift_y_tm1 = plant.get_obs(x_tm1) - plant.y0
 
         if self.implementation == 1:
             if 0 < self.recurrent_dropout < 1.:

@@ -82,7 +82,7 @@ def originalSysInitialV(CL):
     print('eig of orignal SA+A\'S  %s' % (eig(A0.T@S0 + S0@A0)[0]))
     return x.T@S0@x
 
-def augmentedTanhPolySys(CL):
+def augmentedTanhPolySys(CL, return_tanh_args = False):
     """Summary
     # returns the CONTINUOUS TIME closed-loop dynamics of the augmented states,
     # which include the plant state x, the RNN state c, the added two states
@@ -93,6 +93,9 @@ def augmentedTanhPolySys(CL):
     Returns:
         all states (plant, controller, plus the recasted ones)
         polynomial dynamics of the all-states
+        optional return:
+        arg_f: such that tau_f = tanh(arg_f)
+        arg_c: such that tau_c = tanh(arg_c)
 
     """
 
@@ -110,8 +113,11 @@ def augmentedTanhPolySys(CL):
     tau_f = prog.NewIndeterminates(CL.units, "tf")
     tau_c = prog.NewIndeterminates(CL.units, "tc")
 
-    delta_y = plant.get_obs(x) - plant.y0
-    u = output_kernel@c + feedthrough_kernel@delta_y
+    shift_y_tm1 = plant.get_obs(x) - plant.y0
+    arg_f = kernel_f@shift_y_tm1 + recurrent_kernel_f@c
+    arg_c = kernel_c@shift_y_tm1 + recurrent_kernel_c@c
+
+    u = output_kernel@c + feedthrough_kernel@shift_y_tm1
     xdot = plant.xdot(x, u)
     ydot = plant.ydot(x, u)
     cdot = (.5 * (- c + c * tau_f + tau_c - tau_c * tau_f)) / CL.dt
@@ -122,7 +128,10 @@ def augmentedTanhPolySys(CL):
 
     augStates = np.hstack((x, c, tau_f, tau_c))
     f = np.hstack((xdot, cdot, tau_f_dot, tau_c_dot))
-    return [augStates, f]
+    if return_tanh_args:
+        return [augStates, f, arg_f, arg_c]
+    else:
+        return [augStates, f]
 
 def linearizeAugmentedTanhPolySys(x, f):
     """
@@ -145,3 +154,18 @@ def linearizeAugmentedTanhPolySys(x, f):
     S = solve_lyapunov(A.T, -np.eye(x.shape[0]))
     return A, S
 
+def sampleAugmentdTanhPolySys(CL):
+    """sample initial states in [x,c,tau_f,tau_c] space. But since really only
+    x and c are independent, bake in the relationship that tau_f=tanh(arg_f)
+    and tau_c=tanh(arg_c) here. Also return the augmented poly system dyanmcis
+    f for the downstream verification analysis.
+    
+    Args:
+        CL (TYPE): closedcontrolledsystem
+    
+    Returns:
+        TYPE: Description
+    """
+    [augStates, f, arg_f, arg_c] =augmentedTanhPolySys(CL, return_tanh_args =
+       True)
+    return augStates
