@@ -14,6 +14,7 @@ from pydrake.all import (MathematicalProgram, Polynomial,
 import Plants
 from keras import backend as K
 
+
 def call_CLsys(CL, tm1, num_samples):
     inputs = K.placeholder()
     states = [K.placeholder(shape=(num_samples, CL.cell.num_plant_states)),
@@ -42,6 +43,7 @@ def batchSim(CL, timesteps, num_samples=10000):
     for i in range(timesteps):
         init = call_CLsys(CL, init, num_samples)
     return init
+
 
 def originalSysInitialV(CL):
     plant = Plants.get(CL.plant_name, CL.dt, CL.obs_idx)
@@ -82,7 +84,8 @@ def originalSysInitialV(CL):
     print('eig of orignal SA+A\'S  %s' % (eig(A0.T@S0 + S0@A0)[0]))
     return x.T@S0@x
 
-def augmentedTanhPolySys(CL, return_tanh_args = False):
+
+def augmentedTanhPolySys(CL, return_weights=False):
     """Summary
     # returns the CONTINUOUS TIME closed-loop dynamics of the augmented states,
     # which include the plant state x, the RNN state c, the added two states
@@ -93,9 +96,7 @@ def augmentedTanhPolySys(CL, return_tanh_args = False):
     Returns:
         all states (plant, controller, plus the recasted ones)
         polynomial dynamics of the all-states
-        optional return:
-        arg_f: such that tau_f = tanh(arg_f)
-        arg_c: such that tau_c = tanh(arg_c)
+        optional return: all the relevant weights
 
     """
 
@@ -114,8 +115,8 @@ def augmentedTanhPolySys(CL, return_tanh_args = False):
     tau_c = prog.NewIndeterminates(CL.units, "tc")
 
     shift_y_tm1 = plant.get_obs(x) - plant.y0
-    arg_f = kernel_f@shift_y_tm1 + recurrent_kernel_f@c
-    arg_c = kernel_c@shift_y_tm1 + recurrent_kernel_c@c
+    # arg_f = kernel_f@shift_y_tm1 + recurrent_kernel_f@c
+    # arg_c = kernel_c@shift_y_tm1 + recurrent_kernel_c@c
 
     u = output_kernel@c + feedthrough_kernel@shift_y_tm1
     xdot = plant.xdot(x, u)
@@ -128,10 +129,12 @@ def augmentedTanhPolySys(CL, return_tanh_args = False):
 
     augStates = np.hstack((x, c, tau_f, tau_c))
     f = np.hstack((xdot, cdot, tau_f_dot, tau_c_dot))
-    if return_tanh_args:
-        return [augStates, f, arg_f, arg_c]
+    if return_weights:
+        return [augStates, f, recurrent_kernel_f, kernel_f,
+                recurrent_kernel_c, kernel_c]
     else:
         return [augStates, f]
+
 
 def linearizeAugmentedTanhPolySys(x, f):
     """
@@ -150,22 +153,35 @@ def linearizeAugmentedTanhPolySys(x, f):
     env = dict(zip(x, np.zeros(x.shape)))
     A = np.array([[i.Evaluate(env) for i in j]for j in J])
     # print('A  %s' % A)
-    print('eig of the linearized A matrix for augmented with tanh poly system %s'% (eig(A)[0]))
+    print('eig of the linearized A matrix for augmented with tanh poly system %s' % (
+        eig(A)[0]))
     S = solve_lyapunov(A.T, -np.eye(x.shape[0]))
     return A, S
 
-def sampleAugmentdTanhPolySys(CL):
+
+def sampleAugmentdTanhPolySys(CL, num_samples, timesteps):
     """sample initial states in [x,c,tau_f,tau_c] space. But since really only
     x and c are independent, bake in the relationship that tau_f=tanh(arg_f)
     and tau_c=tanh(arg_c) here. Also return the augmented poly system dyanmcis
     f for the downstream verification analysis.
-    
+
     Args:
         CL (TYPE): closedcontrolledsystem
-    
+
     Returns:
         TYPE: Description
     """
-    [augStates, f, arg_f, arg_c] =augmentedTanhPolySys(CL, return_tanh_args =
-       True)
-    return augStates
+    [augStates, f, recurrent_kernel_f, kernel_f, recurrent_kernel_c, kernel_c]\
+        = augmentedTanhPolySys(CL, return_weights=True)
+    plant = Plants.get(CL.plant_name, CL.dt, CL.obs_idx)
+
+    [init_x, init_c, _] = plant.get_data(num_samples, timesteps, CL.units)[0]
+    shift_y_tm1 = plant.get_obs(init_x) - plant.y0
+
+    shift_y_tm1 = shift_y_tm1.T
+    init_c = init_c.T
+    init_x = init_x.T
+    init_tanh_f = np.tanh(kernel_f@shift_y_tm1 + recurrent_kernel_f@init_c)
+    init_tanh_c = np.tanh(kernel_c@shift_y_tm1 + recurrent_kernel_c@init_c)
+    augStatesSamples = np.vstack([init_x, init_c, init_tanh_f, init_tanh_c])
+    return [augStates, f, augStatesSamples]
