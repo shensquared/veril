@@ -83,7 +83,6 @@ def VDP(x):
     return dx
 
 
-
 def Poly_dynamics_shape(input_shapes):
     return input_shapes
 
@@ -96,8 +95,9 @@ def poly_model(sys_dim, max_deg=2):
     # kernel_regularizer=keras.regularizers.l2(0.))
     layers = [
         Dense(20, use_bias=False),
-        Dense(5, use_bias=False),
-
+        Dense(8, use_bias=False),
+        Dense(10, use_bias=False),
+        Dense(8, use_bias=False),
     ]
     layers = layers + [TransLayer(i) for i in layers[::-1]]
     phiLL = Sequential(layers)(phi)  # phiLL: (None, monomial_dim)
@@ -126,14 +126,28 @@ def poly_train(nx, x, V=None, max_deg=2, model=None):
 
     if model is None:
         model = poly_model(nx, max_deg=max_deg)
+    # prog = MathematicalProgram()
+    # x = prog.NewIndeterminates(nx, "x")
+    # f = -np.array([x[1], -x[0] - x[1] * (x[0]**2 - 1)])
+    # y = list(itertools.combinations_with_replacement(np.append(1, x), max_deg))
+    # phi = np.stack([np.prod(j) for j in y])[1:]
+    # train_x = np.array([[2.1,3.7]])
+    # train_y = train_x
+    # print('model pridcted')
     # print(model.predict(train_x))
+    # env = dict(zip(x, train_x.T))
+    # print([i.Substitute(env) for i in phi])
+
     history = model.fit(train_x, train_y, batch_size=32,
-                        shuffle=True, epochs=100,
+                        shuffle=True, epochs=10,
                         verbose=True,
                         callbacks=callbacks)
     weights = [K.eval(i) for i in model.weights]
     weights = np.linalg.multi_dot(weights)
     P = weights@weights.T
+    # V0 = phi.T@P@phi
+    # Vdot = V0.Jacobian(x) @ f
+    # print(Vdot.Substitute(env))
     model_file_name = '../data/Kernel/poly_model.h5'
     model.save(model_file_name)
     print("Saved model" + model_file_name + " to disk")
@@ -142,16 +156,16 @@ def poly_train(nx, x, V=None, max_deg=2, model=None):
 
 def run():
     nx = 2
+    degf = 3
     max_deg = 2
     prog = MathematicalProgram()
     x = prog.NewIndeterminates(nx, "x")
     f = -np.array([x[1], -x[0] - x[1] * (x[0]**2 - 1)])
     y = list(itertools.combinations_with_replacement(np.append(1, x), max_deg))
     phi = np.stack([np.prod(j) for j in y])[1:]
-    # V=None
-    options = opt(nx, do_balance=False, degV=2 * max_deg, degVdot=6,
-                  converged_tol=1e-2, degL1=2 * max_deg, degL2=2 * max_deg,
-                  max_iterations=20)
+
+    options = opt(nx, degf, do_balance=False, degV=2 * max_deg,
+                  converged_tol=1e-2, max_iterations=20)
 
     x1 = x[0]
     x2 = x[1]
@@ -159,7 +173,6 @@ def run():
         (0.18442) * x2**2 + (0.016538) * x2**4 + \
         (-0.34562) * x2 * x1 + (0.064721) * x2 * x1**3 + \
         (0.10556) * x2**2 * x1**2 + (-0.060367) * x2**3 * x1
-    V = 3 * V
 
     # plotFunnel(x, V)
     for i in range(1):
@@ -176,4 +189,5 @@ def run():
             plotFunnel(x, V)
     return V
 
-run()
+V = run()
+print(V)
