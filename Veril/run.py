@@ -5,7 +5,6 @@ from keras.models import Model, load_model
 from keras.layers import Input
 from keras.callbacks import ModelCheckpoint
 from keras.utils import CustomObjectScope
-from keras import backend as K
 # from keras import regularizers
 
 import h5py
@@ -13,7 +12,9 @@ import numpy as np
 
 import Plants
 import Verifier
+import ClosedControlledLoop
 from CustomLayers import JanetController
+
 
 NNorCL = 'CL'
 
@@ -101,40 +102,11 @@ def get_NNorCL(NNorCL='CL', **kwargs):
                 return this_layer
 
 
-def call_CLsys(CL, tm1, num_samples):
-    inputs = K.placeholder()
-    states = [K.placeholder(shape=(num_samples, CL.cell.num_plant_states)),
-              K.placeholder(shape=(num_samples, CL.cell.units))]
-    [x_tm2, c_tm2] = CL.cell.call(inputs, states, training=False)[1]
-    feed_dict = dict(zip(states, tm1))
-    sess = K.get_session()
-    x_tm2 = sess.run(x_tm2, feed_dict=feed_dict)
-    c_tm2 = sess.run(c_tm2, feed_dict=feed_dict)
-    return [x_tm2, c_tm2]
-
-
-def batchSim(CL, timesteps, num_samples=10000):
-    """return two sets of initial conditions based on the simulated results.
-    One set is the stable trajectory and the other set is the unstable one.
-
-    Args:
-        CL (TYPE): Description
-        timesteps (TYPE): Description
-        init (TYPE): Description
-        num_samples (TYPE): Description
-    """
-    init_x_train = np.random.randn(num_samples, CL.cell.num_plant_states)
-    init_c = np.zeros((num_samples, CL.cell.units))
-    init = [init_x_train, init_c]
-    for i in range(timesteps):
-        init = call_CLsys(CL, init, num_samples)
-    return init
-
 CL = get_NNorCL(**options)
 # NN = get_NNorCL(num_units, plant_name, timesteps, NNorCL='NN')
-Verifier.originalSysInitialV(CL)
-[x,f] = Verifier.augmentedTanhPolySys(CL)
-Verifier.linearizeAugmentedTanhPolySys(x,f)
+ClosedControlledLoop.originalSysInitialV(CL)
+[x,f] = ClosedControlledLoop.augmentedTanhPolySys(CL)
+ClosedControlledLoop.linearizeAugmentedTanhPolySys(x,f)
 
-final = batchSim(CL, 10, num_samples=100)
-# train(plant_name, pre_trained=None, **options)
+# final = ClosedControlledLoop.batchSim(CL, 10, num_samples=100)
+train(plant_name, pre_trained=None, **options)
