@@ -103,12 +103,12 @@ def get_NNorCL(NNorCL='CL', **kwargs):
 
 
 CL = get_NNorCL(**options)
-# NN = get_NNorCL(num_units, plant_name, timesteps, NNorCL='NN')
-# ClosedControlledLoop.originalSysInitialV(CL)
-# [x,f] = ClosedControlledLoop.augmentedTanhPolySys(CL)
-A,S = ClosedControlledLoop.linearizeAugmentedTanhPolySys(CL)
+ClosedControlledLoop.originalSysInitialV(CL)
+augedSys = ClosedControlledLoop.augmentedTanhPolySys(CL)
+x,f = augedSys.symbolicStatesAndDynamics()
+samples = augedSys.sampleInitialStatesInclduingTanh(3,10)
+print(samples)
+A,S = augedSys.linearizeAugmentedTanhPolySys()
 
-
-# init_full_states = ClosedControlledLoop.augmentedTanhPolySys(CL, symbolic=False)
 # final = ClosedControlledLoop.batchSim(CL, 10, num_samples=100)
 # train(plant_name, pre_trained=None, **options)

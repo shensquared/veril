@@ -85,76 +85,97 @@ def originalSysInitialV(CL):
     return x.T@S0@x
 
 
-def augmentedTanhPolySys(CL, return_weights=False):
+class augmentedTanhPolySys(object):
     """Summary
     # returns the CONTINUOUS TIME closed-loop dynamics of the augmented states,
     # which include the plant state x, the RNN state c, the added two states
     # from the tanh nonlinearity, tau_c, and tau_f
     Args:
         CL (TYPE): closed-loop system dynamics
+        states: default None, meaning everything drake symbolic; otherwise
+        expecting np arrays for numerical samples
 
     Returns:
         all states (plant, controller, plus the recasted ones)
         polynomial dynamics of the all-states
-        optional return: all the relevant weights
-
     """
 
-    output_kernel = (K.eval(CL.cell.output_kernel)).T
-    feedthrough_kernel = (K.eval(CL.cell.feedthrough_kernel)).T
-    recurrent_kernel_f = (K.eval(CL.cell.recurrent_kernel_f)).T
-    kernel_f = (K.eval(CL.cell.kernel_f)).T
-    recurrent_kernel_c = (K.eval(CL.cell.recurrent_kernel_c)).T
-    kernel_c = (K.eval(CL.cell.kernel_c)).T
+    def __init__(self, CL):
+        self.output_kernel = (K.eval(CL.cell.output_kernel))
+        self.feedthrough_kernel = (K.eval(CL.cell.feedthrough_kernel))
+        self.recurrent_kernel_f = (K.eval(CL.cell.recurrent_kernel_f))
+        self.kernel_f = (K.eval(CL.cell.kernel_f))
+        self.recurrent_kernel_c = (K.eval(CL.cell.recurrent_kernel_c))
+        self.kernel_c = (K.eval(CL.cell.kernel_c))
 
-    plant = Plants.get(CL.plant_name, CL.dt, CL.obs_idx)
-    prog = MathematicalProgram()
-    x = prog.NewIndeterminates(plant.num_states, "x")
-    c = prog.NewIndeterminates(CL.units, "c")
-    tau_f = prog.NewIndeterminates(CL.units, "tf")
-    tau_c = prog.NewIndeterminates(CL.units, "tc")
+        self.plant = Plants.get(CL.plant_name, CL.dt, CL.obs_idx)
+        self.nx = CL.cell.num_plant_states
+        self.units = CL.units
+        self.dt = CL.dt
 
-    shift_y_tm1 = plant.get_obs(x) - plant.y0
-    # arg_f = kernel_f@shift_y_tm1 + recurrent_kernel_f@c
-    # arg_c = kernel_c@shift_y_tm1 + recurrent_kernel_c@c
+    def ArgsForTanh(self, x, c):
+        arg_f = x@self.kernel_f + c@self.recurrent_kernel_f
+        arg_c = x@self.kernel_c + c@self.recurrent_kernel_c
+        return [arg_f, arg_c]
 
-    u = output_kernel@c + feedthrough_kernel@shift_y_tm1
-    xdot = plant.xdot(x, u)
-    ydot = plant.ydot(x, u)
-    cdot = (.5 * (- c + c * tau_f + tau_c - tau_c * tau_f)) / CL.dt
-    # TODO: should be y0dot but let's for now assume the two are the same
-    # (since currently all y0=zeros)
-    tau_f_dot = (1 - tau_f**2) * (kernel_f@ydot + recurrent_kernel_f@cdot)
-    tau_c_dot = (1 - tau_c**2) * (kernel_c@ydot + recurrent_kernel_c@cdot)
+    def symbolicStatesAndDynamics(self):
+        prog = MathematicalProgram()
+        x = prog.NewIndeterminates(self.nx, "x")
+        c = prog.NewIndeterminates(self.units, "c")
+        tau_f = prog.NewIndeterminates(self.units, "tf")
+        tau_c = prog.NewIndeterminates(self.units, "tc")
+        shift_y_tm1 = self.plant.get_obs(x) - self.plant.y0
 
-    augStates = np.hstack((x, c, tau_f, tau_c))
-    f = np.hstack((xdot, cdot, tau_f_dot, tau_c_dot))
-    if return_weights:
-        return [augStates, f, recurrent_kernel_f, kernel_f,
-                recurrent_kernel_c, kernel_c]
-    else:
-        return [augStates, f]
+        u = c@self.output_kernel + shift_y_tm1@self.feedthrough_kernel
+        xdot = self.plant.xdot(x, u)
+        ydot = self.plant.ydot(x, u)
+        cdot = (.5 * (- c + c * tau_f + tau_c - tau_c * tau_f)) / self.dt
+        # TODO: should be y0dot but let's for now assume the two are the same
+        # (since currently all y0=zeros)
+        tau_f_dot = (1 - tau_f**2) * self.ArgsForTanh(ydot, cdot)[0]
+        tau_c_dot = (1 - tau_c**2) * self.ArgsForTanh(ydot, cdot)[1]
 
+        augedStates = np.hstack((x, c, tau_f, tau_c))
+        augedDynamics = np.hstack((xdot, cdot, tau_f_dot, tau_c_dot))
+        return [augedStates, augedDynamics]
 
-def linearizeAugmentedTanhPolySys(CL):
-    """
-    linearize f, which is the augmented (via the change of variable recasting)
-    w.r.t. the states x.
+    def sampleInitialStatesInclduingTanh(self, num_samples):
+        """sample initial states in [x,c,tau_f,tau_c] space. But since really only
+        x and c are independent, bake in the relationship that tau_f=tanh(arg_f)
+        and tau_c=tanh(arg_c) here. Also return the augmented poly system dyanmcis
+        f for the downstream verification analysis.
 
-    Args:
-        x (TYPE): States
-        f (TYPE): the augmented dynamics
+        Args:
+            CL (TYPE): closedcontrolledsystem
 
-    Returns:
-        TYPE: the linearization, evaluated at zero
-    """
-    # TODO: for now linearize at zero, need to linearize at plant.x0
-    [x, f] = augmentedTanhPolySys(CL)
-    J = Jacobian(f, x)
-    env = dict(zip(x, np.zeros(x.shape)))
-    A = np.array([[i.Evaluate(env) for i in j]for j in J])
-    # print('A  %s' % A)
-    print('eig of the linearized A matrix for augmented with tanh poly system %s' % (
-        eig(A)[0]))
-    S = solve_lyapunov(A.T, -np.eye(x.shape[0]))
-    return A, S
+        Returns:
+            TYPE: Description
+        """
+        [x, c, _] = self.plant.get_data(num_samples, 1, self.units)[0]
+        shifted_y = self.plant.get_obs(x) - self.plant.y0
+        tanh_f = np.tanh(self.ArgsForTanh(shifted_y, c)[0])
+        tanh_c = np.tanh(self.ArgsForTanh(shifted_y, c)[1])
+        return np.hstack((x, c, tanh_f, tanh_c))
+
+    def linearizeAugmentedTanhPolySys(self):
+        """
+        linearize f, which is the augmented (via the change of variable recasting)
+        w.r.t. the states x.
+
+        Args:
+            x (TYPE): States
+            f (TYPE): the augmented dynamics
+
+        Returns:
+            TYPE: the linearization, evaluated at zero
+        """
+        # TODO: for now linearize at zero, need to linearize at plant.x0
+        [x, f] = self.symbolicStatesAndDynamics()
+        J = Jacobian(f, x)
+        env = dict(zip(x, np.zeros(x.shape)))
+        A = np.array([[i.Evaluate(env) for i in j]for j in J])
+        # print('A  %s' % A)
+        print('eig of the linearized A matrix for augmented with tanh poly system %s' % (
+            eig(A)[0]))
+        S = solve_lyapunov(A.T, -np.eye(x.shape[0]))
+        return A, S
