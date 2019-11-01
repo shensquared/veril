@@ -21,7 +21,7 @@ options = {
     # 'plant_name': 'Pendulum',
     # 'plant_name': 'Satellite',
     'num_units': 4,
-    'timesteps': 20,
+    'timesteps': 1000,
     'num_samples': 100,
     'batch_size': 1,
     'epochs': 10,
@@ -75,11 +75,11 @@ def train(pre_trained=None, **kwargs):
     model.save(model_file_name)
     print("Saved model " + model_file_name + " to disk")
 
-# CL = ClosedControlledLoop.get_NNorCL(**options)
+CL = ClosedControlledLoop.get_NNorCL(**options)
 # ClosedControlledLoop.originalSysInitialV(CL)
-# augedSys = ClosedControlledLoop.augmentedTanhPolySys(CL)
-# x,f = augedSys.symbolicStatesAndDynamics()
-# samples = augedSys.sampleInitialStatesInclduingTanh(3)
+augedSys = ClosedControlledLoop.augmentedTanhPolySys(CL)
+samples = augedSys.sampleInitialStatesInclduingTanh(29)
+x,f = augedSys.statesAndDynamics(numericals=samples)
 # print(samples)
 # A,S = augedSys.linearizeAugmentedTanhPolySys()
 

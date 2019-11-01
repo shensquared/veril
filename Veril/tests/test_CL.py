@@ -33,7 +33,7 @@ NN = ClosedControlledLoop.get_NNorCL(NNorCL='NN', **options)
 CL = ClosedControlledLoop.get_NNorCL(**options)
 
 test_time_steps = 1
-test_num_samples = 1
+test_num_samples = 2
 
 plant = Plants.get(CL.plant_name, CL.dt, CL.obs_idx)
 augedSys = ClosedControlledLoop.augmentedTanhPolySys(CL)
@@ -45,17 +45,22 @@ ext_in = np.zeros((test_num_samples, test_time_steps,1))
 
 def test_call_CLsys(NN, CL, x):
     predicted = NN.predict([initx,initc,ext_in])
+    print('predicted')
     print(predicted)
     rollout=ClosedControlledLoop.batchSim(CL, test_time_steps, init=
         [initx,initc],
        num_samples = test_num_samples)
+    print('sim roll out')
     print(rollout)
 
 test_call_CLsys(NN, CL, x)
 
-s,f = augedSys.symbolicStatesAndDynamics()
-env = dict(zip(s,x.T))
-numerical_f = np.array([i.Evaluate(env) for i in f])
-next_x = x+numerical_f*options['dt']
-print(next_x)
+s,f = augedSys.statesAndDynamics()
+_,  batch = augedSys.statesAndDynamics(numericals=x)
 
+for i in range(test_num_samples):
+    env = dict(zip(s,x[i].T))
+    numerical_f = np.array([i.Evaluate(env) for i in f])
+    next_x = x[i].T+numerical_f*options['dt']
+    print('CT symbolic dyanmics insert')
+    print(next_x)

@@ -56,7 +56,7 @@ def call_CLsys(CL, tm1, num_samples):
     return [x_tm2, c_tm2]
 
 
-def batchSim(CL, timesteps, num_samples=10000, init = None):
+def batchSim(CL, timesteps, num_samples=10000, init=None):
     """return two sets of initial conditions based on the simulated results.
     One set is the stable trajectory and the other set is the unstable one.
 
@@ -149,17 +149,26 @@ class augmentedTanhPolySys(object):
         arg_c = x@self.kernel_c + c@self.recurrent_kernel_c
         return [arg_f, arg_c]
 
-    def symbolicStatesAndDynamics(self):
-        prog = MathematicalProgram()
-        x = prog.NewIndeterminates(self.nx, "x")
-        c = prog.NewIndeterminates(self.units, "c")
-        tau_f = prog.NewIndeterminates(self.units, "tf")
-        tau_c = prog.NewIndeterminates(self.units, "tc")
+    def statesAndDynamics(self, numericals=None):
+        if numericals is None:
+            prog = MathematicalProgram()
+            x = prog.NewIndeterminates(self.nx, "x")
+            c = prog.NewIndeterminates(self.units, "c")
+            tau_f = prog.NewIndeterminates(self.units, "tf")
+            tau_c = prog.NewIndeterminates(self.units, "tc")
+        else:
+            x = numericals[:, 0:self.nx]
+            c = numericals[:, self.nx:self.nx + self.units]
+            tau_f = numericals[:, self.nx +
+                               self.units:self.nx + 2 * self.units]
+            tau_c = numericals[:, self.nx + 2 *
+                               self.units:self.nx + 3 * self.units]
+
         shift_y_tm1 = self.plant.get_obs(x) - self.plant.y0
 
         u = c@self.output_kernel + shift_y_tm1@self.feedthrough_kernel
-        xdot = self.plant.xdot(x, u)
-        ydot = self.plant.ydot(x, u)
+        xdot = self.plant.xdot(x.T, u.T).T
+        ydot = self.plant.ydot(x.T, u.T).T
         cdot = (.5 * (- c + c * tau_f + tau_c - tau_c * tau_f)) / self.dt
         # TODO: should be y0dot but let's for now assume the two are the same
         # (since currently all y0=zeros)
@@ -201,7 +210,7 @@ class augmentedTanhPolySys(object):
             TYPE: the linearization, evaluated at zero
         """
         # TODO: for now linearize at zero, need to linearize at plant.x0
-        [x, f] = self.symbolicStatesAndDynamics()
+        [x, f] = self.statesAndDynamics()
         J = Jacobian(f, x)
         env = dict(zip(x, np.zeros(x.shape)))
         A = np.array([[i.Evaluate(env) for i in j]for j in J])
