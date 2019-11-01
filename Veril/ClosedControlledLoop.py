@@ -11,11 +11,11 @@ from pydrake.all import (MathematicalProgram, Polynomial,
                          RealContinuousLyapunovEquation, Substitute,
                          MosekSolver)
 
-import Plants
+from Veril import Plants
 from keras import backend as K
 import os
 from keras.utils import CustomObjectScope
-from CustomLayers import JanetController
+from Veril.CustomLayers import JanetController
 from keras.models import load_model
 
 
@@ -56,7 +56,7 @@ def call_CLsys(CL, tm1, num_samples):
     return [x_tm2, c_tm2]
 
 
-def batchSim(CL, timesteps, num_samples=10000):
+def batchSim(CL, timesteps, num_samples=10000, init = None):
     """return two sets of initial conditions based on the simulated results.
     One set is the stable trajectory and the other set is the unstable one.
 
@@ -66,9 +66,11 @@ def batchSim(CL, timesteps, num_samples=10000):
         init (TYPE): Description
         num_samples (TYPE): Description
     """
-    init_x_train = np.random.randn(num_samples, CL.cell.num_plant_states)
-    init_c = np.zeros((num_samples, CL.cell.units))
-    init = [init_x_train, init_c]
+    if init is None:
+        x = np.random.randn(num_samples, CL.cell.num_plant_states)
+        c = np.zeros((num_samples, CL.cell.units))
+        init = [x, c]
+
     for i in range(timesteps):
         init = call_CLsys(CL, init, num_samples)
     return init
