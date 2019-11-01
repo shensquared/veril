@@ -13,6 +13,35 @@ from pydrake.all import (MathematicalProgram, Polynomial,
 
 import Plants
 from keras import backend as K
+import os
+from keras.utils import CustomObjectScope
+from CustomLayers import JanetController
+from keras.models import load_model
+
+
+def get_NNorCL(NNorCL='CL', **kwargs):
+    num_samples = kwargs['num_samples']
+    num_units = kwargs['num_units']
+    timesteps = kwargs['timesteps']
+    dt = kwargs['dt']
+    obs_idx = kwargs['obs_idx']
+    tag = kwargs['tag']
+    plant_name = kwargs['plant_name']
+
+    # dirname = os.path.dirname(__file__)
+    dirname = os.path.join('/users/shenshen/Veril/data/')
+    model_file_name = dirname + plant_name + '/' + \
+        'unit' + str(num_units) + 'step' + str(timesteps) + tag + '.h5'
+
+    with CustomObjectScope({'JanetController': JanetController}):
+        model = load_model(model_file_name)
+    print(model.summary())
+    if NNorCL is 'NN':
+        return model
+    elif NNorCL is 'CL':
+        for this_layer in model.layers:
+            if hasattr(this_layer, 'cell'):
+                return this_layer
 
 
 def call_CLsys(CL, tm1, num_samples):

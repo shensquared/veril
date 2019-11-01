@@ -4,7 +4,7 @@ import argparse
 from keras.models import Model, load_model
 from keras.layers import Input
 from keras.callbacks import ModelCheckpoint
-from keras.utils import CustomObjectScope
+
 # from keras import regularizers
 
 import h5py
@@ -16,25 +16,22 @@ import ClosedControlledLoop
 from CustomLayers import JanetController
 
 
-NNorCL = 'CL'
-
-plant_name = 'DoubleIntegrator'
-# plant_name = 'Pendulum'
-# plant_name = 'Satellite'
-
 options = {
+    'plant_name': 'DoubleIntegrator',
+    # 'plant_name': 'Pendulum',
+    # 'plant_name': 'Satellite',
     'num_units': 4,
     'timesteps': 1000,
     'num_samples': 100,
+    'batch_size': 1,
+    'epochs': 3,
     'dt': 1e-3,
     'obs_idx': None,
     'tag': '',
-    'epochs': 3,
-    'batch_size': 1
 }
 
 
-def train(plant_name, pre_trained=None, **kwargs):
+def train(pre_trained=None, **kwargs):
 
     num_samples = kwargs.pop('num_samples')
     num_units = kwargs.pop('num_units')
@@ -42,6 +39,7 @@ def train(plant_name, pre_trained=None, **kwargs):
     dt = kwargs.pop('dt')
     obs_idx = kwargs.pop('obs_idx')
     tag = kwargs.pop('tag')
+    plant_name = kwargs.pop('plant_name')
 
     plant = Plants.get(plant_name, dt, obs_idx)
     if pre_trained is None:
@@ -77,38 +75,13 @@ def train(plant_name, pre_trained=None, **kwargs):
     model.save(model_file_name)
     print("Saved model " + model_file_name + " to disk")
 
+# CL = ClosedControlledLoop.get_NNorCL(**options)
+# ClosedControlledLoop.originalSysInitialV(CL)
+# augedSys = ClosedControlledLoop.augmentedTanhPolySys(CL)
+# x,f = augedSys.symbolicStatesAndDynamics()
+# samples = augedSys.sampleInitialStatesInclduingTanh(3)
+# print(samples)
+# A,S = augedSys.linearizeAugmentedTanhPolySys()
 
-def get_NNorCL(NNorCL='CL', **kwargs):
-    num_samples = kwargs.pop('num_samples')
-    num_units = kwargs.pop('num_units')
-    timesteps = kwargs.pop('timesteps')
-    dt = kwargs.pop('dt')
-    obs_idx = kwargs.pop('obs_idx')
-    tag = kwargs.pop('tag')
-
-    # dirname = os.path.dirname(__file__)
-    dirname = os.path.join('/users/shenshen/Veril/data/')
-    model_file_name = dirname + plant_name + '/' + \
-        'unit' + str(num_units) + 'step' + str(timesteps) + tag + '.h5'
-
-    with CustomObjectScope({'JanetController': JanetController}):
-        model = load_model(model_file_name)
-    print(model.summary())
-    if NNorCL is 'NN':
-        return model
-    elif NNorCL is 'CL':
-        for this_layer in model.layers:
-            if hasattr(this_layer, 'cell'):
-                return this_layer
-
-
-CL = get_NNorCL(**options)
-ClosedControlledLoop.originalSysInitialV(CL)
-augedSys = ClosedControlledLoop.augmentedTanhPolySys(CL)
-x,f = augedSys.symbolicStatesAndDynamics()
-samples = augedSys.sampleInitialStatesInclduingTanh(3,10)
-print(samples)
-A,S = augedSys.linearizeAugmentedTanhPolySys()
-
-# final = ClosedControlledLoop.batchSim(CL, 10, num_samples=100)
-# train(plant_name, pre_trained=None, **options)
+NN = ClosedControlledLoop.get_NNorCL(NNorCL='NN', **options)
+train(pre_trained=NN, **options)
