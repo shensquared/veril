@@ -14,7 +14,20 @@ import Plants
 import Verifier
 import ClosedControlledLoop
 from CustomLayers import JanetController
+import kernel
 
+import sys
+sys.path.append(
+    "/Users/shenshen/drake-build/install/lib/python3.7/site-packages")
+import pydrake
+import numpy as np
+from numpy.linalg import eig, inv
+from pydrake.all import (MathematicalProgram, Polynomial,
+                         Expression, SolutionResult,
+                         Variables, Solve, Jacobian, Evaluate,
+                         RealContinuousLyapunovEquation, Substitute,
+                         MosekSolver)
+from CustomLayers import *
 
 options = {
     'plant_name': 'DoubleIntegrator',
@@ -75,13 +88,34 @@ def train(pre_trained=None, **kwargs):
     model.save(model_file_name)
     print("Saved model " + model_file_name + " to disk")
 
-CL = ClosedControlledLoop.get_NNorCL(**options)
-# ClosedControlledLoop.originalSysInitialV(CL)
-augedSys = ClosedControlledLoop.augmentedTanhPolySys(CL)
-samples = augedSys.sampleInitialStatesInclduingTanh(29)
-x,f = augedSys.statesAndDynamics(numericals=samples)
-# print(samples)
-# A,S = augedSys.linearizeAugmentedTanhPolySys()
+def verifyClosedLoop():
+    nx = 14
+    degf = 3
+    max_deg =2
+    prog = MathematicalProgram()
+    x = prog.NewIndeterminates(nx, "x")
+    f = -np.array([x[1], -x[0] - x[1] * (x[0]**2 - 1)])
+    y = list(itertools.combinations_with_replacement(np.append(1, x), max_deg))
+    phi = np.stack([np.prod(j) for j in y])[1:]
+    
+    CL = ClosedControlledLoop.get_NNorCL(**options)
+    # ClosedControlledLoop.originalSysInitialV(CL)
+    augedSys = ClosedControlledLoop.augmentedTanhPolySys(CL)
+    samples = augedSys.sampleInitialStatesInclduingTanh(2)
+    x,f = augedSys.statesAndDynamics(numericals=samples)
+    model = kernel.polyModel(nx, max_deg, numerical_fx=True)
+    output = model.predict([x,f])
+    print(output)
+
+    # train_y = np.zeros(x.shape)
+    # history = model.fit([x,f], train_y, batch_size=32,
+    #                     shuffle=True, epochs=15,
+    #                     verbose=True)
+    # # P, model, history = kernel.polyTrain(nx, max_deg, x, V=None, model=None, numericals_fx = True)
+    # print(samples)
+    # A,S = augedSys.linearizeAugmentedTanhPolySys()
+
+verifyClosedLoop()
 
 # NN = ClosedControlledLoop.get_NNorCL(NNorCL='NN', **options)
-train(pre_trained=None, **options)
+# train(pre_trained=None, **options)

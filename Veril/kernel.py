@@ -87,17 +87,17 @@ def PolyDynamicsOutputShape(input_shapes):
     return input_shapes
 
 
-def polyModel(sys_dim, max_deg):
+def polyModel(sys_dim, max_deg, numerical_fx=False):
     # constant = Input(shape=(1,))
     x = Input(shape=(sys_dim,))  # x: (None, sys_dim)
     phi = Polynomials(sys_dim, max_deg)(x)  # phi: (None, monomial_dim)
     # phi = Concatenate()([constant,phi])
     # kernel_regularizer=keras.regularizers.l2(0.))
     layers = [
-        Dense(20, use_bias=False),
-        Dense(8, use_bias=False),
         Dense(10, use_bias=False),
-        Dense(8, use_bias=False),
+        Dense(4, use_bias=False),
+        Dense(10, use_bias=False),
+        Dense(4, use_bias=False),
     ]
     layers = layers + [TransLayer(i) for i in layers[::-1]]
     phiLL = Sequential(layers)(phi)  # phiLL: (None, monomial_dim)
@@ -107,17 +107,23 @@ def polyModel(sys_dim, max_deg):
     V = Dot(1)([phiLL, phi])  # V: (None,1)
     dphidx = DiffPoly(sys_dim, max_deg)(x)  # (None, monomial_dim,sys_dm)
     phiLLdphidx = Dot(1)([phiLL, dphidx])  # (None, sys_dim)
-    fx = Lambda(VDP, PolyDynamicsOutputShape)(x)  # (None, sys_dim)
+    if numerical_fx:
+        fx = Input(shape=(sys_dim,))
+    else:
+        fx = Lambda(VDP, PolyDynamicsOutputShape)(x)  # (None, sys_dim)
     Vdot = Dot(1)([phiLLdphidx, fx])  # (None, 1)
 
     rate = Divide()([Vdot, V])
-    model = Model(inputs=x, outputs=rate)
+    if numerical_fx:
+        model = Model(inputs=[x,fx], outputs=dphidx)
+    else:
+        model = Model(inputs=x, outputs=rate)
     model.compile(loss=max_negativity, optimizer='adam')
     print(model.summary())
     return model
 
 
-def polyTrain(nx, max_deg,  x, V=None, model=None):
+def polyTrain(nx, max_deg,  x, V=None, model=None, numerical_fx=False):
     callbacks = []
     if V is None:
         train_x, train_y = get_data(d=1, num_grid=200)
@@ -125,7 +131,7 @@ def polyTrain(nx, max_deg,  x, V=None, model=None):
         train_x, train_y = withinLevelSet(x, V)
 
     if model is None:
-        model = polyModel(nx, max_deg)
+        model = polyModel(nx, max_deg,numerical_fx=numerical_fx)
     # prog = MathematicalProgram()
     # x = prog.NewIndeterminates(nx, "x")
     # f = -np.array([x[1], -x[0] - x[1] * (x[0]**2 - 1)])
@@ -178,7 +184,7 @@ def run():
     # plotFunnel(x, V)
     model = None
     for i in range(options.max_iterations):
-        P, model, history = polyTrain(nx, max_deg, x, V, model)
+        P, model, history = polyTrain(nx, max_deg, x, V=V, model=model)
         if history.history['loss'][-1] >= 0:
             break
         else:
@@ -191,5 +197,5 @@ def run():
             plotFunnel(x, V)
     return V
 
-V = run()
-print(V)
+# V = run()
+# print(V)
