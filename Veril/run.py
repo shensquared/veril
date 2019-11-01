@@ -46,7 +46,7 @@ def train(pre_trained=None, **kwargs):
         [init_x, init_c, ext_in] = [
             Input(shape=(plant.num_states,), name='init_x'),
             Input(shape=(num_units,), name='init_c'),
-            Input(shape=(timesteps, None), name='ext_in')
+            Input(shape=(None, None), name='ext_in')
         ]
         Janet_layer = JanetController(
             num_units, plant_name=plant_name, dt=dt,
@@ -83,5 +83,5 @@ def train(pre_trained=None, **kwargs):
 # print(samples)
 # A,S = augedSys.linearizeAugmentedTanhPolySys()
 
-NN = ClosedControlledLoop.get_NNorCL(NNorCL='NN', **options)
-train(pre_trained=NN, **options)
+# NN = ClosedControlledLoop.get_NNorCL(NNorCL='NN', **options)
+train(pre_trained=None, **options)
