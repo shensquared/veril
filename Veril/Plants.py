@@ -6,12 +6,20 @@ import numpy as np
 # import tensorflow as tf
 import six
 from keras import backend as K
+import sys
+sys.path.append(
+    "/Users/shenshen/drake-build/install/lib/python3.7/site-packages")
+from pydrake.all import (MathematicalProgram, Polynomial,
+                         Expression, SolutionResult,
+                         Variables, Solve, Jacobian, Evaluate,
+                         RealContinuousLyapunovEquation, Substitute,
+                         MosekSolver)
+import itertools
 
-
-def get(plant_name, dt, obs_idx):
+def get(plant_name):
     if isinstance(plant_name, six.string_types):
         identifier = str(plant_name)
-        return globals()[identifier](dt=dt, obs_idx=obs_idx)
+        return globals()[identifier]()
 
 
 class Plant:
@@ -233,14 +241,38 @@ class Satellite(Plant):
 
 class VanderPol(Plant):
 
-    def __init__(self, dt, num_states=2, num_inputs=1, num_outputs=1):
-        self.name = 'VDP'
+    def __init__(self):
+        self.name = 'VanderPol'
         self.num_states = 2
-        self.num_inputs = num_inputs
-        self.num_outputs = num_outputs
+        self.num_inputs = 0
+        self.num_outputs = 0
 
-        self.dt = dt
-        self.open_u = np.zeros((num_inputs,))
+    def get_x(self, d=3, num_grid=200):
+        x1 = np.linspace(-d, d, num_grid)
+        x2 = np.linspace(-d, d, num_grid)
+        x1 = x1[np.nonzero(x1)]
+        x2 = x2[np.nonzero(x2)]
+        x1, x2 = np.meshgrid(x1, x2)
+        x1, x2 = x1.ravel(), x2.ravel()
+        return np.array([x1, x2]) #(2, num_grid**2)
+
+    def get_features(self, max_deg, sample_x):
+        prog = MathematicalProgram()
+        x = prog.NewIndeterminates(self.num_states, "x")
+        y = list(itertools.combinations_with_replacement(np.append(1, x), max_deg))
+        symobilc_phi = np.stack([np.prod(j) for j in y])[1:]
+        symobilc_dphidx = Jacobian(symobilc_phi,x)
+
+        f = - np.array([sample_x[1,:], (1 - sample_x[0,:]**2) * sample_x[1,:] -
+           sample_x[0,:]]).T
+        phi = np.zeros((sample_x.shape[-1],symobilc_phi.shape[0]))
+        dphidx = np.zeros((sample_x.shape[-1], symobilc_phi.shape[0], self.num_states))
+        for i in range(sample_x.shape[-1]):
+            env = dict(zip(x,sample_x[:,i]))
+            phi[i,:] = [i.Evaluate(env) for i in symobilc_phi]
+            dphidx[i,:,:] = [[i.Evaluate(env) for i in j]for j in
+            symobilc_dphidx]
+        return [symobilc_phi, phi, dphidx, f]
 
     def reset(self, stable_sample):
         in_true_ROA = False
