@@ -18,6 +18,7 @@ shape (None, 1).
 If input is 1: (None, a, b) and 2: (None, b)
 
 If debug, use kernel_initializer= keras.initializers.Ones()
+If regularizing, use kernel_regularizer=keras.regularizers.l2(0.))
 
     # if write_log:
     #     logs_dir = "/Users/shenshen/Veril/data/lyapunov"
@@ -33,7 +34,7 @@ def max_negativity(y_true, y_pred):
 
 
 def linearModel(sys_dim, A):
-    x = Input(shape=(sys_dim,))  # x: (None, sys_dim)
+    x = Input(shape=(sys_dim,))  # (None, sys_dim)
     layers = [
         Dense(5, input_shape=(sys_dim,), use_bias=False,
               kernel_regularizer=keras.regularizers.l2(0.)),
@@ -41,69 +42,18 @@ def linearModel(sys_dim, A):
         Dense(2, use_bias=False, kernel_regularizer=keras.regularizers.l2(0.))
     ]
     layers = layers + [TransLayer(i) for i in layers[::-1]]
-
-    xLL = Sequential(layers)(x)  # xLL shape (None, sys_dim)
+    xLL = Sequential(layers)(x)  # (None, sys_dim)
     # need to avoid 0 in the denominator (by adding a strictly positive scalar
     # to V)
-    V = Dot(1)([xLL, x])  # V: (None, 1)
+    V = Dot(1)([xLL, x])  # (None, 1)
     xLLA = DotKernel(A)(xLL)  # A: (sys_dim,sys_dim), xLLA: (None, sys_dim)
     Vdot = Dot(1)([xLLA, x])  # Vdot: (None,1)
     rate = Divide()([Vdot, V])
-
     model = Model(inputs=x, outputs=rate)
     model.compile(loss=max_negativity, optimizer='adam')
     print(model.summary())
     return model
 
-def VDP(x):
-    x1 = (K.dot(x, K.constant([1, 0], shape=(2, 1))))
-    x2 = (K.dot(x, K.constant([0, 1], shape=(2, 1))))
-    dx = (K.concatenate([-x2, -(1 - x1**2) * x2 + x1]))
-    return dx
-
-
-def PolyDynamicsOutputShape(input_shapes):
-    return input_shapes
-
-
-def polyModel(sys_dim, max_deg):
-    # constant = Input(shape=(1,))
-    # x = Input(shape=(sys_dim,))  # x: (None, sys_dim)
-    # phi = Polynomials(sys_dim, max_deg)(x)  # phi: (None, monomial_dim)
-    f = lambda x: math.factorial(x)
-    monomial_dim= f(sys_dim + max_deg) // f(max_deg) // f(sys_dim) -1
-    phi = Input(shape=(monomial_dim,))
-    # phi = Concatenate()([constant,phi])
-    # kernel_regularizer=keras.regularizers.l2(0.))
-    layers = [
-        Dense(10, use_bias=False),
-        Dense(4, use_bias=False),
-        Dense(10, use_bias=False),
-        Dense(4, use_bias=False),
-    ]
-    layers = layers + [TransLayer(i) for i in layers[::-1]]
-    phiLL = Sequential(layers)(phi)  # phiLL: (None, monomial_dim)
-
-    # # need to avoid 0 in the denominator (by adding a strictly positive scalar
-    # # to V)
-    V = Dot(1)([phiLL, phi])  # V: (None,1)
-    # dphidx = DiffPoly(sys_dim, max_deg)(x)  # (None, monomial_dim,sys_dim)
-    dphidx = Input(shape=(monomial_dim,sys_dim,))
-    phiLLdphidx = Dot(1)([phiLL, dphidx])  # (None, sys_dim)
-    # if numerical_fx:
-    fx = Input(shape=(sys_dim,))
-    # else:
-        # fx = Lambda(VDP, PolyDynamicsOutputShape)(x)  # (None, sys_dim)
-    Vdot = Dot(1)([phiLLdphidx, fx])  # (None, 1)
-
-    rate = Divide()([Vdot, V])
-    # if numerical_fx:
-    model = Model(inputs=[phi,dphidx,fx], outputs=rate)
-    # else:
-        # model = Model(inputs=x, outputs=rate)
-    model.compile(loss=max_negativity, optimizer='adam')
-    print(model.summary())
-    return model
 
 def linearTrain():
     callbacks = []
@@ -123,37 +73,44 @@ def linearTrain():
     print("Saved model" + model_file_name + " to disk")
     return P
 
-def polyTrain(nx, max_deg,  x, V=None, model=None, numerical_fx=False):
-    callbacks = []
-    if V is None:
-        train_x, train_y = get_data(d=1, num_grid=200)
-    else:
-        train_x, train_y = withinLevelSet(x, V)
 
+def polyModel(sys_dim, max_deg):
+    f = lambda x: math.factorial(x)
+    # -1 since V doesn't have a constant monomial
+    monomial_dim = f(sys_dim + max_deg) // f(max_deg) // f(sys_dim) - 1
+    phi = Input(shape=(monomial_dim,))
+    layers = [
+        Dense(10, use_bias=False),
+        Dense(4, use_bias=False),
+        Dense(10, use_bias=False),
+        Dense(4, use_bias=False),
+    ]
+    layers = layers + [TransLayer(i) for i in layers[::-1]]
+    phiLL = Sequential(layers)(phi)  # phiLL: (None, monomial_dim)
+
+    # # need to avoid 0 in the denominator (by adding a strictly positive scalar
+    # # to V)
+    V = Dot(1)([phiLL, phi])  # V: (None,1)
+    dphidx = Input(shape=(monomial_dim, sys_dim,))
+    phiLLdphidx = Dot(1)([phiLL, dphidx])  # (None, sys_dim)
+    fx = Input(shape=(sys_dim,))
+    Vdot = Dot(1)([phiLLdphidx, fx])  # (None, 1)
+    rate = Divide()([Vdot, V])
+    model = Model(inputs=[phi, dphidx, fx], outputs=rate)
+    model.compile(loss=max_negativity, optimizer='adam')
+    print(model.summary())
+    return model
+
+
+def polyTrain(nx, max_deg, x, V=None, model=None):
     if model is None:
-        model = polyModel(nx, max_deg,numerical_fx=numerical_fx)
-    # prog = MathematicalProgram()
-    # x = prog.NewIndeterminates(nx, "x")
-    # f = -np.array([x[1], -x[0] - x[1] * (x[0]**2 - 1)])
-    # y = list(itertools.combinations_with_replacement(np.append(1, x), max_deg))
-    # phi = np.stack([np.prod(j) for j in y])[1:]
-    # train_x = np.array([[2.1,3.7]])
-    # train_y = train_x
-    # print('model pridcted')
-    # print(model.predict(train_x))
-    # env = dict(zip(x, train_x.T))
-    # print([i.Substitute(env) for i in phi])
-
+        model = polyModel(nx, max_deg)
     history = model.fit(train_x, train_y, batch_size=32,
                         shuffle=True, epochs=15,
-                        verbose=True,
-                        callbacks=callbacks)
+                        verbose=True)
     weights = [K.eval(i) for i in model.weights]
     weights = np.linalg.multi_dot(weights)
     P = weights@weights.T
-    # V0 = phi.T@P@phi
-    # Vdot = V0.Jacobian(x) @ f
-    # print(Vdot.Substitute(env))
     model_file_name = '../data/Kernel/polyModel.h5'
     model.save(model_file_name)
     print("Saved model" + model_file_name + " to disk")
@@ -164,65 +121,36 @@ def run():
     nx = 2
     degf = 3
     max_deg = 3
-    prog = MathematicalProgram()
-    x = prog.NewIndeterminates(nx, "x")
-    f = -np.array([x[1], -x[0] - x[1] * (x[0]**2 - 1)])
-    y = list(itertools.combinations_with_replacement(np.append(1, x), max_deg))
-    phi = np.stack([np.prod(j) for j in y])[1:]
-
     options = opt(nx, degf, do_balance=False, degV=2 * max_deg,
                   converged_tol=1e-2, max_iterations=20)
 
-    x1 = x[0]
-    x2 = x[1]
-    V = (1.8027e-06) + (0.28557) * x1**2 + (0.0085754) * x1**4 + \
-        (0.18442) * x2**2 + (0.016538) * x2**4 + \
-        (-0.34562) * x2 * x1 + (0.064721) * x2 * x1**3 + \
-        (0.10556) * x2**2 * x1**2 + (-0.060367) * x2**3 * x1
-    V=5*V
+    vdp = ClosedLoop.VanderPol()
+    prog = MathematicalProgram()
+    x = prog.NewIndeterminates(nx, "x")
+    V = vdp.knownROA(x)
+    train_x, train_y = withinLevelSet(x, V)
+    [sym_x, sym_phi, sym_f, phi, dphidx,
+        f] = vdp.get_features(max_deg, train_x.T)
+    y = np.zeros(phi.shape)
 
-    # plotFunnel(x, V)
     model = None
     for i in range(options.max_iterations):
-        P, model, history = polyTrain(nx, max_deg, x, V=V, model=model)
+        if model is None:
+            model = polyModel(nx, max_deg)
+        history = model.fit([phi, dphidx, f], y, epochs=15)
         if history.history['loss'][-1] >= 0:
             break
         else:
+            weights = [K.eval(i) for i in model.weights]
+            weights = np.linalg.multi_dot(weights)
+            P = weights@weights.T
+
             file_name = '../data/Kernel/poly_P.npy'
             np.save(file_name, P)
-            # P = np.load('/Users/shenshen/Veril/data/Kernel/poly_P_new.npy')
-            V0 = phi.T@P@phi
-            V = levelsetMethod(x, V0, f, options)
-            # V = bilinear(x, V0, f, None, None, options)
-            plotFunnel(x, V)
+            V0 = sym_phi.T@P@sym_phi
+            V = levelsetMethod(sym_x, V0, sym_f, options)
+            plotFunnel(sym_x, V)
     return V
 
-# V = run()
+V = run()
 # print(V)
-
-nx=2
-degf=3
-max_deg=3
-vdp=ClosedLoop.VanderPol()
-prog = MathematicalProgram()
-x = prog.NewIndeterminates(nx, "x")
-x1 = x[0]
-x2 = x[1]
-V = (1.8027e-06) + (0.28557) * x1**2 + (0.0085754) * x1**4 + \
-    (0.18442) * x2**2 + (0.016538) * x2**4 + \
-    (-0.34562) * x2 * x1 + (0.064721) * x2 * x1**3 + \
-    (0.10556) * x2**2 * x1**2 + (-0.060367) * x2**3 * x1
-V=5*V
-train_x, train_y = withinLevelSet(x, V)
-[sym_x, sym_phi, sym_f, phi, dphidx, f] = vdp.get_features(max_deg,train_x.T)
-model = polyModel(nx, max_deg)
-y = np.zeros(phi.shape)
-model.fit([phi,dphidx,f],y, epochs=15)
-weights = [K.eval(i) for i in model.weights]
-weights = np.linalg.multi_dot(weights)
-P = weights@weights.T
-V0 = sym_phi.T@P@sym_phi
-options = opt(nx, degf, do_balance=False, degV=2 * max_deg,
-                  converged_tol=1e-2, max_iterations=20)
-V=levelsetMethod(sym_x, V0, sym_f, options)
-plotFunnel(sym_x, V)

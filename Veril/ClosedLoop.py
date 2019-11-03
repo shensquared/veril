@@ -126,6 +126,7 @@ class VanderPol(object):
         self.num_states = 2
         self.num_inputs = 0
         self.num_outputs = 0
+        self.trueROA = True
 
     def get_x(self, d=2, num_grid=200):
         x1 = np.linspace(-d, d, num_grid)
@@ -165,16 +166,14 @@ class VanderPol(object):
         else:
             self.states = np.random.uniform(-2.5, 2.5, (self.num_states,))
 
-    def in_true_ROA(self, x):
-        x1 = x[:, 0]
-        x2 = x[:, 1]
+    def knownROA(self, x):
+        x1 = x[0]
+        x2 = x[1]
         V = (1.8027e-06) + (0.28557) * x1**2 + (0.0085754) * x1**4 + \
             (0.18442) * x2**2 + (0.016538) * x2**4 + \
             (-0.34562) * x2 * x1 + (0.064721) * x2 * x1**3 + \
             (0.10556) * x2**2 * x1**2 + (-0.060367) * x2**3 * x1
-        rho = 1.1
-        in_true_ROA = (V < rho)
-        return in_true_ROA
+        return V
 
     def inward_vdp(self, t, y):
         return - np.array([y[1], (1 - y[0]**2) * y[1] - y[0]])
