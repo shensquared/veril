@@ -17,8 +17,8 @@ from keras.layers.merge import _Merge
 import numpy as np
 from Veril import Plants
 from tensorflow.python.ops.parallel_for.gradients import jacobian, batch_jacobian
-import itertools
-import math
+# import itertools
+# import math
 
 
 class JanetController(RNN):
