@@ -256,23 +256,24 @@ class VanderPol(Plant):
         x1, x2 = x1.ravel(), x2.ravel()
         return np.array([x1, x2]) #(2, num_grid**2)
 
-    def get_features(self, max_deg, sample_x):
+    def get_features(self, max_deg, x):
         prog = MathematicalProgram()
-        x = prog.NewIndeterminates(self.num_states, "x")
-        y = list(itertools.combinations_with_replacement(np.append(1, x), max_deg))
-        symobilc_phi = np.stack([np.prod(j) for j in y])[1:]
-        symobilc_dphidx = Jacobian(symobilc_phi,x)
+        sym_x = prog.NewIndeterminates(self.num_states, "x")
+        sym_f = -np.array([sym_x[1], -sym_x[0] - sym_x[1] * (sym_x[0]**2 - 1)])
 
-        f = - np.array([sample_x[1,:], (1 - sample_x[0,:]**2) * sample_x[1,:] -
-           sample_x[0,:]]).T
-        phi = np.zeros((sample_x.shape[-1],symobilc_phi.shape[0]))
-        dphidx = np.zeros((sample_x.shape[-1], symobilc_phi.shape[0], self.num_states))
-        for i in range(sample_x.shape[-1]):
-            env = dict(zip(x,sample_x[:,i]))
-            phi[i,:] = [i.Evaluate(env) for i in symobilc_phi]
+        y = list(itertools.combinations_with_replacement(np.append(1, sym_x), max_deg))
+        sym_phi = np.stack([np.prod(j) for j in y])[1:]
+        sym_dphidx = Jacobian(sym_phi,sym_x)
+
+        f = - np.array([x[1,:], (1 - x[0,:]**2) * x[1,:] - x[0,:]]).T
+        phi = np.zeros((x.shape[-1],sym_phi.shape[0]))
+        dphidx = np.zeros((x.shape[-1], sym_phi.shape[0], self.num_states))
+        for i in range(x.shape[-1]):
+            env = dict(zip(sym_x,x[:,i]))
+            phi[i,:] = [i.Evaluate(env) for i in sym_phi]
             dphidx[i,:,:] = [[i.Evaluate(env) for i in j]for j in
-            symobilc_dphidx]
-        return [symobilc_phi, phi, dphidx, f]
+            sym_dphidx]
+        return [sym_x, sym_phi, sym_f, phi, dphidx, f]
 
     def reset(self, stable_sample):
         in_true_ROA = False
