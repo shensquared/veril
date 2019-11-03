@@ -1,4 +1,4 @@
-from Veril import ClosedControlledLoop
+from Veril import ClosedLoop
 from Veril import Plants
 import numpy as np
 
@@ -29,14 +29,14 @@ options = {
     'tag': 'fortestonly',
 }
 
-NN = ClosedControlledLoop.get_NNorCL(NNorCL='NN', **options)
-CL = ClosedControlledLoop.get_NNorCL(**options)
+NN = ClosedLoop.get_NNorCL(NNorCL='NN', **options)
+CL = ClosedLoop.get_NNorCL(**options)
 
 test_time_steps = 1
 test_num_samples = 2
 
 plant = Plants.get(CL.plant_name, CL.dt, CL.obs_idx)
-augedSys = ClosedControlledLoop.augmentedTanhPolySys(CL)
+augedSys = ClosedLoop.augmentedTanhPolySys(CL)
 x = augedSys.sampleInitialStatesInclduingTanh(test_num_samples)
 initx=x[:,0:2]
 initc=x[:,2:6]
@@ -47,7 +47,7 @@ def test_call_CLsys(NN, CL, x):
     predicted = NN.predict([initx,initc,ext_in])
     print('predicted')
     print(predicted)
-    rollout=ClosedControlledLoop.batchSim(CL, test_time_steps, init=
+    rollout=ClosedLoop.batchSim(CL, test_time_steps, init=
         [initx,initc],
        num_samples = test_num_samples)
     print('sim roll out')

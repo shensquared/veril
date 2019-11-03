@@ -17,7 +17,7 @@ import os
 from keras.utils import CustomObjectScope
 from Veril.CustomLayers import JanetController
 from keras.models import load_model
-
+import itertools
 
 def get_NNorCL(NNorCL='CL', **kwargs):
     num_samples = kwargs['num_samples']
@@ -114,6 +114,145 @@ def originalSysInitialV(CL):
     print('eig of orignal A  %s' % (eig(A0)[0]))
     print('eig of orignal SA+A\'S  %s' % (eig(A0.T@S0 + S0@A0)[0]))
     return x.T@S0@x
+
+class ClosedLoopSys(object):
+    def __init__():
+        pass
+
+class VanderPol(object):
+
+    def __init__(self):
+        self.name = 'VanderPol'
+        self.num_states = 2
+        self.num_inputs = 0
+        self.num_outputs = 0
+
+    def get_x(self, d=2, num_grid=200):
+        x1 = np.linspace(-d, d, num_grid)
+        x2 = np.linspace(-d, d, num_grid)
+        x1 = x1[np.nonzero(x1)]
+        x2 = x2[np.nonzero(x2)]
+        x1, x2 = np.meshgrid(x1, x2)
+        x1, x2 = x1.ravel(), x2.ravel()
+        return np.array([x1, x2]) #(2, num_grid**2)
+
+    def get_features(self, max_deg, x):
+        prog = MathematicalProgram()
+        sym_x = prog.NewIndeterminates(self.num_states, "x")
+        sym_f = -np.array([sym_x[1], -sym_x[0] - sym_x[1] * (sym_x[0]**2 - 1)])
+
+        y = list(itertools.combinations_with_replacement(np.append(1, sym_x), max_deg))
+        sym_phi = np.stack([np.prod(j) for j in y])[1:]
+        sym_dphidx = Jacobian(sym_phi,sym_x)
+
+        f = - np.array([x[1,:], (1 - x[0,:]**2) * x[1,:] - x[0,:]]).T
+        phi = np.zeros((x.shape[-1],sym_phi.shape[0]))
+        dphidx = np.zeros((x.shape[-1], sym_phi.shape[0], self.num_states))
+        for i in range(x.shape[-1]):
+            env = dict(zip(sym_x,x[:,i]))
+            phi[i,:] = [i.Evaluate(env) for i in sym_phi]
+            dphidx[i,:,:] = [[i.Evaluate(env) for i in j]for j in
+            sym_dphidx]
+        return [sym_x, sym_phi, sym_f, phi, dphidx, f]
+
+    def reset(self, stable_sample):
+        in_true_ROA = False
+        if stable_sample:
+            while not in_true_ROA:
+                x = np.random.uniform(-2.5, 2.5, (self.num_states,))
+                in_true_ROA = self.in_true_ROA(np.array([x]))[0]
+            self.states = x
+        else:
+            self.states = np.random.uniform(-2.5, 2.5, (self.num_states,))
+
+    def in_true_ROA(self, x):
+        x1 = x[:, 0]
+        x2 = x[:, 1]
+        V = (1.8027e-06) + (0.28557) * x1**2 + (0.0085754) * x1**4 + \
+            (0.18442) * x2**2 + (0.016538) * x2**4 + \
+            (-0.34562) * x2 * x1 + (0.064721) * x2 * x1**3 + \
+            (0.10556) * x2**2 * x1**2 + (-0.060367) * x2**3 * x1
+        rho = 1.1
+        in_true_ROA = (V < rho)
+        return in_true_ROA
+
+    def inward_vdp(self, t, y):
+        return - np.array([y[1], (1 - y[0]**2) * y[1] - y[0]])
+
+    def outward_vdp(self, t, y):
+        return - self.inward_vdp(t, y)
+
+    def step_once(self, full_states):
+        sol = integrate.RK45(self.inward_vdp, 0, self.states, self.dt)
+        self.states = sol.y
+        return self._get_obs(full_states)
+
+    def sim_traj(self, timesteps, full_states, stable_sample,
+                 given_initial=None, scale_time=1):
+        if given_initial is None:
+            self.reset(stable_sample)
+        else:
+            self.states = given_initial
+        # sol = integrate.RK45 (self.inward_vdp,0,self.initial_states, self.dt)
+        # if full_states:
+        #     return sol
+        # else:
+        #     return sol[:, -1].reshape(timesteps, 1)
+        # return np.array([self.step_once(full_states) for i in
+        # range(timesteps)])
+        sol = integrate.solve_ivp(self.inward_vdp,
+                                  [0, scale_time * self.dt *
+                                      timesteps], self.states,
+                                  t_eval=np.linspace(
+                                      0, self.dt * timesteps * scale_time, timesteps),
+                                  rtol=1e-9)
+        # atol=np.max(np.abs(self.states))
+        if sol.status is not 0:
+            print(self.states)
+        # asserting the integration reaches the final time stamps
+        assert sol.status <= 0
+
+        # sol.y = np.flip(sol.y,axis=1)
+        if full_states:
+            return sol.y.T
+        else:
+            # return np.array([sol.y.T[:, -1]]).reshape(timesteps, 1)
+            return np.array([sol.y.T[:, -1]]).reshape(sol.y.T.shape[0], 1)
+
+    def _phase_portrait(self, ax, ax_max):
+        num = 60
+        u = np.linspace(-ax_max, ax_max, num=num)
+        v = np.linspace(-ax_max, ax_max, num=num)
+        u, v = np.meshgrid(u, v)
+        u, v = u.ravel(), v.ravel()
+        x = -v
+        y = u - v + v * u**2
+        # angles='xy', width=1e-3,scale_units='xy', scale=12, color='r'
+        ax.quiver(u, v, x, y, color='r', width=1e-3, scale_units='x')
+
+    def plot_sim_traj(self, timesteps, full_states, stable_sample,
+                      num_samples=1, scale_time=1):
+        fig, ax = plt.subplots()
+        for i in range(num_samples):
+            sim_traj = self.sim_traj(timesteps, full_states,
+                                     stable_sample, scale_time=scale_time)
+            if full_states:
+                self._phase_portrait(ax, 3)
+                ax.scatter(sim_traj[:, 0], sim_traj[:, 1], c='b')
+                ax.scatter(sim_traj[0, 0], sim_traj[0, 1], c='g')
+                # ax.axis([-3, 3, -3, 3])
+                plt.xlabel('$x_1$')
+                plt.ylabel('$x_2$', rotation=0)
+                plt.xticks(fontsize=8)
+                plt.yticks(fontsize=8)
+            else:
+                t = np.arange(timesteps)
+                ax.scatter(t, sim_traj, c='b')
+                plt.xlabel('$t$')
+                plt.ylabel('$x_2$', rotation=0)
+                plt.xticks(fontsize=8)
+                plt.yticks(fontsize=8)
+        plt.show()
 
 
 class augmentedTanhPolySys(object):

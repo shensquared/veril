@@ -9,7 +9,7 @@ from Verifier import *
 from util.plotFunnel import *
 from util.samples import *
 import math
-from Veril import Plants
+from Veril import ClosedLoop
 '''
 A note about the DOT layer: if input is 1: (None, a) and 2: (None, a) then no
 need to do transpose, direct Dot()(1,2) and the output works correctly with
@@ -203,7 +203,7 @@ def run():
 nx=2
 degf=3
 max_deg=3
-vdp=Plants.get('VanderPol')
+vdp=ClosedLoop.VanderPol()
 prog = MathematicalProgram()
 x = prog.NewIndeterminates(nx, "x")
 x1 = x[0]

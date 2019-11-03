@@ -12,7 +12,7 @@ import numpy as np
 
 import Plants
 import Verifier
-import ClosedControlledLoop
+import ClosedLoop
 from CustomLayers import JanetController
 import kernel
 
