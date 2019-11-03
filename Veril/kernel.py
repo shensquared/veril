@@ -2,12 +2,12 @@ from keras.models import Sequential, Model, load_model
 from keras.layers import *
 from keras import backend as K
 # from keras.callbacks import TensorBoard
-from CustomLayers import *
+from CustomLayers import DotKernel, Divide, TransLayer
 import keras
 from keras.utils import CustomObjectScope
-from Verifier import *
-from util.plotFunnel import *
-from util.samples import *
+from Veril import Verifier
+from util.plotFunnel import plotFunnel
+from util.samples import get_data, withinLevelSet
 import math
 from Veril import ClosedLoop
 '''
@@ -121,20 +121,18 @@ def run():
     nx = 2
     degf = 3
     max_deg = 3
-    options = opt(nx, degf, do_balance=False, degV=2 * max_deg,
-                  converged_tol=1e-2, max_iterations=20)
+    options = Verifier.opt(nx, degf, do_balance=False, degV=2 * max_deg,
+                           converged_tol=1e-2, max_iterations=20)
 
     vdp = ClosedLoop.VanderPol()
-    prog = MathematicalProgram()
-    x = prog.NewIndeterminates(nx, "x")
-    V = vdp.knownROA(x)
-    train_x, train_y = withinLevelSet(x, V)
-    [sym_x, sym_phi, sym_f, phi, dphidx,
-        f] = vdp.get_features(max_deg, train_x.T)
-    y = np.zeros(phi.shape)
+    sym_x = vdp.sym_x
+    V = vdp.knownROA()
 
     model = None
     for i in range(options.max_iterations):
+        train_x, train_y = withinLevelSet(sym_x, V)
+        [sym_phi, sym_f, phi, dphidx, f] = vdp.get_features(max_deg, train_x.T)
+        y = np.zeros(phi.shape)
         if model is None:
             model = polyModel(nx, max_deg)
         history = model.fit([phi, dphidx, f], y, epochs=15)
@@ -148,9 +146,8 @@ def run():
             file_name = '../data/Kernel/poly_P.npy'
             np.save(file_name, P)
             V0 = sym_phi.T@P@sym_phi
-            V = levelsetMethod(sym_x, V0, sym_f, options)
+            V = Verifier.levelsetMethod(sym_x, V0, sym_f, options)
             plotFunnel(sym_x, V)
     return V
 
 V = run()
-# print(V)

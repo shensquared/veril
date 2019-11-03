@@ -19,6 +19,7 @@ from Veril.CustomLayers import JanetController
 from keras.models import load_model
 import itertools
 
+
 def get_NNorCL(NNorCL='CL', **kwargs):
     num_samples = kwargs['num_samples']
     num_units = kwargs['num_units']
@@ -115,9 +116,12 @@ def originalSysInitialV(CL):
     print('eig of orignal SA+A\'S  %s' % (eig(A0.T@S0 + S0@A0)[0]))
     return x.T@S0@x
 
+
 class ClosedLoopSys(object):
+
     def __init__():
         pass
+
 
 class VanderPol(object):
 
@@ -127,6 +131,9 @@ class VanderPol(object):
         self.num_inputs = 0
         self.num_outputs = 0
         self.trueROA = True
+        prog = MathematicalProgram()
+        sym_x = prog.NewIndeterminates(self.num_states, "x")
+        self.sym_x = sym_x
 
     def get_x(self, d=2, num_grid=200):
         x1 = np.linspace(-d, d, num_grid)
@@ -135,26 +142,26 @@ class VanderPol(object):
         x2 = x2[np.nonzero(x2)]
         x1, x2 = np.meshgrid(x1, x2)
         x1, x2 = x1.ravel(), x2.ravel()
-        return np.array([x1, x2]) #(2, num_grid**2)
+        return np.array([x1, x2])  # (2, num_grid**2)
 
     def get_features(self, max_deg, x):
-        prog = MathematicalProgram()
-        sym_x = prog.NewIndeterminates(self.num_states, "x")
+        sym_x = self.sym_x
         sym_f = -np.array([sym_x[1], -sym_x[0] - sym_x[1] * (sym_x[0]**2 - 1)])
 
-        y = list(itertools.combinations_with_replacement(np.append(1, sym_x), max_deg))
+        y = list(itertools.combinations_with_replacement(
+            np.append(1, sym_x), max_deg))
         sym_phi = np.stack([np.prod(j) for j in y])[1:]
-        sym_dphidx = Jacobian(sym_phi,sym_x)
+        sym_dphidx = Jacobian(sym_phi, sym_x)
 
-        f = - np.array([x[1,:], (1 - x[0,:]**2) * x[1,:] - x[0,:]]).T
-        phi = np.zeros((x.shape[-1],sym_phi.shape[0]))
+        f = - np.array([x[1, :], (1 - x[0, :]**2) * x[1, :] - x[0, :]]).T
+        phi = np.zeros((x.shape[-1], sym_phi.shape[0]))
         dphidx = np.zeros((x.shape[-1], sym_phi.shape[0], self.num_states))
         for i in range(x.shape[-1]):
-            env = dict(zip(sym_x,x[:,i]))
-            phi[i,:] = [i.Evaluate(env) for i in sym_phi]
-            dphidx[i,:,:] = [[i.Evaluate(env) for i in j]for j in
-            sym_dphidx]
-        return [sym_x, sym_phi, sym_f, phi, dphidx, f]
+            env = dict(zip(sym_x, x[:, i]))
+            phi[i, :] = [i.Evaluate(env) for i in sym_phi]
+            dphidx[i, :, :] = [[i.Evaluate(env) for i in j]for j in
+                               sym_dphidx]
+        return [sym_phi, sym_f, phi, dphidx, f]
 
     def reset(self, stable_sample):
         in_true_ROA = False
@@ -166,7 +173,8 @@ class VanderPol(object):
         else:
             self.states = np.random.uniform(-2.5, 2.5, (self.num_states,))
 
-    def knownROA(self, x):
+    def knownROA(self):
+        x = self.sym_x
         x1 = x[0]
         x2 = x[1]
         V = (1.8027e-06) + (0.28557) * x1**2 + (0.0085754) * x1**4 + \
