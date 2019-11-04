@@ -82,16 +82,10 @@ def originalSysInitialV(CL):
     A0 = CL.linearize()
     full_dim = plant.num_states + CL.units
     prog = MathematicalProgram()
-    # constant = prog.NewIndeterminates(1, 'constant')
-    # basis = [sym.Monomial(constant[0], 0)]
     x = prog.NewIndeterminates(full_dim, "x")
-
     if not plant.manifold:
         S0 = solve_lyapunov(A0.T, -np.eye(full_dim))
     else:
-        # c = prog.NewIndeterminates(CL.units, "c")
-        # full_states = np.hstack((x, c))
-        # basis = [sym.Monomial(_) for _ in full_states]
         P = prog.NewSymmetricContinuousVariables(full_dim, "P")
         prog.AddPositiveSemidefiniteConstraint(P)
         prog.AddPositiveSemidefiniteConstraint(P + P.T)
@@ -134,6 +128,7 @@ class VanderPol(object):
         prog = MathematicalProgram()
         sym_x = prog.NewIndeterminates(self.num_states, "x")
         self.sym_x = sym_x
+        self.degf = 3
 
     def get_x(self, d=2, num_grid=200):
         x1 = np.linspace(-d, d, num_grid)
@@ -144,24 +139,27 @@ class VanderPol(object):
         x1, x2 = x1.ravel(), x2.ravel()
         return np.array([x1, x2])  # (2, num_grid**2)
 
-    def get_features(self, max_deg, x):
+    def set_features(self, max_deg):
         sym_x = self.sym_x
-        sym_f = -np.array([sym_x[1], -sym_x[0] - sym_x[1] * (sym_x[0]**2 - 1)])
+        self.sym_f = -np.array([sym_x[1], -sym_x[0] - sym_x[1] * (sym_x[0]**2 -
+                                                                  1)])
 
         y = list(itertools.combinations_with_replacement(
             np.append(1, sym_x), max_deg))
-        sym_phi = np.stack([np.prod(j) for j in y])[1:]
-        sym_dphidx = Jacobian(sym_phi, sym_x)
+        self.sym_phi = np.stack([np.prod(j) for j in y])[1:]
 
+    def get_features(self, x):
+        sym_dphidx = Jacobian(self.sym_phi, self.sym_x)
         f = - np.array([x[1, :], (1 - x[0, :]**2) * x[1, :] - x[0, :]]).T
-        phi = np.zeros((x.shape[-1], sym_phi.shape[0]))
-        dphidx = np.zeros((x.shape[-1], sym_phi.shape[0], self.num_states))
+        phi = np.zeros((x.shape[-1], self.sym_phi.shape[0]))
+        dphidx = np.zeros(
+            (x.shape[-1], self.sym_phi.shape[0], self.num_states))
         for i in range(x.shape[-1]):
-            env = dict(zip(sym_x, x[:, i]))
-            phi[i, :] = [i.Evaluate(env) for i in sym_phi]
+            env = dict(zip(self.sym_x, x[:, i]))
+            phi[i, :] = [i.Evaluate(env) for i in self.sym_phi]
             dphidx[i, :, :] = [[i.Evaluate(env) for i in j]for j in
                                sym_dphidx]
-        return [sym_phi, sym_f, phi, dphidx, f]
+        return [phi, dphidx, f]
 
     def reset(self, stable_sample):
         in_true_ROA = False
@@ -288,20 +286,31 @@ class augmentedTanhPolySys(object):
         self.plant = Plants.get(CL.plant_name, CL.dt, CL.obs_idx)
         self.nx = CL.cell.num_plant_states
         self.units = CL.units
+        self.num_states = self.nx + 3 * self.units
         self.dt = CL.dt
+
+        prog = MathematicalProgram()
+        self.x = prog.NewIndeterminates(self.nx, "x")
+        self.c = prog.NewIndeterminates(self.units, "c")
+        self.tau_f = prog.NewIndeterminates(self.units, "tf")
+        self.tau_c = prog.NewIndeterminates(self.units, "tc")
+        self.sym_x = np.concatenate((self.x, self.c, self.tau_f, self.tau_c))
+        self.sym_f = self.augmentedPolynomialf(numericals=None)
+        # TODO: need to account for plant degree
+        self.degf = max([Polynomial(i, self.sym_x).TotalDegree() for i in
+                         self.sym_f])
 
     def ArgsForTanh(self, x, c):
         arg_f = x@self.kernel_f + c@self.recurrent_kernel_f
         arg_c = x@self.kernel_c + c@self.recurrent_kernel_c
         return [arg_f, arg_c]
 
-    def statesAndDynamics(self, numericals=None):
+    def augmentedPolynomialf(self, numericals=None):
         if numericals is None:
-            prog = MathematicalProgram()
-            x = prog.NewIndeterminates(self.nx, "x")
-            c = prog.NewIndeterminates(self.units, "c")
-            tau_f = prog.NewIndeterminates(self.units, "tf")
-            tau_c = prog.NewIndeterminates(self.units, "tc")
+            x = self.x
+            c = self.c
+            tau_f = self.tau_f
+            tau_c = self.tau_c
         else:
             x = numericals[:, 0:self.nx]
             c = numericals[:, self.nx:self.nx + self.units]
@@ -320,10 +329,8 @@ class augmentedTanhPolySys(object):
         # (since currently all y0=zeros)
         tau_f_dot = (1 - tau_f**2) * self.ArgsForTanh(ydot, cdot)[0]
         tau_c_dot = (1 - tau_c**2) * self.ArgsForTanh(ydot, cdot)[1]
-
-        augedStates = np.hstack((x, c, tau_f, tau_c))
         augedDynamics = np.hstack((xdot, cdot, tau_f_dot, tau_c_dot))
-        return [augedStates, augedDynamics]
+        return augedDynamics
 
     def sampleInitialStatesInclduingTanh(self, num_samples):
         """sample initial states in [x,c,tau_f,tau_c] space. But since really only
@@ -337,11 +344,37 @@ class augmentedTanhPolySys(object):
         Returns:
             TYPE: Description
         """
-        [x, c, _] = self.plant.get_data(num_samples, 1, self.units)[0]
+        [x, c, _] = self.plant.get_data(num_samples, 1, self.units,
+                                        lb=-10, ub=10)[0]
         shifted_y = self.plant.get_obs(x) - self.plant.y0
+        c = np.random.uniform(-1, 1, (num_samples, self.units))
         tanh_f = np.tanh(self.ArgsForTanh(shifted_y, c)[0])
         tanh_c = np.tanh(self.ArgsForTanh(shifted_y, c)[1])
-        return np.hstack((x, c, tanh_f, tanh_c))
+        s = np.hstack((x, c, tanh_f, tanh_c))
+        return s
+
+    def set_features(self, max_deg):
+        if max_deg == 1:
+            self.sym_phi = np.array([Expression(i) for i in self.sym_x])
+        else:
+            y = list(itertools.combinations_with_replacement(
+                np.append(1, self.sym_x), max_deg))
+            self.sym_phi = np.stack([np.prod(j) for j in y])[1:]
+
+    def get_features(self, x):
+        sym_dphidx = Jacobian(self.sym_phi, self.sym_x)
+        f = self.augmentedPolynomialf(numericals=x)
+        x = x.T
+        phi = np.zeros((x.shape[-1], self.sym_phi.shape[0]))
+        dphidx = np.zeros(
+            (x.shape[-1], self.sym_phi.shape[0], self.num_states))
+        for i in range(x.shape[-1]):
+            env = dict(zip(self.sym_x, x[:, i]))
+            phi[i, :] = [i.Evaluate(env) for i in self.sym_phi]
+            dphidx[i, :, :] = [[i.Evaluate(env) for i in j]for j in
+                               sym_dphidx]
+        # np.savez('../data/samples', phi=phi, dphidx=dphidx, f=f)
+        return [phi, dphidx, f]
 
     def linearizeAugmentedTanhPolySys(self):
         """
@@ -356,7 +389,8 @@ class augmentedTanhPolySys(object):
             TYPE: the linearization, evaluated at zero
         """
         # TODO: for now linearize at zero, need to linearize at plant.x0
-        [x, f] = self.statesAndDynamics()
+        x = self.sym_x
+        f = self.augmentedPolynomialf()
         J = Jacobian(f, x)
         env = dict(zip(x, np.zeros(x.shape)))
         A = np.array([[i.Evaluate(env) for i in j]for j in J])

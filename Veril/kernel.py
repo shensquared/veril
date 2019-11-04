@@ -2,14 +2,11 @@ from keras.models import Sequential, Model, load_model
 from keras.layers import *
 from keras import backend as K
 # from keras.callbacks import TensorBoard
-from CustomLayers import DotKernel, Divide, TransLayer
-import keras
+from keras import regularizers, initializers
 from keras.utils import CustomObjectScope
-from Veril import Verifier
-from util.plotFunnel import plotFunnel
-from util.samples import get_data, withinLevelSet
+
 import math
-from Veril import ClosedLoop
+from CustomLayers import DotKernel, Divide, TransLayer
 '''
 A note about the DOT layer: if input is 1: (None, a) and 2: (None, a) then no
 need to do transpose, direct Dot()(1,2) and the output works correctly with
@@ -17,8 +14,8 @@ shape (None, 1).
 
 If input is 1: (None, a, b) and 2: (None, b)
 
-If debug, use kernel_initializer= keras.initializers.Ones()
-If regularizing, use kernel_regularizer=keras.regularizers.l2(0.))
+If debug, use kernel_initializer= initializers.Ones()
+If regularizing, use kernel_regularizer= regularizers.l2(0.))
 
     # if write_log:
     #     logs_dir = "/Users/shenshen/Veril/data/lyapunov"
@@ -37,9 +34,9 @@ def linearModel(sys_dim, A):
     x = Input(shape=(sys_dim,))  # (None, sys_dim)
     layers = [
         Dense(5, input_shape=(sys_dim,), use_bias=False,
-              kernel_regularizer=keras.regularizers.l2(0.)),
-        Dense(2, use_bias=False, kernel_regularizer=keras.regularizers.l2(0.)),
-        Dense(2, use_bias=False, kernel_regularizer=keras.regularizers.l2(0.))
+              kernel_regularizer=regularizers.l2(0.)),
+        Dense(2, use_bias=False, kernel_regularizer=regularizers.l2(0.)),
+        Dense(2, use_bias=False, kernel_regularizer=regularizers.l2(0.))
     ]
     layers = layers + [TransLayer(i) for i in layers[::-1]]
     xLL = Sequential(layers)(x)  # (None, sys_dim)
@@ -63,9 +60,8 @@ def linearTrain():
     print(model.predict(x))
     history = model.fit(x, y, epochs=15, verbose=True, callbacks=callbacks)
     # getting the weights and verify the eigs
-    weights = [K.eval(i) for i in model.weights]
-    weights = np.linalg.multi_dot(weights)
-    P = weights@weights.T
+    L = np.linalg.multi_dot(model.get_weights())
+    P = L@L.T
     print('eig of orignal PA+A\'P  %s' % (np.linalg.eig(P@A + A.T@P)[0]))
     model_file_name = '../data/Kernel/lyap_model.h5'
     model.save(model_file_name)
@@ -80,7 +76,7 @@ def polyModel(sys_dim, max_deg):
     monomial_dim = f(sys_dim + max_deg) // f(max_deg) // f(sys_dim) - 1
     phi = Input(shape=(monomial_dim,))
     layers = [
-        Dense(10, use_bias=False),
+        Dense(monomial_dim, use_bias=False),
         Dense(4, use_bias=False),
         Dense(10, use_bias=False),
         Dense(4, use_bias=False),
@@ -108,46 +104,9 @@ def polyTrain(nx, max_deg, x, V=None, model=None):
     history = model.fit(train_x, train_y, batch_size=32,
                         shuffle=True, epochs=15,
                         verbose=True)
-    weights = [K.eval(i) for i in model.weights]
-    weights = np.linalg.multi_dot(weights)
-    P = weights@weights.T
+    L = np.linalg.multi_dot(model.get_weights())
+    P = L@L.T
     model_file_name = '../data/Kernel/polyModel.h5'
     model.save(model_file_name)
     print("Saved model" + model_file_name + " to disk")
     return P, model, history
-
-
-def run():
-    nx = 2
-    degf = 3
-    max_deg = 3
-    options = Verifier.opt(nx, degf, do_balance=False, degV=2 * max_deg,
-                           converged_tol=1e-2, max_iterations=20)
-
-    vdp = ClosedLoop.VanderPol()
-    sym_x = vdp.sym_x
-    V = vdp.knownROA()
-
-    model = None
-    for i in range(options.max_iterations):
-        train_x, train_y = withinLevelSet(sym_x, V)
-        [sym_phi, sym_f, phi, dphidx, f] = vdp.get_features(max_deg, train_x.T)
-        y = np.zeros(phi.shape)
-        if model is None:
-            model = polyModel(nx, max_deg)
-        history = model.fit([phi, dphidx, f], y, epochs=15)
-        if history.history['loss'][-1] >= 0:
-            break
-        else:
-            weights = [K.eval(i) for i in model.weights]
-            weights = np.linalg.multi_dot(weights)
-            P = weights@weights.T
-
-            file_name = '../data/Kernel/poly_P.npy'
-            np.save(file_name, P)
-            V0 = sym_phi.T@P@sym_phi
-            V = Verifier.levelsetMethod(sym_x, V0, sym_f, options)
-            plotFunnel(sym_x, V)
-    return V
-
-V = run()

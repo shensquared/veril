@@ -1,17 +1,16 @@
 import numpy as np
+import six
+from keras import backend as K
 # from control.matlab import drss
 # from scipy import integrate
 # import matplotlib.pyplot as plt
 # import os
 # import tensorflow as tf
-import six
-from keras import backend as K
 
-
-def get(plant_name):
+def get(plant_name, dt, obs_idx):
     if isinstance(plant_name, six.string_types):
         identifier = str(plant_name)
-        return globals()[identifier]()
+        return globals()[identifier](dt=dt, obs_idx=obs_idx)
 
 
 class Plant:

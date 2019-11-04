@@ -224,7 +224,7 @@ def levelsetMethod(x, V0, f, options):
     else:
         T, V, f = np.eye(options.nX), V0, f
     # % construct Vdot
-    Vdot = clean(V.Jacobian(x) @ f)
+    Vdot = (V.Jacobian(x) @ f)
 
     H = Jacobian(Vdot.Jacobian(x).T, x)
     env = dict(zip(x, np.zeros(x.shape)))

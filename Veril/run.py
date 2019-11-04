@@ -15,19 +15,8 @@ import Verifier
 import ClosedLoop
 from CustomLayers import JanetController
 import kernel
-
-import sys
-sys.path.append(
-    "/Users/shenshen/drake-build/install/lib/python3.7/site-packages")
-import pydrake
-import numpy as np
-from numpy.linalg import eig, inv
-from pydrake.all import (MathematicalProgram, Polynomial,
-                         Expression, SolutionResult,
-                         Variables, Solve, Jacobian, Evaluate,
-                         RealContinuousLyapunovEquation, Substitute,
-                         MosekSolver)
-from CustomLayers import *
+from util.plotFunnel import plotFunnel
+from util.samples import withinLevelSet
 
 options = {
     'plant_name': 'DoubleIntegrator',
@@ -88,34 +77,61 @@ def train(pre_trained=None, **kwargs):
     model.save(model_file_name)
     print("Saved model " + model_file_name + " to disk")
 
-def verifyClosedLoop():
-    nx = 14
-    degf = 3
-    max_deg =2
-    prog = MathematicalProgram()
-    x = prog.NewIndeterminates(nx, "x")
-    f = -np.array([x[1], -x[0] - x[1] * (x[0]**2 - 1)])
-    y = list(itertools.combinations_with_replacement(np.append(1, x), max_deg))
-    phi = np.stack([np.prod(j) for j in y])[1:]
-    
-    CL = ClosedControlledLoop.get_NNorCL(**options)
-    # ClosedControlledLoop.originalSysInitialV(CL)
-    augedSys = ClosedControlledLoop.augmentedTanhPolySys(CL)
-    samples = augedSys.sampleInitialStatesInclduingTanh(2)
-    x,f = augedSys.statesAndDynamics(numericals=samples)
-    model = kernel.polyModel(nx, max_deg, numerical_fx=True)
-    output = model.predict([x,f])
-    print(output)
 
-    # train_y = np.zeros(x.shape)
-    # history = model.fit([x,f], train_y, batch_size=32,
-    #                     shuffle=True, epochs=15,
-    #                     verbose=True)
-    # # P, model, history = kernel.polyTrain(nx, max_deg, x, V=None, model=None, numericals_fx = True)
-    # print(samples)
-    # A,S = augedSys.linearizeAugmentedTanhPolySys()
+def verifyVDP(max_deg=3):
+    vdp = ClosedLoop.VanderPol()
+    sym_x = vdp.sym_x
+    V = vdp.knownROA()
+    model = None
+    verifierOptions = Verifier.opt(vdp.num_states, vdp.degf, do_balance=False,
+                                   degV=2 * max_deg, converged_tol=1e-2, max_iterations=20)
+    for i in range(verifierOptions.max_iterations):
+        train_x, train_y = withinLevelSet(sym_x, V)
+        vdp.set_features(max_deg)
+        [phi, dphidx, f] = vdp.get_features(train_x.T)
+        y = np.zeros(phi.shape)
+        if model is None:
+            model = kernel.polyModel(vdp.num_states, max_deg)
+        history = model.fit([phi, dphidx, f], y, epochs=15)
+        if history.history['loss'][-1] >= 0:
+            break
+        else:
+            L = np.linalg.multi_dot(model.get_weights())
+            P = L@L.T
+            file_name = '../data/Kernel/poly_P.npy'
+            np.save(file_name, P)
+            V0 = vdp.sym_phi.T@P@vdp.sym_phi
+            V = Verifier.levelsetMethod(
+                vdp.sym_x, V0, vdp.sym_f, verifierOptions)
+            plotFunnel(vdp.sym_x, V)
+    return V
 
+
+def verifyClosedLoop(max_deg=2):
+    CL = ClosedLoop.get_NNorCL(**options)
+    augedSys = ClosedLoop.augmentedTanhPolySys(CL)
+    augedSys.set_features(max_deg)
+    samples = augedSys.sampleInitialStatesInclduingTanh(100)
+    [phi, dphidx, f] = augedSys.get_features(samples)
+    y = np.zeros(phi.shape)
+    nx = augedSys.num_states
+    degf = augedSys.degf
+    model = kernel.polyModel(nx, max_deg)
+    history = model.fit([phi, dphidx, f], y, epochs=15)
+    verifierOptions = Verifier.opt(nx, degf, do_balance=False, degV=2 *
+                                   max_deg, converged_tol=1e-2,
+                                   max_iterations=20)
+    for i in range(verifierOptions.max_iterations):
+        if history.history['loss'][-1] >= 0:
+            break
+        else:
+            L = np.linalg.multi_dot(model.get_weights())
+            P = L@L.T
+            file_name = '../data/Kernel/poly_P.npy'
+            np.save(file_name, P)
+            V0 = augedSys.sym_phi.T@P@augedSys.sym_phi
+            V = Verifier.levelsetMethod(
+                augedSys.sym_x, V0, augedSys.sym_f, verifierOptions)
+
+# verifyVDP()
 verifyClosedLoop()
-
-# NN = ClosedControlledLoop.get_NNorCL(NNorCL='NN', **options)
-# train(pre_trained=None, **options)
