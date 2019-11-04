@@ -14,7 +14,7 @@ import Plants
 import Verifier
 import ClosedLoop
 from CustomLayers import JanetController
-import kernel
+import SampledLyap
 from util.plotFunnel import plotFunnel
 from util.samples import withinLevelSet
 
@@ -91,7 +91,7 @@ def verifyVDP(max_deg=3):
         [phi, dphidx, f] = vdp.get_features(train_x.T)
         y = np.zeros(phi.shape)
         if model is None:
-            model = kernel.polyModel(vdp.num_states, max_deg)
+            model = SampledLyap.polyModel(vdp.num_states, max_deg)
         history = model.fit([phi, dphidx, f], y, epochs=15)
         if history.history['loss'][-1] >= 0:
             break
@@ -117,7 +117,7 @@ def verifyClosedLoop(max_deg=2):
     y = np.zeros(phi.shape)
     nx = augedSys.num_states
     degf = augedSys.degf
-    model = kernel.polyModel(nx, max_deg)
+    model = SampledLyap.polyModel(nx, max_deg)
     history = model.fit([phi, dphidx, f], y, epochs=15)
     verifierOptions = Verifier.opt(nx, degf, do_balance=False, degV=2 *
                                    max_deg, converged_tol=1e-2,
@@ -134,5 +134,5 @@ def verifyClosedLoop(max_deg=2):
             V = Verifier.levelsetMethod(
                 augedSys.sym_x, V0, augedSys.sym_f, verifierOptions)
 
-# verifyVDP()
-verifyClosedLoop()
+verifyVDP()
+# verifyClosedLoop()
