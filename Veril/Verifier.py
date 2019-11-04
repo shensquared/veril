@@ -264,6 +264,36 @@ def levelsetMethod(x, V0, f, options):
     return V
 
 
+def LPCandidate(phi, dphidx, f, num_samples=None):
+    if num_samples is None:
+        num_samples = phi.shape[0]
+    monomial_dim = phi.shape[-1]
+    prog = MathematicalProgram()
+    P = prog.NewSymmetricContinuousVariables(monomial_dim, "P")
+    allv = 0
+    allvdot = 0
+    for i in range(num_samples):
+        this_v = phi[i, :].T@P@phi[i, :]
+        prog.AddConstraint(this_v >= 0)
+        this_vdot = phi[i, :].T@P@dphidx[i, :, :]@f[i, :]
+        prog.AddConstraint(this_vdot <= 0)
+        allv = allv + this_v
+        allvdot = allvdot + this_vdot
+    prog.AddConstraint(phi[1, :].T@P@phi[1, :] == 1)
+    # prog.AddCost(allvdot-allv)
+    # prog.AddCost(allvdot)
+    prog.AddCost(0)
+    solver = MosekSolver()
+    solver.set_stream_logging(False, "")
+    result = solver.Solve(prog, None, None)
+    print(result.get_solution_result())
+    assert result.is_success()
+    P = result.GetSolution(P)
+    print('eig of orignal A  %s' % (eig(P)[0]))
+    # print('eig of orignal SA+A\'S  %s' % (eig(A0.T@S0 + S0@A0)[0]))
+    return P
+
+
 def IQC_tanh(x, y):
     y_cross = 0.642614
     x_off = .12

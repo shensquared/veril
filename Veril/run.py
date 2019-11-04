@@ -78,7 +78,7 @@ def train(pre_trained=None, **kwargs):
     print("Saved model " + model_file_name + " to disk")
 
 
-def verifyVDP(max_deg=3):
+def verifyVDP(max_deg=3, method='SGD'):
     vdp = ClosedLoop.VanderPol()
     sym_x = vdp.sym_x
     V = vdp.knownROA()
@@ -89,17 +89,20 @@ def verifyVDP(max_deg=3):
         train_x, train_y = withinLevelSet(sym_x, V)
         vdp.set_features(max_deg)
         [phi, dphidx, f] = vdp.get_features(train_x.T)
-        y = np.zeros(phi.shape)
-        if model is None:
-            model = SampledLyap.polyModel(vdp.num_states, max_deg)
-        history = model.fit([phi, dphidx, f], y, epochs=15)
-        if history.history['loss'][-1] >= 0:
-            break
+        if method is 'SGD':
+            y = np.zeros(phi.shape)
+            if model is None:
+                model = SampledLyap.polyModel(vdp.num_states, max_deg)
+            history = model.fit([phi, dphidx, f], y, epochs=15)
+            if history.history['loss'][-1] >= 0:
+                break
+            else:
+                L = np.linalg.multi_dot(model.get_weights())
+                P = L@L.T
+                file_name = '../data/Kernel/poly_P.npy'
+                np.save(file_name, P)
         else:
-            L = np.linalg.multi_dot(model.get_weights())
-            P = L@L.T
-            file_name = '../data/Kernel/poly_P.npy'
-            np.save(file_name, P)
+            P = Verifier.LPCandidate(phi, dphidx, f, num_samples=None)
             V0 = vdp.sym_phi.T@P@vdp.sym_phi
             V = Verifier.levelsetMethod(
                 vdp.sym_x, V0, vdp.sym_f, verifierOptions)
@@ -134,5 +137,5 @@ def verifyClosedLoop(max_deg=2):
             V = Verifier.levelsetMethod(
                 augedSys.sym_x, V0, augedSys.sym_f, verifierOptions)
 
-verifyVDP()
+verifyVDP(method='LP')
 # verifyClosedLoop()
