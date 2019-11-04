@@ -108,11 +108,12 @@ def verifyVDP(max_deg=3):
 
 
 def verifyClosedLoop(max_deg=2):
-    CL = ClosedLoop.get_NNorCL(**options)
-    augedSys = ClosedLoop.augmentedTanhPolySys(CL)
+    CL, model_file_name = ClosedLoop.get_NNorCL(**options)
+    augedSys = ClosedLoop.augmentedTanhPolySys(CL, model_file_name)
     augedSys.set_features(max_deg)
     samples = augedSys.sampleInitialStatesInclduingTanh(100)
     [phi, dphidx, f] = augedSys.get_features(samples)
+
     y = np.zeros(phi.shape)
     nx = augedSys.num_states
     degf = augedSys.degf

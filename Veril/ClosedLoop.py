@@ -32,17 +32,17 @@ def get_NNorCL(NNorCL='CL', **kwargs):
     # dirname = os.path.dirname(__file__)
     dirname = os.path.join('/users/shenshen/Veril/data/')
     model_file_name = dirname + plant_name + '/' + \
-        'unit' + str(num_units) + 'step' + str(timesteps) + tag + '.h5'
+        'unit' + str(num_units) + 'step' + str(timesteps) + tag
 
     with CustomObjectScope({'JanetController': JanetController}):
-        model = load_model(model_file_name)
+        model = load_model(model_file_name + '.h5')
     print(model.summary())
     if NNorCL is 'NN':
-        return model
+        return model, model_file_name
     elif NNorCL is 'CL':
         for this_layer in model.layers:
             if hasattr(this_layer, 'cell'):
-                return this_layer
+                return [this_layer, model_file_name]
 
 
 def call_CLsys(CL, tm1, num_samples):
@@ -275,7 +275,7 @@ class augmentedTanhPolySys(object):
         polynomial dynamics of the all-states
     """
 
-    def __init__(self, CL):
+    def __init__(self, CL, model_file_name):
         self.output_kernel = (K.eval(CL.cell.output_kernel))
         self.feedthrough_kernel = (K.eval(CL.cell.feedthrough_kernel))
         self.recurrent_kernel_f = (K.eval(CL.cell.recurrent_kernel_f))
@@ -299,6 +299,7 @@ class augmentedTanhPolySys(object):
         # TODO: need to account for plant degree
         self.degf = max([Polynomial(i, self.sym_x).TotalDegree() for i in
                          self.sym_f])
+        self.model_file_name= model_file_name
 
     def ArgsForTanh(self, x, c):
         arg_f = x@self.kernel_f + c@self.recurrent_kernel_f
@@ -365,15 +366,15 @@ class augmentedTanhPolySys(object):
         sym_dphidx = Jacobian(self.sym_phi, self.sym_x)
         f = self.augmentedPolynomialf(numericals=x)
         x = x.T
-        phi = np.zeros((x.shape[-1], self.sym_phi.shape[0]))
-        dphidx = np.zeros(
-            (x.shape[-1], self.sym_phi.shape[0], self.num_states))
-        for i in range(x.shape[-1]):
+        n_samples = x.shape[-1]
+        phi = np.zeros((n_samples, self.sym_phi.shape[0]))
+        dphidx = np.zeros((n_samples, self.sym_phi.shape[0], self.num_states))
+        for i in range(n_samples):
             env = dict(zip(self.sym_x, x[:, i]))
             phi[i, :] = [i.Evaluate(env) for i in self.sym_phi]
             dphidx[i, :, :] = [[i.Evaluate(env) for i in j]for j in
                                sym_dphidx]
-        # np.savez('../data/samples', phi=phi, dphidx=dphidx, f=f)
+        np.savez(self.model_file_name+'-'+str(n_samples)+'samples', phi=phi, dphidx=dphidx, f=f)
         return [phi, dphidx, f]
 
     def linearizeAugmentedTanhPolySys(self):
