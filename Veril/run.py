@@ -103,10 +103,10 @@ def verifyVDP(max_deg=3, method='SGD'):
                 np.save(file_name, P)
         else:
             P = Verifier.LPCandidate(phi, dphidx, f, num_samples=None)
-            V0 = vdp.sym_phi.T@P@vdp.sym_phi
-            V = Verifier.levelsetMethod(
-                vdp.sym_x, V0, vdp.sym_f, verifierOptions)
-            plotFunnel(vdp.sym_x, V)
+        V0 = vdp.sym_phi.T@P@vdp.sym_phi
+        V = Verifier.levelsetMethod(
+            vdp.sym_x, V0, vdp.sym_f, verifierOptions)
+        plotFunnel(vdp.sym_x, V)
     return V
 
 
