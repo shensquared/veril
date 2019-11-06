@@ -77,7 +77,7 @@ def polyModel(sys_dim, max_deg):
     phi = Input(shape=(monomial_dim,))
     layers = [
         Dense(monomial_dim, use_bias=False),
-        Dense(4, use_bias=False),
+        Dense(math.floor(monomial_dim/2), use_bias=False),
         Dense(10, use_bias=False),
         Dense(4, use_bias=False),
     ]

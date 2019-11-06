@@ -78,7 +78,7 @@ def train(pre_trained=None, **kwargs):
     print("Saved model " + model_file_name + " to disk")
 
 
-def verifyVDP(max_deg=3, method='SGD'):
+def verifyVDP(max_deg=5, method='SGD'):
     vdp = ClosedLoop.VanderPol()
     sym_x = vdp.sym_x
     V = vdp.knownROA()
@@ -97,7 +97,11 @@ def verifyVDP(max_deg=3, method='SGD'):
             if history.history['loss'][-1] >= 0:
                 break
             else:
-                L = np.linalg.multi_dot(model.get_weights())
+                weights = model.get_weights()
+                if len(weights) ==1:
+                    L = weights[0]
+                else:
+                    L = np.linalg.multi_dot(weights)
                 P = L@L.T
                 file_name = '../data/Kernel/poly_P.npy'
                 np.save(file_name, P)
@@ -137,5 +141,5 @@ def verifyClosedLoop(max_deg=2):
             V = Verifier.levelsetMethod(
                 augedSys.sym_x, V0, augedSys.sym_f, verifierOptions)
 
-verifyVDP(method='LP')
+verifyVDP(method='SGD')
 # verifyClosedLoop()
