@@ -7,6 +7,7 @@ from keras import backend as K
 # import os
 # import tensorflow as tf
 
+
 def get(plant_name, dt, obs_idx):
     if isinstance(plant_name, six.string_types):
         identifier = str(plant_name)
@@ -132,7 +133,7 @@ class Satellite(Plant):
         self.obs(obs_idx)
         self.dt = dt
         self.num_disturb = num_disturb
-        self.x0 = np.array([0, 0, 0, 0, 0, 0])
+        self.x0 = np.zeros((self.num_states,))
         self.y0 = self.get_obs(self.x0)
         self.u0 = 0
         self.manifold = False
@@ -239,7 +240,7 @@ class DoubleIntegrator(Plant):
         self.obs_idx = np.array(obs_idx)
         self.obs(obs_idx)
         self.num_disturb = num_disturb
-        self.x0 = np.array([0, 0])
+        self.x0 = np.zeros((self.num_states,))
         self.y0 = self.get_obs(self.x0)
         self.u0 = 0
         self.manifold = False
@@ -301,6 +302,46 @@ class DoubleIntegrator(Plant):
                 plt.xticks(fontsize=8)
                 plt.yticks(fontsize=8)
         plt.show()
+
+
+class DubinsPoly(Plant):
+
+    def __init__(self, dt=1e-4, obs_idx=None, num_disturb=0):
+        self.name = 'DubinsPoly'
+        self.num_states = 3
+        self.num_inputs = 2
+        self.obs_idx = np.array(obs_idx)
+        self.obs(obs_idx)
+        self.num_disturb = num_disturb
+        self.x0 = np.zeros((self.num_states,))
+        self.y0 = self.get_obs(self.x0)
+        self.manifold = False
+        self.dt = dt
+
+    def step(self, x, u):
+        # coordinate changed to polynomial, see:
+        # Kinematic and Dynamic Control of a Wheeled Mobile Robot
+        # David DeVon and Timothy Bretl
+        x1 = K.dot(x, K.constant([1, 0, 0], shape=(3, 1)))
+        x2 = K.dot(x, K.constant([0, 1, 0], shape=(3, 1)))
+        x3 = K.dot(x, K.constant([0, 0, 1], shape=(3, 1)))
+        u1 = K.dot(u, K.constant([1, 0], shape=(2, 1)))
+        u2 = K.dot(u, K.constant([0, 1], shape=(2, 1)))
+        x1_next = u1
+        x2_next = u2
+        x3_next = x2 * u1
+        delta = K.concatenate([x1_next, x2_next, x3_next])
+        return x + delta * self.dt
+
+    def xdot(self, x, u):
+        return np.array([u[0], u[1], x[1] * u[0]])
+
+    def ydot(self, x, u):
+        xdot = self.xdot(x, u)
+        if self.obs_idx is None:
+            return xdot
+        else:
+            return xdot[0, np.nonzero(self.obs_idx)]
 
 
 class HybridPlant():

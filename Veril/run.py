@@ -19,7 +19,8 @@ from util.plotFunnel import plotFunnel
 from util.samples import withinLevelSet
 
 options = {
-    'plant_name': 'DoubleIntegrator',
+    # 'plant_name': 'DoubleIntegrator',
+    'plant_name': 'DubinsPoly',
     # 'plant_name': 'Pendulum',
     # 'plant_name': 'Satellite',
     'num_units': 4,
@@ -34,7 +35,6 @@ options = {
 
 
 def train(pre_trained=None, **kwargs):
-
     num_samples = kwargs.pop('num_samples')
     num_units = kwargs.pop('num_units')
     timesteps = kwargs.pop('timesteps')
@@ -99,7 +99,7 @@ def verifyVDP(max_deg=3, method='SGD'):
                 break
             else:
                 weights = model.get_weights()
-                if len(weights) ==1:
+                if len(weights) == 1:
                     L = weights[0]
                 else:
                     L = np.linalg.multi_dot(weights)
@@ -142,5 +142,6 @@ def verifyClosedLoop(max_deg=2):
             V = Verifier.levelsetMethod(
                 augedSys.sym_x, V0, augedSys.sym_f, verifierOptions)
 
-verifyVDP(method='SGD')
+# verifyVDP(method='SGD')
 # verifyClosedLoop()
+train(**options)
