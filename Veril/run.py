@@ -78,15 +78,16 @@ def train(pre_trained=None, **kwargs):
     print("Saved model " + model_file_name + " to disk")
 
 
-def verifyVDP(max_deg=5, method='SGD'):
+def verifyVDP(max_deg=3, method='SGD'):
     vdp = ClosedLoop.VanderPol()
     sym_x = vdp.sym_x
-    V = vdp.knownROA()
     model = None
     verifierOptions = Verifier.opt(vdp.num_states, vdp.degf, do_balance=False,
                                    degV=2 * max_deg, converged_tol=1e-2, max_iterations=20)
     for i in range(verifierOptions.max_iterations):
-        train_x, train_y = withinLevelSet(sym_x, V)
+        train_x = np.load('../data/VDP/stableSamples.npy')
+        # V = vdp.knownROA()
+        # train_x, train_y = withinLevelSet(sym_x, V)
         vdp.set_features(max_deg)
         [phi, dphidx, f] = vdp.get_features(train_x.T)
         if method is 'SGD':

@@ -1,23 +1,27 @@
+import os
+import itertools
+
 import sys
 sys.path.append(
     "/Users/shenshen/drake-build/install/lib/python3.7/site-packages")
-from scipy.linalg import solve_lyapunov, solve_discrete_lyapunov
 import pydrake
-import numpy as np
-from numpy.linalg import eig, inv
 from pydrake.all import (MathematicalProgram, Polynomial,
                          Expression, SolutionResult,
                          Variables, Solve, Jacobian, Evaluate,
                          RealContinuousLyapunovEquation, Substitute,
                          MosekSolver)
 
-from Veril import Plants
+import numpy as np
+from numpy.linalg import eig, inv
+from scipy.linalg import solve_lyapunov, solve_discrete_lyapunov
+from scipy import integrate
+
 from keras import backend as K
-import os
 from keras.utils import CustomObjectScope
-from Veril.CustomLayers import JanetController
 from keras.models import load_model
-import itertools
+
+from Veril import Plants
+from Veril.CustomLayers import JanetController
 
 
 def get_NNorCL(NNorCL='CL', **kwargs):
@@ -161,15 +165,15 @@ class VanderPol(object):
                                sym_dphidx]
         return [phi, dphidx, f]
 
-    def reset(self, stable_sample):
-        in_true_ROA = False
-        if stable_sample:
-            while not in_true_ROA:
-                x = np.random.uniform(-2.5, 2.5, (self.num_states,))
-                in_true_ROA = self.in_true_ROA(np.array([x]))[0]
-            self.states = x
-        else:
-            self.states = np.random.uniform(-2.5, 2.5, (self.num_states,))
+    # def reset(self, stable_sample):
+    #     in_true_ROA = False
+    #     if stable_sample:
+    #         while not in_true_ROA:
+    #             x = np.random.uniform(-2.5, 2.5, (self.num_states,))
+    #             in_true_ROA = self.in_true_ROA(np.array([x]))[0]
+    #         self.states = x
+    #     else:
+    #         self.states = np.random.uniform(-2.5, 2.5, (self.num_states,))
 
     def knownROA(self):
         x = self.sym_x
@@ -187,42 +191,23 @@ class VanderPol(object):
     def outward_vdp(self, t, y):
         return - self.inward_vdp(t, y)
 
-    def step_once(self, full_states):
-        sol = integrate.RK45(self.inward_vdp, 0, self.states, self.dt)
+    def step_once(self):
+        sol = integrate.RK45(self.inward_vdp, 0, self.states, 1)
         self.states = sol.y
-        return self._get_obs(full_states)
 
-    def sim_traj(self, timesteps, full_states, stable_sample,
-                 given_initial=None, scale_time=1):
-        if given_initial is None:
-            self.reset(stable_sample)
-        else:
-            self.states = given_initial
-        # sol = integrate.RK45 (self.inward_vdp,0,self.initial_states, self.dt)
-        # if full_states:
-        #     return sol
-        # else:
-        #     return sol[:, -1].reshape(timesteps, 1)
-        # return np.array([self.step_once(full_states) for i in
-        # range(timesteps)])
-        sol = integrate.solve_ivp(self.inward_vdp,
-                                  [0, scale_time * self.dt *
-                                      timesteps], self.states,
-                                  t_eval=np.linspace(
-                                      0, self.dt * timesteps * scale_time, timesteps),
-                                  rtol=1e-9)
-        # atol=np.max(np.abs(self.states))
-        if sol.status is not 0:
-            print(self.states)
-        # asserting the integration reaches the final time stamps
-        assert sol.status <= 0
-
-        # sol.y = np.flip(sol.y,axis=1)
-        if full_states:
-            return sol.y.T
-        else:
-            # return np.array([sol.y.T[:, -1]]).reshape(timesteps, 1)
-            return np.array([sol.y.T[:, -1]]).reshape(sol.y.T.shape[0], 1)
+    def SimStableSamples(self, num_samples):
+        event = lambda t, x: np.linalg.norm(x) - 15
+        event.terminal = True
+        x = self.get_x(d=3, num_grid=num_samples)
+        stableSamples = np.zeros((2,))
+        for i in range(x.shape[-1]):
+            sol = integrate.solve_ivp(self.inward_vdp, [0, 15], x[:, i],
+               events=event)
+            # if sol.status == 1:
+                # print('event stopping')
+            if sol.status == 0 and (np.linalg.norm(sol.y[:, -1])) <= 1e-2:
+                stableSamples = np.vstack((stableSamples, x[:, i]))
+        return stableSamples.T
 
     def _phase_portrait(self, ax, ax_max):
         num = 60
@@ -299,7 +284,7 @@ class augmentedTanhPolySys(object):
         # TODO: need to account for plant degree
         self.degf = max([Polynomial(i, self.sym_x).TotalDegree() for i in
                          self.sym_f])
-        self.model_file_name= model_file_name
+        self.model_file_name = model_file_name
 
     def ArgsForTanh(self, x, c):
         arg_f = x@self.kernel_f + c@self.recurrent_kernel_f
@@ -374,7 +359,8 @@ class augmentedTanhPolySys(object):
             phi[i, :] = [i.Evaluate(env) for i in self.sym_phi]
             dphidx[i, :, :] = [[i.Evaluate(env) for i in j]for j in
                                sym_dphidx]
-        np.savez(self.model_file_name+'-'+str(n_samples)+'samples', phi=phi, dphidx=dphidx, f=f)
+        np.savez(self.model_file_name + '-' + str(n_samples) +
+                 'samples', phi=phi, dphidx=dphidx, f=f)
         return [phi, dphidx, f]
 
     def linearizeAugmentedTanhPolySys(self):
