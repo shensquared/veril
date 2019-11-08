@@ -46,6 +46,13 @@ class Plant:
             else:
                 return x[0, np.nonzero(self.obs_idx)]
 
+    def ydot(self, x, u):
+        xdot = self.xdot(x, u)
+        if self.obs_idx is None:
+            return xdot
+        else:
+            return xdot[0, np.nonzero(self.obs_idx)]
+
     def get_data(self, num_samples, timesteps, num_units, lb=-1, ub=1):
         init_x = np.random.uniform(lb, ub, (num_samples, self.num_states))
         init_c = np.zeros((num_samples, num_units))
@@ -261,13 +268,6 @@ class DoubleIntegrator(Plant):
         xplus = A@x + B@u
         return (xplus - x) / self.dt
 
-    def ydot(self, x, u):
-        xdot = self.xdot(x, u)
-        if self.obs_idx is None:
-            return xdot
-        else:
-            return xdot[0, np.nonzero(self.obs_idx)]
-
     def sim_traj(self, timesteps, full_states, stable_sample, u=0,
                  scale_time=1, given_initial=None):
         if given_initial is None:
@@ -335,13 +335,6 @@ class DubinsPoly(Plant):
 
     def xdot(self, x, u):
         return np.array([u[0], u[1], x[1] * u[0]])
-
-    def ydot(self, x, u):
-        xdot = self.xdot(x, u)
-        if self.obs_idx is None:
-            return xdot
-        else:
-            return xdot[0, np.nonzero(self.obs_idx)]
 
 
 class HybridPlant():
