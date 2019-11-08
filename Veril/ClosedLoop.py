@@ -202,9 +202,9 @@ class VanderPol(object):
         stableSamples = np.zeros((2,))
         for i in range(x.shape[-1]):
             sol = integrate.solve_ivp(self.inward_vdp, [0, 15], x[:, i],
-               events=event)
+                                      events=event)
             # if sol.status == 1:
-                # print('event stopping')
+            # print('event stopping')
             if sol.status == 0 and (np.linalg.norm(sol.y[:, -1])) <= 1e-2:
                 stableSamples = np.vstack((stableSamples, x[:, i]))
         return stableSamples.T
@@ -281,7 +281,6 @@ class augmentedTanhPolySys(object):
         self.tau_c = prog.NewIndeterminates(self.units, "tc")
         self.sym_x = np.concatenate((self.x, self.c, self.tau_f, self.tau_c))
         self.sym_f = self.augmentedPolynomialf(numericals=None)
-        # TODO: need to account for plant degree
         self.degf = max([Polynomial(i, self.sym_x).TotalDegree() for i in
                          self.sym_f])
         self.model_file_name = model_file_name
@@ -318,7 +317,7 @@ class augmentedTanhPolySys(object):
         augedDynamics = np.hstack((xdot, cdot, tau_f_dot, tau_c_dot))
         return augedDynamics
 
-    def sampleInitialStatesInclduingTanh(self, num_samples):
+    def sampleInitialStatesInclduingTanh(self, num_samples, **kwargs):
         """sample initial states in [x,c,tau_f,tau_c] space. But since really only
         x and c are independent, bake in the relationship that tau_f=tanh(arg_f)
         and tau_c=tanh(arg_c) here. Also return the augmented poly system dyanmcis
@@ -330,8 +329,8 @@ class augmentedTanhPolySys(object):
         Returns:
             TYPE: Description
         """
-        [x, c, _] = self.plant.get_data(num_samples, 1, self.units,
-                                        lb=-10, ub=10)[0]
+        [x, _, _] = self.plant.get_data(
+            num_samples, 1, self.units, **kwargs)[0]
         shifted_y = self.plant.get_obs(x) - self.plant.y0
         c = np.random.uniform(-1, 1, (num_samples, self.units))
         tanh_f = np.tanh(self.ArgsForTanh(shifted_y, c)[0])

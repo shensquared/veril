@@ -52,22 +52,22 @@ def linearModel(sys_dim, A):
     return model
 
 
-def linearTrain():
-    callbacks = []
-    x, y = get_data()
-    A = np.array([[-.1, 0], [1, -2]])
-    model = linearModel(2, A)
-    print(model.predict(x))
-    history = model.fit(x, y, epochs=15, verbose=True, callbacks=callbacks)
-    # getting the weights and verify the eigs
-    L = np.linalg.multi_dot(model.get_weights())
-    P = L@L.T
-    print('eig of orignal PA+A\'P  %s' % (np.linalg.eig(P@A + A.T@P)[0]))
-    model_file_name = '../data/Kernel/lyap_model.h5'
-    model.save(model_file_name)
-    del model
-    print("Saved model" + model_file_name + " to disk")
-    return P
+# def linearTrain():
+#     callbacks = []
+#     x, y = get_data()
+#     A = np.array([[-.1, 0], [1, -2]])
+#     model = linearModel(2, A)
+#     print(model.predict(x))
+#     history = model.fit(x, y, epochs=15, verbose=True, callbacks=callbacks)
+#     # getting the weights and verify the eigs
+#     L = np.linalg.multi_dot(model.get_weights())
+#     P = L@L.T
+#     print('eig of orignal PA+A\'P  %s' % (np.linalg.eig(P@A + A.T@P)[0]))
+#     model_file_name = '../data/Kernel/lyap_model.h5'
+#     model.save(model_file_name)
+#     del model
+#     print("Saved model" + model_file_name + " to disk")
+#     return P
 
 
 def polyModel(sys_dim, max_deg):
