@@ -337,6 +337,39 @@ class DubinsPoly(Plant):
         return np.array([u[0], u[1], x[1] * u[0]])
 
 
+class DubinsTrig(Plant):
+
+    def __init__(self, dt=1e-4, obs_idx=None, num_disturb=0):
+        self.name = 'DubinsTrig'
+        self.num_states = 3
+        self.num_inputs = 2
+        self.obs_idx = np.array(obs_idx)
+        self.obs(obs_idx)
+        self.num_disturb = num_disturb
+        self.x0 = np.zeros((self.num_states,))
+        self.y0 = self.get_obs(self.x0)
+        self.manifold = False
+        self.dt = dt
+
+    def step(self, x, u):
+        # coordinate changed to polynomial, see:
+        # Kinematic and Dynamic Control of a Wheeled Mobile Robot
+        # David DeVon and Timothy Bretl
+        x1 = K.dot(x, K.constant([1, 0, 0], shape=(3, 1)))
+        x2 = K.dot(x, K.constant([0, 1, 0], shape=(3, 1)))
+        x3 = K.dot(x, K.constant([0, 0, 1], shape=(3, 1)))
+        u1 = K.dot(u, K.constant([1, 0], shape=(2, 1)))
+        u2 = K.dot(u, K.constant([0, 1], shape=(2, 1)))
+        x1_next = u1 * K.cos(x3)
+        x2_next = u1 * K.sin(x3)
+        x3_next = u2
+        delta = K.concatenate([x1_next, x2_next, x3_next])
+        return x + delta * self.dt
+
+    def xdot(self, x, u):
+        return np.array([u[0] * x[2], u[0] * x[2], u[1]])
+
+
 class HybridPlant():
 
     def __init__(self, num_states=2, num_inputs=1, num_outputs=1):
