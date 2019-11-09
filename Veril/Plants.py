@@ -36,12 +36,11 @@ class Plant:
         if self.obs_idx is None:
             return x
         else:
-            # TODO: need a keras version of this but differentiable
+            # TODO: buggy here (dimensionaliy mismatch)
+            Warning('WIP')
             if K.is_tensor(x):
-                print('needs implementation')
-                # return (x * K.constant(self.obs_idx, shape=(1, self.num_states)))
-                # return tf.gather(x, self.obs_idx, axis=1)
-                pass
+                return K.dot(K.constant(np.eye(self.num_states)
+                    [self.obs_idx]),x)
             else:
                 return x[self.obs_idx]
 
