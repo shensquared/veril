@@ -352,9 +352,6 @@ class DubinsTrig(Plant):
         self.dt = dt
 
     def step(self, x, u):
-        # coordinate changed to polynomial, see:
-        # Kinematic and Dynamic Control of a Wheeled Mobile Robot
-        # David DeVon and Timothy Bretl
         x1 = K.dot(x, K.constant([1, 0, 0], shape=(3, 1)))
         x2 = K.dot(x, K.constant([0, 1, 0], shape=(3, 1)))
         x3 = K.dot(x, K.constant([0, 0, 1], shape=(3, 1)))

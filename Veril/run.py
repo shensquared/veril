@@ -20,12 +20,13 @@ from util.samples import withinLevelSet
 
 options = {
     # 'plant_name': 'DoubleIntegrator',
-    'plant_name': 'DubinsPoly',
+    # 'plant_name': 'DubinsPoly',
+    'plant_name': 'DubinsTrig',
     # 'plant_name': 'Pendulum',
     # 'plant_name': 'Satellite',
     'num_units': 4,
-    'timesteps': 1000,
-    'num_samples': 100,
+    'timesteps': 500,
+    'num_samples': 10000,
     'batch_size': 1,
     'epochs': 10,
     'dt': 1e-3,
