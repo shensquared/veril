@@ -7,6 +7,7 @@ from keras.utils import CustomObjectScope
 
 import math
 from CustomLayers import DotKernel, Divide, TransLayer
+import numpy as np
 '''
 A note about the DOT layer: if input is 1: (None, a) and 2: (None, a) then no
 need to do transpose, direct Dot()(1,2) and the output works correctly with
@@ -82,11 +83,11 @@ def polyModel(sys_dim, max_deg):
         Dense(4, use_bias=False),
     ]
     layers = layers + [TransLayer(i) for i in layers[::-1]]
-    phiLL = Sequential(layers)(phi)  # phiLL: (None, monomial_dim)
+    phiLL = Sequential(layers)(phi)  # (None, monomial_dim)
 
     # # need to avoid 0 in the denominator (by adding a strictly positive scalar
     # # to V)
-    V = Dot(1)([phiLL, phi])  # V: (None,1)
+    V = Dot(1)([phiLL, phi])  # (None,1)
     dphidx = Input(shape=(monomial_dim, sys_dim,))
     phiLLdphidx = Dot(1)([phiLL, dphidx])  # (None, sys_dim)
     fx = Input(shape=(sys_dim,))
@@ -98,15 +99,21 @@ def polyModel(sys_dim, max_deg):
     return model
 
 
-def polyTrain(nx, max_deg, x, V=None, model=None):
-    if model is None:
-        model = polyModel(nx, max_deg)
-    history = model.fit(train_x, train_y, batch_size=32,
-                        shuffle=True, epochs=15,
-                        verbose=True)
-    L = np.linalg.multi_dot(model.get_weights())
-    P = L@L.T
-    model_file_name = '../data/Kernel/polyModel.h5'
-    model.save(model_file_name)
-    print("Saved model" + model_file_name + " to disk")
-    return P, model, history
+# def polyTrain(nx, max_deg, x, V=None, model=None):
+#     if model is None:
+#         model = polyModel(nx, max_deg)
+#     history = model.fit(train_x, train_y, shuffle=True, epochs=15,
+#        verbose=True)
+#     P = GetGram(model)
+#     model_file_name = '../data/Kernel/polyModel.h5'
+#     model.save(model_file_name)
+#     print("Saved model" + model_file_name + " to disk")
+#     return P, model, history
+
+def GetGram(model):
+    weights = model.get_weights()
+    if len(weights) == 1:
+        L = weights[0]
+    else:
+        L = np.linalg.multi_dot(weights)
+    return L@L.T

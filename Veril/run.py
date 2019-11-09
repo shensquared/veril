@@ -19,13 +19,13 @@ from util.plotFunnel import plotFunnel
 from util.samples import withinLevelSet
 
 options = {
-    # 'plant_name': 'DoubleIntegrator',
+    'plant_name': 'DoubleIntegrator',
     # 'plant_name': 'DubinsPoly',
-    'plant_name': 'DubinsTrig',
+    # 'plant_name': 'DubinsTrig',
     # 'plant_name': 'Pendulum',
     # 'plant_name': 'Satellite',
     'num_units': 4,
-    'timesteps': 500,
+    'timesteps': 100,
     'num_samples': 10000,
     'batch_size': 1,
     'epochs': 10,
@@ -99,14 +99,7 @@ def verifyVDP(max_deg=3, method='SGD'):
             if history.history['loss'][-1] >= 0:
                 break
             else:
-                weights = model.get_weights()
-                if len(weights) == 1:
-                    L = weights[0]
-                else:
-                    L = np.linalg.multi_dot(weights)
-                P = L@L.T
-                file_name = '../data/Kernel/poly_P.npy'
-                np.save(file_name, P)
+                P = SampledLyap.GetGram(model)
         else:
             P = Verifier.LPCandidate(phi, dphidx, f, num_samples=None)
         V0 = vdp.sym_phi.T@P@vdp.sym_phi
@@ -135,14 +128,11 @@ def verifyClosedLoop(max_deg=2):
         if history.history['loss'][-1] >= 0:
             break
         else:
-            L = np.linalg.multi_dot(model.get_weights())
-            P = L@L.T
-            file_name = '../data/Kernel/poly_P.npy'
-            np.save(file_name, P)
+            P = SampledLyap.GetGram(model)
             V0 = augedSys.sym_phi.T@P@augedSys.sym_phi
             V = Verifier.levelsetMethod(
                 augedSys.sym_x, V0, augedSys.sym_f, verifierOptions)
 
-# verifyVDP(method='SGD')
+verifyVDP(method='SGD')
 # verifyClosedLoop()
-train(**options)
+# train(**options)
