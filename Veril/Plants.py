@@ -20,12 +20,11 @@ class Plant:
         pass
 
     def obs(self, obs_idx):
+        self.obs_idx = obs_idx
         if obs_idx is None:
-            self.obs_idx = obs_idx
             self.num_outputs = self.num_states
         else:
-            self.obs_idx = np.array(obs_idx)
-            self.num_outputs = sum(self.obs_idx)
+            self.num_outputs = len(self.obs_idx)
 
     def step(self, x, u):
         pass
@@ -44,14 +43,14 @@ class Plant:
                 # return tf.gather(x, self.obs_idx, axis=1)
                 pass
             else:
-                return x[0, np.nonzero(self.obs_idx)]
+                return x[self.obs_idx]
 
     def ydot(self, x, u):
         xdot = self.xdot(x, u)
         if self.obs_idx is None:
             return xdot
         else:
-            return xdot[0, np.nonzero(self.obs_idx)]
+            return xdot[self.obs_idx]
 
     def get_data(self, num_samples, timesteps, num_units, lb=-1, ub=1):
         init_x = np.random.uniform(lb, ub, (num_samples, self.num_states))
@@ -244,7 +243,6 @@ class DoubleIntegrator(Plant):
         self.name = 'DoubleIntegrator'
         self.num_states = 2
         self.num_inputs = 1
-        self.obs_idx = np.array(obs_idx)
         self.obs(obs_idx)
         self.num_disturb = num_disturb
         self.x0 = np.zeros((self.num_states,))
@@ -310,7 +308,6 @@ class DubinsPoly(Plant):
         self.name = 'DubinsPoly'
         self.num_states = 3
         self.num_inputs = 2
-        self.obs_idx = np.array(obs_idx)
         self.obs(obs_idx)
         self.num_disturb = num_disturb
         self.x0 = np.zeros((self.num_states,))
@@ -343,7 +340,6 @@ class DubinsTrig(Plant):
         self.name = 'DubinsTrig'
         self.num_states = 3
         self.num_inputs = 2
-        self.obs_idx = np.array(obs_idx)
         self.obs(obs_idx)
         self.num_disturb = num_disturb
         self.x0 = np.zeros((self.num_states,))
