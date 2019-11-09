@@ -165,16 +165,6 @@ class VanderPol(object):
                                sym_dphidx]
         return [phi, dphidx, f]
 
-    # def reset(self, stable_sample):
-    #     in_true_ROA = False
-    #     if stable_sample:
-    #         while not in_true_ROA:
-    #             x = np.random.uniform(-2.5, 2.5, (self.num_states,))
-    #             in_true_ROA = self.in_true_ROA(np.array([x]))[0]
-    #         self.states = x
-    #     else:
-    #         self.states = np.random.uniform(-2.5, 2.5, (self.num_states,))
-
     def knownROA(self):
         x = self.sym_x
         x1 = x[0]

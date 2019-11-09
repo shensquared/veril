@@ -1305,7 +1305,6 @@ class Polynomials(Layer):
         # n = input_shape[-1]
         assert self.n
         output_shape = list(input_shape)
-        # TODO: figure out the shape
         f = lambda x: math.factorial(x)
         output_shape[-1] = f(self.n + self.max_deg) // f(self.max_deg) // f(self.n) -1
         return tuple(output_shape)
