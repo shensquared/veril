@@ -294,6 +294,23 @@ def LPCandidate(phi, dphidx, f, num_samples=None):
     return P
 
 
+def RecastBack(V, CL_sys):
+    """Recast the polynomial Lyapunov candidate back to the original coornidate.
+    e.g. originally, we might have recast the non-linearity sin(x) as s, so
+    that we have a V=x**2+s**2. In order to visualize, we need the inverse 
+    mapping, so that the levelset of V can be properly plotted in the 'x' 
+    cooridnate
+
+    Args:
+        x (Inderterminates):
+        V (Inderterminates): V(x)
+        CL_sys(ClosedLoopSystem): encodes the mapping
+    """
+    env = CL_sys.InverseRecastMap()
+    nonPolyV = V.Substitute(env)
+    return nonPolyV
+
+
 def IQC_tanh(x, y):
     y_cross = 0.642614
     x_off = .12

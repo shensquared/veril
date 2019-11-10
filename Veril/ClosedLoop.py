@@ -9,7 +9,7 @@ from pydrake.all import (MathematicalProgram, Polynomial,
                          Expression, SolutionResult,
                          Variables, Solve, Jacobian, Evaluate,
                          RealContinuousLyapunovEquation, Substitute,
-                         MosekSolver)
+                         MosekSolver, tanh)
 
 import numpy as np
 from numpy.linalg import eig, inv
@@ -116,7 +116,8 @@ def originalSysInitialV(CL):
 
 
 class ClosedLoopSys(object):
-# TODO: unified CL to feed into verifier
+    # TODO: unified CL to feed into verifier
+
     def __init__():
         pass
 
@@ -153,7 +154,7 @@ class VanderPol(object):
 
     def get_features(self, x):
         sym_dphidx = Jacobian(self.sym_phi, self.sym_x)
-        x=x.T
+        x = x.T
         f = - np.array([x[1, :], (1 - x[0, :]**2) * x[1, :] - x[0, :]]).T
         phi = np.zeros((x.shape[-1], self.sym_phi.shape[0]))
         dphidx = np.zeros(
@@ -241,6 +242,7 @@ class TanhPolyCL(object):
     # which include the plant state x, the RNN state c, the added two states
     # from the tanh nonlinearity, tau_c, and tau_f
     """
+
     def __init__(self, CL, model_file_name):
         self.output_kernel = (K.eval(CL.cell.output_kernel))
         self.feedthrough_kernel = (K.eval(CL.cell.feedthrough_kernel))
@@ -265,6 +267,13 @@ class TanhPolyCL(object):
         self.degf = max([Polynomial(i, self.sym_x).TotalDegree() for i in
                          self.sym_f])
         self.model_file_name = model_file_name
+
+    def InverseRecastMap(self):
+        [arg_f, arg_c] = self.ArgsForTanh(self.x, self.c)
+        tau_f = [tanh(i) for i in arg_f]
+        tau_c = [tanh(i) for i in arg_c]
+        env = dict(zip(np.append(self.tau_c, self.tau_f), tau_c + tau_f))
+        return env
 
     def ArgsForTanh(self, x, c):
         arg_f = x@self.kernel_f + c@self.recurrent_kernel_f

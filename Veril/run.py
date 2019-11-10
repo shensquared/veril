@@ -25,7 +25,7 @@ options = {
     # 'plant_name': 'Pendulum',
     # 'plant_name': 'Satellite',
     'num_units': 4,
-    'timesteps': 100,
+    'timesteps': 1000,
     'num_samples': 10000,
     'batch_size': 1,
     'epochs': 10,
