@@ -7,6 +7,7 @@ from keras import backend as K
 # import os
 # import tensorflow as tf
 
+# TODO: differentiate between true CT and foward-euler CT (true DT converted)
 
 def get(plant_name, dt, obs_idx):
     if isinstance(plant_name, six.string_types):

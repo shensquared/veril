@@ -30,13 +30,13 @@ options = {
 }
 
 NN = ClosedLoop.get_NNorCL(NNorCL='NN', **options)
-CL = ClosedLoop.get_NNorCL(**options)
+[CL, model_file_name] = ClosedLoop.get_NNorCL(**options)
 
 test_time_steps = 1
 test_num_samples = 2
 
 plant = Plants.get(CL.plant_name, CL.dt, CL.obs_idx)
-augedSys = ClosedLoop.augmentedTanhPolySys(CL)
+augedSys = ClosedLoop.TanhPolyCL(CL, model_file_name)
 x = augedSys.sampleInitialStatesInclduingTanh(test_num_samples)
 initx=x[:,0:2]
 initc=x[:,2:6]

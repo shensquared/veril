@@ -78,7 +78,7 @@ def train(pre_trained=None, **kwargs):
     model.save(model_file_name)
     print("Saved model " + model_file_name + " to disk")
 
-
+# TODO: unify verification to based on 'plant_name' instead of hard-coded
 def verifyVDP(max_deg=3, method='SGD'):
     vdp = ClosedLoop.VanderPol()
     sym_x = vdp.sym_x
@@ -90,7 +90,7 @@ def verifyVDP(max_deg=3, method='SGD'):
         # V = vdp.knownROA()
         # train_x, train_y = withinLevelSet(sym_x, V)
         vdp.set_features(max_deg)
-        [phi, dphidx, f] = vdp.get_features(train_x.T)
+        [phi, dphidx, f] = vdp.get_features(train_x)
         if method is 'SGD':
             y = np.zeros(phi.shape)
             if model is None:
@@ -111,7 +111,7 @@ def verifyVDP(max_deg=3, method='SGD'):
 
 def verifyClosedLoop(max_deg=2):
     CL, model_file_name = ClosedLoop.get_NNorCL(**options)
-    augedSys = ClosedLoop.augmentedTanhPolySys(CL, model_file_name)
+    augedSys = ClosedLoop.TanhPolyCL(CL, model_file_name)
     augedSys.set_features(max_deg)
     samples = augedSys.sampleInitialStatesInclduingTanh(100)
     [phi, dphidx, f] = augedSys.get_features(samples)

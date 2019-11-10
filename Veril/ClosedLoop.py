@@ -116,7 +116,7 @@ def originalSysInitialV(CL):
 
 
 class ClosedLoopSys(object):
-
+# TODO: unified CL to feed into verifier
     def __init__():
         pass
 
@@ -132,6 +132,9 @@ class VanderPol(object):
         prog = MathematicalProgram()
         sym_x = prog.NewIndeterminates(self.num_states, "x")
         self.sym_x = sym_x
+        sym_x = self.sym_x
+        self.sym_f = -np.array([sym_x[1], -sym_x[0] - sym_x[1] * (sym_x[0]**2 -
+                                                                  1)])
         self.degf = 3
 
     def get_x(self, d=2, num_grid=200):
@@ -144,16 +147,13 @@ class VanderPol(object):
         return np.array([x1, x2])  # (2, num_grid**2)
 
     def set_features(self, max_deg):
-        sym_x = self.sym_x
-        self.sym_f = -np.array([sym_x[1], -sym_x[0] - sym_x[1] * (sym_x[0]**2 -
-                                                                  1)])
-
         y = list(itertools.combinations_with_replacement(
-            np.append(1, sym_x), max_deg))
+            np.append(1, self.sym_x), max_deg))
         self.sym_phi = np.stack([np.prod(j) for j in y])[1:]
 
     def get_features(self, x):
         sym_dphidx = Jacobian(self.sym_phi, self.sym_x)
+        x=x.T
         f = - np.array([x[1, :], (1 - x[0, :]**2) * x[1, :] - x[0, :]]).T
         phi = np.zeros((x.shape[-1], self.sym_phi.shape[0]))
         dphidx = np.zeros(
@@ -235,21 +235,12 @@ class VanderPol(object):
         plt.show()
 
 
-class augmentedTanhPolySys(object):
+class TanhPolyCL(object):
     """Summary
     # returns the CONTINUOUS TIME closed-loop dynamics of the augmented states,
     # which include the plant state x, the RNN state c, the added two states
     # from the tanh nonlinearity, tau_c, and tau_f
-    Args:
-        CL (TYPE): closed-loop system dynamics
-        states: default None, meaning everything drake symbolic; otherwise
-        expecting np arrays for numerical samples
-
-    Returns:
-        all states (plant, controller, plus the recasted ones)
-        polynomial dynamics of the all-states
     """
-
     def __init__(self, CL, model_file_name):
         self.output_kernel = (K.eval(CL.cell.output_kernel))
         self.feedthrough_kernel = (K.eval(CL.cell.feedthrough_kernel))
@@ -352,7 +343,7 @@ class augmentedTanhPolySys(object):
                  'samples', phi=phi, dphidx=dphidx, f=f)
         return [phi, dphidx, f]
 
-    def linearizeAugmentedTanhPolySys(self):
+    def linearizeTanhPolyCL(self):
         """
         linearize f, which is the augmented (via the change of variable recasting)
         w.r.t. the states x.
