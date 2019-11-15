@@ -28,7 +28,6 @@ If regularizing, use kernel_regularizer= regularizers.l2(0.))
 
 def max_negativity(y_true, y_pred):
     return K.max(y_pred)
-    # return K.mean(y_pred)
 
 
 def linearModel(sys_dim, A):
@@ -78,7 +77,7 @@ def polyModel(sys_dim, max_deg):
     phi = Input(shape=(monomial_dim,))
     layers = [
         Dense(monomial_dim, use_bias=False),
-        Dense(math.floor(monomial_dim/2), use_bias=False),
+        Dense(math.floor(monomial_dim / 2), use_bias=False),
         Dense(10, use_bias=False),
         Dense(4, use_bias=False),
     ]

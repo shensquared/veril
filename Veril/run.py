@@ -79,6 +79,8 @@ def train(pre_trained=None, **kwargs):
     print("Saved model " + model_file_name + " to disk")
 
 # TODO: unify verification to based on 'plant_name' instead of hard-coded
+
+
 def verifyVDP(max_deg=3, method='SGD'):
     vdp = ClosedLoop.VanderPol()
     sym_x = vdp.sym_x
@@ -106,7 +108,7 @@ def verifyVDP(max_deg=3, method='SGD'):
         V = Verifier.levelsetMethod(
             vdp.sym_x, V0, vdp.sym_f, verifierOptions)
         plotFunnel(vdp.sym_x, V)
-    return V
+    return [model, V]
 
 
 def verifyClosedLoop(max_deg=2):
@@ -134,5 +136,6 @@ def verifyClosedLoop(max_deg=2):
                 augedSys.sym_x, V0, augedSys.sym_f, verifierOptions)
 
 verifyVDP(method='SGD')
+[model,V]= verifyVDP(method='SGD')
 # verifyClosedLoop()
 # train(**options)
