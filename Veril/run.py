@@ -17,6 +17,7 @@ from CustomLayers import JanetController
 import SampledLyap
 from util.plotFunnel import plotFunnel
 from util.samples import withinLevelSet
+import itertools
 
 options = {
     'plant_name': 'DoubleIntegrator',
@@ -135,7 +136,47 @@ def verifyClosedLoop(max_deg=2):
             V = Verifier.levelsetMethod(
                 augedSys.sym_x, V0, augedSys.sym_f, verifierOptions)
 
-verifyVDP(method='SGD')
+
+def SGDLevelSetGramCandidate(model,V, max_deg=3):
+    vdp = ClosedLoop.VanderPol()
+    sym_x = vdp.sym_x
+    # train_x = np.load('../data/VDP/stableSamples.npy')
+    train_x = withinLevelSet(list(V.GetVariables()), V)[0]
+    train_y = np.ones((train_x.shape[0], 1))
+    # y=[y,y]
+    vdp.set_features(max_deg)
+    [phi, dphidx, f] = vdp.get_features(train_x)
+    P = SampledLyap.GetGram(model)
+    symV = vdp.sym_phi.T@P@vdp.sym_phi
+    symVdot = symV.Jacobian(sym_x) @ vdp.sym_f
+    # deg = (- 1 + vdp.degf + Polynomial(symVdot, sym_x).TotalDegree()) / 2
+    deg =5
+    y = list(itertools.combinations_with_replacement(
+        np.append(1, sym_x), 8))
+    symLphi = np.stack([np.prod(j) for j in y])[1:]
+
+    symxxd = (sym_x.T@sym_x)**np.floor(deg)
+    x = train_x.T
+    V = np.zeros((x.shape[-1], 1))
+    Vdot = np.zeros((x.shape[-1], 1))
+    xxd = np.zeros((x.shape[-1], 1))
+    Lphi = np.zeros((x.shape[-1], symLphi.shape[0]))
+    for i in range(x.shape[-1]):
+        env = dict(zip(sym_x, x[:, i]))
+        V[i, :] = symV.Evaluate(env)
+        Vdot[i, :] = symVdot.Evaluate(env)
+        xxd[i, :]  = symxxd.Evaluate(env)
+        Lphi[i, :] = [i.Evaluate(env) for i in symLphi]
+
+    verifyModel = SampledLyap.GramDecompModelForLevelsetPoly(vdp.num_states, max_deg)
+    history = verifyModel.fit([phi, xxd, V, Vdot, Lphi], train_y, epochs=200)
+    return verifyModel
+    # plotFunnel(vdp.sym_x, V)
+    # return V
+
 [model,V]= verifyVDP(method='SGD')
+verifyModel=SGDLevelSetGramCandidate(model,V)
+[gram, rho, L]=SampledLyap.GetLevelsetGram(verifyModel)
+print(rho)
 # verifyClosedLoop()
 # train(**options)

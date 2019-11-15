@@ -263,6 +263,49 @@ def levelsetMethod(x, V0, f, options):
     # print(V)
     return V
 
+def levelsetLP(x, V0, f, gram, options):
+    prog = MathematicalProgram()
+    prog.AddIndeterminates(x)
+    if options.do_balance:
+        [T, V, f, _, _] = balance(x, V0, f, None, None)
+    else:
+        T, V, f = np.eye(options.nX), V0, f
+    # % construct Vdot
+    Vdot = (V.Jacobian(x) @ f)
+
+    H = Jacobian(Vdot.Jacobian(x).T, x)
+    env = dict(zip(x, np.zeros(x.shape)))
+    H = .5 * np.array([[i.Evaluate(env) for i in j]for j in H])
+    print((eig(H)[0]))
+
+    assert (np.all(eig(H)[0] <= 0))
+    # % construct slack var
+    sigma1 = prog.NewContinuousVariables(1, "s")[0]
+    prog.AddConstraint(sigma1 >= 0)
+    L1 = prog.NewFreePolynomial(Variables(x), options.degL1).ToExpression()
+
+    for p in (L * V).monomial_to_coefficient_map():
+    if p.first.total_degree() == 7:
+        print(p.first)
+
+    deg = (options.degL1 + Polynomial(Vdot, x).TotalDegree() - options.degV) / 2
+    prog.AddConstraint((x.T@x)**np.floor(deg) * (V - sigma1) + L1 * Vdot)
+    # add cost
+    prog.AddCost(-sigma1)
+
+    solver = MosekSolver()
+    solver.set_stream_logging(True, "")
+    result = solver.Solve(prog, None, None)
+    print(result.get_solution_result())
+    # print('w/ solver %s' % (result.get_solver_id().name()))
+    assert result.is_success()
+    L1 = result.GetSolution(L1)
+    sigma1 = result.GetSolution(sigma1)
+    print(sigma1)
+    V = V / sigma1
+    V = (V.Substitute(dict(zip(x, inv(T) @ x))))
+    # print(V)
+    return V
 
 def LPCandidate(phi, dphidx, f, num_samples=None):
     if num_samples is None:

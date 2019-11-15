@@ -116,3 +116,91 @@ def GetGram(model):
     else:
         L = np.linalg.multi_dot(weights)
     return L@L.T
+
+
+def GramDecompModelForLevelsetPoly(sys_dim, max_deg):
+    f = lambda x: math.factorial(x)
+    # -1 since V doesn't have a constant monomial
+    monomial_dim = f(sys_dim + max_deg) // f(max_deg) // f(sys_dim) - 1
+    phi = Input(shape=(monomial_dim,), name='phi')
+    layers = [
+        # Dense(monomial_dim, use_bias=False),
+        # Dense(math.floor(monomial_dim / 2), use_bias=False),
+        Dense(10, use_bias=False),
+        Dense(4, use_bias=False),
+    ]
+    layers = layers + [TransLayer(i) for i in layers[::-1]]
+    phiLL = Sequential(layers, name='Gram')(phi)  # (None,
+    # monomial_dim)
+    candidateSOS = Dot(1)([phiLL, phi])  # (None,1)
+
+    xxd = Input(shape=(1,), name='xxd')
+    V = Input(shape=(1,), name='V')
+    Vdot = Input(shape=(1,), name='Vdot')
+
+    xxdV = Dot(-1)([xxd, V])
+
+    Lmonomial_dim = f(sys_dim + 8) // f(8) // f(sys_dim) - 1
+    Lphi = Input(shape=(Lmonomial_dim,), name='Lphi')
+
+    multiplierLayers = [
+        # Dense(monomial_dim, use_bias=False),
+        # Dense(math.floor(monomial_dim / 2), use_bias=False),
+        Dense(4, use_bias=False),
+        Dense(1, use_bias=False),
+    ]
+    L1 = Sequential(multiplierLayers, name='multiplier')(Lphi)
+    L1Vdot = Dot(-1, name='L1Vdot')([L1, Vdot])
+
+    rholayer = [Dense(1, use_bias=False, kernel_regularizer=rho_reg)]
+    # kernel_regularizer=rho_reg
+    rholayer = rholayer + [TransLayer(i) for i in rholayer[::-1]]
+    xxdrho = Sequential(rholayer, name='rho')(xxd)
+    # xxdrho = xxd
+    # residual = sos - (xxdV-xxdrho+L1Vdot)
+    vminusrho = Subtract()([xxdV, xxdrho])
+    vminusrhoplusvdot = Add()([vminusrho, L1Vdot])
+    residual = Divide()([vminusrhoplusvdot, candidateSOS])
+    # outputs = Dot(-1)([residual, xxdrho])
+    model = Model(inputs=[phi, xxd, V, Vdot, Lphi], outputs=residual)
+    model.compile(loss='mse', metrics=[mean_pred, 'mse'],
+                  optimizer='adam')
+    print(model.summary())
+    return model
+
+
+def rho_reg(weight_matrix):
+    return -0.0001 * K.abs(K.sum(weight_matrix))
+
+
+def guidedMSE(y_true, y_pred):
+    if K.sign(y_pred) is 1 and K.sign(y_true - y_pred) is 1:
+        return 0
+    else:
+        return K.square(y_pred - y_true)
+
+
+def mean_pred(y_true, y_pred):
+    return y_pred
+
+
+def levelsetGram(model):
+    names = [weight.name for layer in model.layers for weight in layer.weights]
+    weights = model.get_weights()
+    gram_weights = []
+    rho_weights = []
+    L_weights = []
+    for name, weight in zip(names, weights):
+        if 'Gram' in name:
+            gram_weights = gram_weights + [weight]
+        elif 'rho' in name:
+            rho_weights = rho_weights + [weight]
+        elif 'multiplier' in name:
+            L_weights = L_weights + [weight]
+        else:
+            print('should not have other weights')
+    L = np.linalg.multi_dot(gram_weights)
+    gram = L@L.T
+    rho = rho_weights[0]**2
+    L = np.linalg.multi_dot(L_weights)
+    return [gram, rho, L]
