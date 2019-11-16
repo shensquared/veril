@@ -126,6 +126,7 @@ class ClosedLoopSys(object):
         pass
 
     def set_features(self, VFeatureDeg):
+        self.degV = 2 * VFeatureDeg
         self.sym_f = self.PolynomialDynamics()
         self.degf = max([Polynomial(i, self.sym_x).TotalDegree() for i in
                          self.sym_f])
@@ -151,6 +152,34 @@ class ClosedLoopSys(object):
         # np.savez(self.model_file_name + '-' + str(n_samples) +
         #          'samples', phi=phi, dphidx=dphidx, f=f)
         return [phi, dphidx, f]
+
+    def set_levelset_features(self, P, sigma_deg):
+        self.sym_V = self.sym_phi.T@P@self.sym_phi
+        self.sym_Vdot = self.sym_V.Jacobian(self.sym_x) @ self.sym_f
+        self.degVdot = Polynomial(self.sym_Vdot, self.sym_x).TotalDegree()
+        deg = int(np.floor((sigma_deg + self.degVdot - self.degV) / 2))
+        self.sym_xxd = (self.sym_x.T@self.sym_x)**(deg)
+        self.sym_sigma = GetMonomials(self.sym_x, sigma_deg)
+        psi_deg = int(np.floor(max(2 * deg + self.degV, sigma_deg +
+           self.degVdot)/2))
+        self.sym_psi = GetMonomials(self.sym_x, psi_deg)
+
+    def get_levelset_features(self, x):
+        # x: (num_samples, sys_dim)
+        n_samples = x.shape[0]
+        V = np.zeros((n_samples, 1))
+        Vdot = np.zeros((n_samples, 1))
+        xxd = np.zeros((n_samples, 1))
+        psi = np.zeros((n_samples, self.sym_psi.shape[0]))
+        sigma = np.zeros((n_samples, self.sym_sigma.shape[0]))
+        for i in range(n_samples):
+            env = dict(zip(self.sym_x, x[i, :]))
+            V[i, :] = self.sym_V.Evaluate(env)
+            Vdot[i, :] = self.sym_Vdot.Evaluate(env)
+            xxd[i, :] = self.sym_xxd.Evaluate(env)
+            psi[i, :] = [i.Evaluate(env) for i in self.sym_psi]
+            sigma[i, :] = [i.Evaluate(env) for i in self.sym_sigma]
+        return [V, Vdot, xxd, psi, sigma]
 
 
 class VanderPol(ClosedLoopSys):

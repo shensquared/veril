@@ -88,13 +88,13 @@ def verifyVDP(max_deg=3, method='SGD'):
     model = None
     train_x = np.load('../data/VDP/stableSamples.npy')
     # V = vdp.knownROA()
-    # train_x, train_y = withinLevelSet(sym_x, V)
+    # train_x, train_y = withinLevelSet(V)
     vdp.set_features(max_deg)
     [phi, dphidx, f] = vdp.get_features(train_x)
 
     verifierOptions = Verifier.opt(vdp.num_states, vdp.degf, do_balance=False,
                                    degV=2 * max_deg, converged_tol=1e-2,
-                                   max_iterations=20)
+                                   max_iterations=1)
     for i in range(verifierOptions.max_iterations):
         if method is 'SGD':
             y = np.zeros(phi.shape)
@@ -139,46 +139,26 @@ def verifyClosedLoop(max_deg=2):
                 augedSys.sym_x, V0, augedSys.sym_f, verifierOptions)
 
 
-def SGDLevelSetGramCandidate(model,V, max_deg=3):
+def SGDLevelSetGramCandidate(model, V, max_deg=3):
     vdp = ClosedLoop.VanderPol()
     sym_x = vdp.sym_x
-    # train_x = np.load('../data/VDP/stableSamples.npy')
-    train_x = withinLevelSet(list(V.GetVariables()), V)[0]
+    train_x = withinLevelSet(V)[0]
     train_y = np.ones((train_x.shape[0], 1))
-    # y=[y,y]
     vdp.set_features(max_deg)
-    [phi, dphidx, f] = vdp.get_features(train_x)
     P = SampledLyap.GetGram(model)
-    symV = vdp.sym_phi.T@P@vdp.sym_phi
-    symVdot = symV.Jacobian(sym_x) @ vdp.sym_f
-    # deg = (- 1 + vdp.degf + Polynomial(symVdot, sym_x).TotalDegree()) / 2
-    deg =5
-    y = list(itertools.combinations_with_replacement(
-        np.append(1, sym_x), 8))
-    symLphi = np.stack([np.prod(j) for j in y])[1:]
-
-    symxxd = (sym_x.T@sym_x)**np.floor(deg)
-    x = train_x.T
-    V = np.zeros((x.shape[-1], 1))
-    Vdot = np.zeros((x.shape[-1], 1))
-    xxd = np.zeros((x.shape[-1], 1))
-    Lphi = np.zeros((x.shape[-1], symLphi.shape[0]))
-    for i in range(x.shape[-1]):
-        env = dict(zip(sym_x, x[:, i]))
-        V[i, :] = symV.Evaluate(env)
-        Vdot[i, :] = symVdot.Evaluate(env)
-        xxd[i, :]  = symxxd.Evaluate(env)
-        Lphi[i, :] = [i.Evaluate(env) for i in symLphi]
-
-    verifyModel = SampledLyap.GramDecompModelForLevelsetPoly(vdp.num_states, max_deg)
-    history = verifyModel.fit([phi, xxd, V, Vdot, Lphi], train_y, epochs=200)
+    sigma_deg = 8
+    psi_deg = 8
+    vdp.set_levelset_features(P, sigma_deg)
+    [V, Vdot, xxd, psi, sigma] = vdp.get_levelset_features(train_x)
+    verifyModel = SampledLyap.GramDecompModelForLevelsetPoly(
+        vdp.num_states, sigma_deg, psi_deg)
+    history = verifyModel.fit([V, Vdot, xxd, psi, sigma], train_y, epochs=200)
     return verifyModel
-    # plotFunnel(V)
-    # return V
 
-[model,V]= verifyVDP(method='SGD')
-# verifyModel=SGDLevelSetGramCandidate(model,V)
-# [gram, rho, L]=SampledLyap.GetLevelsetGram(verifyModel)
-# print(rho)
+
+[model, V] = verifyVDP(method='SGD')
+verifyModel = SGDLevelSetGramCandidate(model, V)
+[gram, rho, L] = SampledLyap.GetLevelsetGram(verifyModel)
+plotFunnel(V / rho)
 # verifyClosedLoop()
 # train(**options)

@@ -69,7 +69,7 @@ def linearModel(sys_dim, A):
 #     print("Saved model" + model_file_name + " to disk")
 #     return P
 
-
+# TODO lambda f (two args in)
 def polyModel(sys_dim, max_deg):
     f = lambda x: math.factorial(x)
     # -1 since V doesn't have a constant monomial
@@ -118,11 +118,11 @@ def GetGram(model):
     return L@L.T
 
 
-def GramDecompModelForLevelsetPoly(sys_dim, max_deg):
+def GramDecompModelForLevelsetPoly(sys_dim, sigma_deg, psi_deg):
     f = lambda x: math.factorial(x)
     # -1 since V doesn't have a constant monomial
-    monomial_dim = f(sys_dim + max_deg) // f(max_deg) // f(sys_dim) - 1
-    phi = Input(shape=(monomial_dim,), name='phi')
+    psi_dim = f(sys_dim + psi_deg) // f(psi_deg) // f(sys_dim) - 1
+    psi = Input(shape=(psi_dim,), name='psi')
     layers = [
         # Dense(monomial_dim, use_bias=False),
         # Dense(math.floor(monomial_dim / 2), use_bias=False),
@@ -130,9 +130,9 @@ def GramDecompModelForLevelsetPoly(sys_dim, max_deg):
         Dense(4, use_bias=False),
     ]
     layers = layers + [TransLayer(i) for i in layers[::-1]]
-    phiLL = Sequential(layers, name='Gram')(phi)  # (None,
+    psiLL = Sequential(layers, name='Gram')(psi)  # (None,
     # monomial_dim)
-    candidateSOS = Dot(1)([phiLL, phi])  # (None,1)
+    candidateSOS = Dot(1)([psiLL, psi])  # (None,1)
 
     xxd = Input(shape=(1,), name='xxd')
     V = Input(shape=(1,), name='V')
@@ -140,8 +140,8 @@ def GramDecompModelForLevelsetPoly(sys_dim, max_deg):
 
     xxdV = Dot(-1)([xxd, V])
 
-    Lmonomial_dim = f(sys_dim + 8) // f(8) // f(sys_dim) - 1
-    Lphi = Input(shape=(Lmonomial_dim,), name='Lphi')
+    sigma_dim = f(sys_dim + sigma_deg) // f(sigma_deg) // f(sys_dim) - 1
+    sigma = Input(shape=(sigma_dim,), name='sigma')
 
     multiplierLayers = [
         # Dense(monomial_dim, use_bias=False),
@@ -149,7 +149,7 @@ def GramDecompModelForLevelsetPoly(sys_dim, max_deg):
         Dense(4, use_bias=False),
         Dense(1, use_bias=False),
     ]
-    L1 = Sequential(multiplierLayers, name='multiplier')(Lphi)
+    L1 = Sequential(multiplierLayers, name='multiplier')(sigma)
     L1Vdot = Dot(-1, name='L1Vdot')([L1, Vdot])
 
     rholayer = [Dense(1, use_bias=False, kernel_regularizer=rho_reg)]
@@ -162,7 +162,7 @@ def GramDecompModelForLevelsetPoly(sys_dim, max_deg):
     vminusrhoplusvdot = Add()([vminusrho, L1Vdot])
     residual = Divide()([vminusrhoplusvdot, candidateSOS])
     # outputs = Dot(-1)([residual, xxdrho])
-    model = Model(inputs=[phi, xxd, V, Vdot, Lphi], outputs=residual)
+    model = Model(inputs=[V, Vdot, xxd, psi, sigma], outputs=residual)
     model.compile(loss='mse', metrics=[mean_pred, 'mse'],
                   optimizer='adam')
     print(model.summary())
@@ -184,7 +184,7 @@ def mean_pred(y_true, y_pred):
     return y_pred
 
 
-def levelsetGram(model):
+def GetLevelsetGram(model):
     names = [weight.name for layer in model.layers for weight in layer.weights]
     weights = model.get_weights()
     gram_weights = []

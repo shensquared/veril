@@ -223,7 +223,6 @@ def levelsetMethod(x, V0, f, options):
         [T, V, f, _, _] = balance(x, V0, f, None, None)
     else:
         T, V, f = np.eye(options.nX), V0, f
-    # % construct Vdot
     Vdot = (V.Jacobian(x) @ f)
 
     H = Jacobian(Vdot.Jacobian(x).T, x)
@@ -237,16 +236,9 @@ def levelsetMethod(x, V0, f, options):
     prog.AddConstraint(sigma1 >= 0)
     L1 = prog.NewFreePolynomial(Variables(x), options.degL1).ToExpression()
 
-    # p1 = Polynomial(e)
-    # print(p1.TotalDegree())  # This should print 3
-    # print(p1.indeterminates()) # This should print both a and x
-    # p2 = Polynomial(e, Variables([x])) # Only x is the indeterminate
-    # print(p2.TotalDegree()) # This should print 2
-    # print(p2.indeterminates()) # This should print x only
-
-    deg = (options.degL1 + Polynomial(Vdot, x).TotalDegree() - options.degV) / 2
-    prog.AddSosConstraint((x.T@x)**np.floor(deg) * (V - sigma1) + L1 * Vdot)
-    # add cost
+    deg = int(np.floor((options.degL1 + Polynomial(Vdot, x).TotalDegree() -
+       options.degV) / 2))
+    prog.AddSosConstraint((x.T@x)**(deg) * (V - sigma1) + L1 * Vdot)
     prog.AddCost(-sigma1)
 
     solver = MosekSolver()
@@ -270,7 +262,6 @@ def levelsetLP(x, V0, f, gram, options):
         [T, V, f, _, _] = balance(x, V0, f, None, None)
     else:
         T, V, f = np.eye(options.nX), V0, f
-    # % construct Vdot
     Vdot = (V.Jacobian(x) @ f)
 
     H = Jacobian(Vdot.Jacobian(x).T, x)
@@ -284,13 +275,13 @@ def levelsetLP(x, V0, f, gram, options):
     prog.AddConstraint(sigma1 >= 0)
     L1 = prog.NewFreePolynomial(Variables(x), options.degL1).ToExpression()
 
-    for p in (L * V).monomial_to_coefficient_map():
-        if p.first.total_degree() == 7:
-            print(p.first)
+    # for p in (L * V).monomial_to_coefficient_map():
+    # if p.first.total_degree() == 7:
+    #     print(p.first)
 
-    deg = (options.degL1 + Polynomial(Vdot, x).TotalDegree() - options.degV) / 2
+    deg = int(np.floor((options.degL1 + Polynomial(Vdot, x).TotalDegree() -
+       options.degV) / 2))
     prog.AddConstraint((x.T@x)**np.floor(deg) * (V - sigma1) + L1 * Vdot)
-    # add cost
     prog.AddCost(-sigma1)
 
     solver = MosekSolver()
