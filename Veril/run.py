@@ -17,7 +17,6 @@ from CustomLayers import JanetController
 import SampledLyap
 from util.plotFunnel import plotFunnel
 from util.samples import withinLevelSet
-import itertools
 
 options = {
     'plant_name': 'DoubleIntegrator',

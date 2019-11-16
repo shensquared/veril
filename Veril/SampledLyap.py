@@ -73,7 +73,7 @@ def linearModel(sys_dim, A):
 def polyModel(sys_dim, max_deg):
     f = lambda x: math.factorial(x)
     # -1 since V doesn't have a constant monomial
-    monomial_dim = f(sys_dim + max_deg) // f(max_deg) // f(sys_dim) - 1
+    monomial_dim = f(sys_dim + max_deg) // f(max_deg) // f(sys_dim)
     phi = Input(shape=(monomial_dim,))
     layers = [
         Dense(monomial_dim, use_bias=False),
@@ -121,7 +121,7 @@ def GetGram(model):
 def GramDecompModelForLevelsetPoly(sys_dim, sigma_deg, psi_deg):
     f = lambda x: math.factorial(x)
     # -1 since V doesn't have a constant monomial
-    psi_dim = f(sys_dim + psi_deg) // f(psi_deg) // f(sys_dim) - 1
+    psi_dim = f(sys_dim + psi_deg) // f(psi_deg) // f(sys_dim)
     psi = Input(shape=(psi_dim,), name='psi')
     layers = [
         # Dense(monomial_dim, use_bias=False),
@@ -140,7 +140,7 @@ def GramDecompModelForLevelsetPoly(sys_dim, sigma_deg, psi_deg):
 
     xxdV = Dot(-1)([xxd, V])
 
-    sigma_dim = f(sys_dim + sigma_deg) // f(sigma_deg) // f(sys_dim) - 1
+    sigma_dim = f(sys_dim + sigma_deg) // f(sigma_deg) // f(sys_dim)
     sigma = Input(shape=(sigma_dim,), name='sigma')
 
     multiplierLayers = [

@@ -6,7 +6,7 @@ sys.path.append(
     "/Users/shenshen/drake-build/install/lib/python3.7/site-packages")
 import pydrake
 from pydrake.all import (MathematicalProgram, Polynomial,
-                         Expression, SolutionResult,
+                         Expression, SolutionResult, MonomialBasis,
                          Variables, Solve, Jacobian, Evaluate,
                          RealContinuousLyapunovEquation, Substitute,
                          MosekSolver, tanh)
@@ -116,8 +116,9 @@ def originalSysInitialV(CL):
 
 
 def GetMonomials(x, deg):
-    y = list(itertools.combinations_with_replacement(np.append(1, x), deg))
-    return np.stack([np.prod(j) for j in y])[1:]
+    # y = list(itertools.combinations_with_replacement(np.append(1, x), deg))
+    # return np.stack([np.prod(j) for j in y])[1:]
+    return np.array([i.ToExpression() for i in MonomialBasis(x, deg)])
 
 
 class ClosedLoopSys(object):
@@ -161,7 +162,7 @@ class ClosedLoopSys(object):
         self.sym_xxd = (self.sym_x.T@self.sym_x)**(deg)
         self.sym_sigma = GetMonomials(self.sym_x, sigma_deg)
         psi_deg = int(np.floor(max(2 * deg + self.degV, sigma_deg +
-           self.degVdot)/2))
+                                   self.degVdot) / 2))
         self.sym_psi = GetMonomials(self.sym_x, psi_deg)
 
     def get_levelset_features(self, x):
