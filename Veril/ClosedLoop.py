@@ -115,14 +115,45 @@ def originalSysInitialV(CL):
     return x.T@S0@x
 
 
+def GetMonomials(x, deg):
+    y = list(itertools.combinations_with_replacement(np.append(1, x), deg))
+    return np.stack([np.prod(j) for j in y])[1:]
+
+
 class ClosedLoopSys(object):
-    # TODO: unified CL to feed into verifier
 
     def __init__():
         pass
 
+    def set_features(self, VFeatureDeg):
+        self.sym_f = self.PolynomialDynamics()
+        self.degf = max([Polynomial(i, self.sym_x).TotalDegree() for i in
+                         self.sym_f])
 
-class VanderPol(object):
+        if VFeatureDeg == 1:
+            self.sym_phi = np.array([Expression(i) for i in self.sym_x])
+        else:
+            self.sym_phi = GetMonomials(self.sym_x, VFeatureDeg)
+        # self.sym_psi = GetMonomials(self.sym_x, SFeatureDeg)
+        self.sym_dphidx = Jacobian(self.sym_phi, self.sym_x)
+
+    def get_features(self, x):
+        # x: (num_samples, sys_dim)
+        f = self.PolynomialDynamics(sample_states=x)
+        n_samples = x.shape[0]
+        phi = np.zeros((n_samples, self.sym_phi.shape[0]))
+        dphidx = np.zeros((n_samples, self.sym_phi.shape[0], self.num_states))
+        for i in range(n_samples):
+            env = dict(zip(self.sym_x, x[i, :]))
+            phi[i, :] = [i.Evaluate(env) for i in self.sym_phi]
+            dphidx[i, :, :] = [[i.Evaluate(env) for i in j]for j in
+                               self.sym_dphidx]
+        # np.savez(self.model_file_name + '-' + str(n_samples) +
+        #          'samples', phi=phi, dphidx=dphidx, f=f)
+        return [phi, dphidx, f]
+
+
+class VanderPol(ClosedLoopSys):
 
     def __init__(self):
         self.name = 'VanderPol'
@@ -131,12 +162,7 @@ class VanderPol(object):
         self.num_outputs = 0
         self.trueROA = True
         prog = MathematicalProgram()
-        sym_x = prog.NewIndeterminates(self.num_states, "x")
-        self.sym_x = sym_x
-        sym_x = self.sym_x
-        self.sym_f = -np.array([sym_x[1], -sym_x[0] - sym_x[1] * (sym_x[0]**2 -
-                                                                  1)])
-        self.degf = 3
+        self.sym_x = prog.NewIndeterminates(self.num_states, "x")
 
     def get_x(self, d=2, num_grid=200):
         x1 = np.linspace(-d, d, num_grid)
@@ -147,24 +173,15 @@ class VanderPol(object):
         x1, x2 = x1.ravel(), x2.ravel()
         return np.array([x1, x2])  # (2, num_grid**2)
 
-    def set_features(self, max_deg):
-        y = list(itertools.combinations_with_replacement(
-            np.append(1, self.sym_x), max_deg))
-        self.sym_phi = np.stack([np.prod(j) for j in y])[1:]
-
-    def get_features(self, x):
-        sym_dphidx = Jacobian(self.sym_phi, self.sym_x)
-        x = x.T
-        f = - np.array([x[1, :], (1 - x[0, :]**2) * x[1, :] - x[0, :]]).T
-        phi = np.zeros((x.shape[-1], self.sym_phi.shape[0]))
-        dphidx = np.zeros(
-            (x.shape[-1], self.sym_phi.shape[0], self.num_states))
-        for i in range(x.shape[-1]):
-            env = dict(zip(self.sym_x, x[:, i]))
-            phi[i, :] = [i.Evaluate(env) for i in self.sym_phi]
-            dphidx[i, :, :] = [[i.Evaluate(env) for i in j]for j in
-                               sym_dphidx]
-        return [phi, dphidx, f]
+    def PolynomialDynamics(self, sample_states=None):
+        if sample_states is None:
+            sym_x = self.sym_x
+            return -np.array([sym_x[1], -sym_x[0] - sym_x[1] * (sym_x[0]**2 -
+                                                                1)])
+        else:
+            x = sample_states.T
+            f = - np.array([x[1, :], (1 - x[0, :]**2) * x[1, :] - x[0, :]]).T
+            return f
 
     def knownROA(self):
         x = self.sym_x
@@ -236,7 +253,7 @@ class VanderPol(object):
         plt.show()
 
 
-class TanhPolyCL(object):
+class TanhPolyCL(ClosedLoopSys):
     """Summary
     # returns the CONTINUOUS TIME closed-loop dynamics of the augmented states,
     # which include the plant state x, the RNN state c, the added two states
@@ -263,9 +280,6 @@ class TanhPolyCL(object):
         self.tau_f = prog.NewIndeterminates(self.units, "tf")
         self.tau_c = prog.NewIndeterminates(self.units, "tc")
         self.sym_x = np.concatenate((self.x, self.c, self.tau_f, self.tau_c))
-        self.sym_f = self.augmentedPolynomialf(numericals=None)
-        self.degf = max([Polynomial(i, self.sym_x).TotalDegree() for i in
-                         self.sym_f])
         self.model_file_name = model_file_name
 
     def InverseRecastMap(self):
@@ -280,19 +294,19 @@ class TanhPolyCL(object):
         arg_c = x@self.kernel_c + c@self.recurrent_kernel_c
         return [arg_f, arg_c]
 
-    def augmentedPolynomialf(self, numericals=None):
-        if numericals is None:
+    def PolynomialDynamics(self, sample_states=None):
+        if sample_states is None:
             x = self.x
             c = self.c
             tau_f = self.tau_f
             tau_c = self.tau_c
         else:
-            x = numericals[:, 0:self.nx]
-            c = numericals[:, self.nx:self.nx + self.units]
-            tau_f = numericals[:, self.nx +
-                               self.units:self.nx + 2 * self.units]
-            tau_c = numericals[:, self.nx + 2 *
-                               self.units:self.nx + 3 * self.units]
+            x = sample_states[:, 0:self.nx]
+            c = sample_states[:, self.nx:self.nx + self.units]
+            tau_f = sample_states[:, self.nx +
+                                  self.units:self.nx + 2 * self.units]
+            tau_c = sample_states[:, self.nx + 2 *
+                                  self.units:self.nx + 3 * self.units]
 
         shift_y_tm1 = self.plant.get_obs(x) - self.plant.y0
 
@@ -304,8 +318,8 @@ class TanhPolyCL(object):
         # (since currently all y0=zeros)
         tau_f_dot = (1 - tau_f**2) * self.ArgsForTanh(ydot, cdot)[0]
         tau_c_dot = (1 - tau_c**2) * self.ArgsForTanh(ydot, cdot)[1]
-        augedDynamics = np.hstack((xdot, cdot, tau_f_dot, tau_c_dot))
-        return augedDynamics
+        f = np.hstack((xdot, cdot, tau_f_dot, tau_c_dot))
+        return f
 
     def sampleInitialStatesInclduingTanh(self, num_samples, **kwargs):
         """sample initial states in [x,c,tau_f,tau_c] space. But since really only
@@ -328,30 +342,6 @@ class TanhPolyCL(object):
         s = np.hstack((x, c, tanh_f, tanh_c))
         return s
 
-    def set_features(self, max_deg):
-        if max_deg == 1:
-            self.sym_phi = np.array([Expression(i) for i in self.sym_x])
-        else:
-            y = list(itertools.combinations_with_replacement(
-                np.append(1, self.sym_x), max_deg))
-            self.sym_phi = np.stack([np.prod(j) for j in y])[1:]
-
-    def get_features(self, x):
-        sym_dphidx = Jacobian(self.sym_phi, self.sym_x)
-        f = self.augmentedPolynomialf(numericals=x)
-        x = x.T
-        n_samples = x.shape[-1]
-        phi = np.zeros((n_samples, self.sym_phi.shape[0]))
-        dphidx = np.zeros((n_samples, self.sym_phi.shape[0], self.num_states))
-        for i in range(n_samples):
-            env = dict(zip(self.sym_x, x[:, i]))
-            phi[i, :] = [i.Evaluate(env) for i in self.sym_phi]
-            dphidx[i, :, :] = [[i.Evaluate(env) for i in j]for j in
-                               sym_dphidx]
-        np.savez(self.model_file_name + '-' + str(n_samples) +
-                 'samples', phi=phi, dphidx=dphidx, f=f)
-        return [phi, dphidx, f]
-
     def linearizeTanhPolyCL(self):
         """
         linearize f, which is the augmented (via the change of variable recasting)
@@ -366,7 +356,7 @@ class TanhPolyCL(object):
         """
         # TODO: for now linearize at zero, need to linearize at plant.x0
         x = self.sym_x
-        f = self.augmentedPolynomialf()
+        f = self.PolynomialDynamics()
         J = Jacobian(f, x)
         env = dict(zip(x, np.zeros(x.shape)))
         A = np.array([[i.Evaluate(env) for i in j]for j in J])

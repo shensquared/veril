@@ -86,14 +86,16 @@ def verifyVDP(max_deg=3, method='SGD'):
     vdp = ClosedLoop.VanderPol()
     sym_x = vdp.sym_x
     model = None
+    train_x = np.load('../data/VDP/stableSamples.npy')
+    # V = vdp.knownROA()
+    # train_x, train_y = withinLevelSet(sym_x, V)
+    vdp.set_features(max_deg)
+    [phi, dphidx, f] = vdp.get_features(train_x)
+
     verifierOptions = Verifier.opt(vdp.num_states, vdp.degf, do_balance=False,
-                                   degV=2 * max_deg, converged_tol=1e-2, max_iterations=20)
+                                   degV=2 * max_deg, converged_tol=1e-2,
+                                   max_iterations=20)
     for i in range(verifierOptions.max_iterations):
-        train_x = np.load('../data/VDP/stableSamples.npy')
-        # V = vdp.knownROA()
-        # train_x, train_y = withinLevelSet(sym_x, V)
-        vdp.set_features(max_deg)
-        [phi, dphidx, f] = vdp.get_features(train_x)
         if method is 'SGD':
             y = np.zeros(phi.shape)
             if model is None:
@@ -175,8 +177,8 @@ def SGDLevelSetGramCandidate(model,V, max_deg=3):
     # return V
 
 [model,V]= verifyVDP(method='SGD')
-verifyModel=SGDLevelSetGramCandidate(model,V)
-[gram, rho, L]=SampledLyap.GetLevelsetGram(verifyModel)
-print(rho)
+# verifyModel=SGDLevelSetGramCandidate(model,V)
+# [gram, rho, L]=SampledLyap.GetLevelsetGram(verifyModel)
+# print(rho)
 # verifyClosedLoop()
 # train(**options)

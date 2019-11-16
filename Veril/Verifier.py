@@ -285,8 +285,8 @@ def levelsetLP(x, V0, f, gram, options):
     L1 = prog.NewFreePolynomial(Variables(x), options.degL1).ToExpression()
 
     for p in (L * V).monomial_to_coefficient_map():
-    if p.first.total_degree() == 7:
-        print(p.first)
+        if p.first.total_degree() == 7:
+            print(p.first)
 
     deg = (options.degL1 + Polynomial(Vdot, x).TotalDegree() - options.degV) / 2
     prog.AddConstraint((x.T@x)**np.floor(deg) * (V - sigma1) + L1 * Vdot)
