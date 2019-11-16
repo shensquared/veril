@@ -12,8 +12,9 @@ def linspace_data(d=10, num_grid=100):
     return [np.array([x1, x2]).T, np.zeros(x1.shape)]
 
 
-def withinLevelSet(x, V):
-    y, max_r, min_r = levelsetData(x, V)
+def withinLevelSet(V):
+    x = list(V.GetVariables())
+    y, max_r, min_r = levelsetData(V)
     samples = linspace_data(max_r, num_grid=200)[0]
     in_points = np.zeros((1, 2))
     # out_points = np.zeros((1, 2))
@@ -28,7 +29,7 @@ def withinLevelSet(x, V):
     return in_points, np.zeros(in_points.shape[0])
 
 
-def levelsetData(x, V, num_grid=100):
+def levelsetData(V, num_grid=100):
     # TODO  % move to origin
     # f=subss(f,x,x+options.x0);
     # TODO if degree 2, quadratic, use simpler stuff
@@ -60,8 +61,7 @@ def levelsetData(x, V, num_grid=100):
     #   % f(x) = fmin + (x-xmin)'*H*(x-xmin)
     #   %   => 1 = fmin + (y-xmin)'*H*(y-xmin)
     #   y = repmat(xmin,1,K) + (H/(1-fmin))^(-1/2)*X;
-
-    y, max_r, min_r = getRadii(np.linspace(-np.pi, np.pi, num_grid), x, V)
+    y, max_r, min_r = getRadii(np.linspace(-np.pi, np.pi, num_grid), V)
     y = np.tile(np.zeros((2, 1)), (1, num_grid)) + y.T
     return y.T, max_r, min_r
 
@@ -69,7 +69,8 @@ def levelsetData(x, V, num_grid=100):
 # break things later.
 
 
-def getRadii(thetas, x, V):  # needs to be vectorized
+def getRadii(thetas, V):  # needs to be vectorized
+    x = list(V.GetVariables())
     n = thetas.shape[0]
     rU = np.ones(thetas.shape)
     rL = np.zeros(thetas.shape)

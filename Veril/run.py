@@ -110,7 +110,7 @@ def verifyVDP(max_deg=3, method='SGD'):
         V0 = vdp.sym_phi.T@P@vdp.sym_phi
         V = Verifier.levelsetMethod(
             vdp.sym_x, V0, vdp.sym_f, verifierOptions)
-        plotFunnel(vdp.sym_x, V)
+        plotFunnel(V)
     return [model, V]
 
 
@@ -173,7 +173,7 @@ def SGDLevelSetGramCandidate(model,V, max_deg=3):
     verifyModel = SampledLyap.GramDecompModelForLevelsetPoly(vdp.num_states, max_deg)
     history = verifyModel.fit([phi, xxd, V, Vdot, Lphi], train_y, epochs=200)
     return verifyModel
-    # plotFunnel(vdp.sym_x, V)
+    # plotFunnel(V)
     # return V
 
 [model,V]= verifyVDP(method='SGD')
