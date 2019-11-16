@@ -232,14 +232,14 @@ def levelsetMethod(x, V0, f, options):
 
     assert (np.all(eig(H)[0] <= 0))
     # % construct slack var
-    sigma1 = prog.NewContinuousVariables(1, "s")[0]
-    prog.AddConstraint(sigma1 >= 0)
+    rho = prog.NewContinuousVariables(1, "r")[0]
+    prog.AddConstraint(rho >= 0)
     L1 = prog.NewFreePolynomial(Variables(x), options.degL1).ToExpression()
 
     deg = int(np.floor((options.degL1 + Polynomial(Vdot, x).TotalDegree() -
-       options.degV) / 2))
-    prog.AddSosConstraint((x.T@x)**(deg) * (V - sigma1) + L1 * Vdot)
-    prog.AddCost(-sigma1)
+                        options.degV) / 2))
+    prog.AddSosConstraint((x.T@x)**(deg) * (V - rho) + L1 * Vdot)
+    prog.AddCost(-rho)
 
     solver = MosekSolver()
     solver.set_stream_logging(True, "")
@@ -248,14 +248,17 @@ def levelsetMethod(x, V0, f, options):
     # print('w/ solver %s' % (result.get_solver_id().name()))
     assert result.is_success()
     L1 = result.GetSolution(L1)
-    sigma1 = result.GetSolution(sigma1)
-    print(sigma1)
-    V = V / sigma1
+    rho = result.GetSolution(rho)
+    print(rho)
+    V = V / rho
     V = (V.Substitute(dict(zip(x, inv(T) @ x))))
     # print(V)
     return V
 
-def levelsetLP(x, V0, f, gram, options):
+
+def levelsetLP(V0, system, gram, options):
+    f = system.sym_f
+    x = system.sym_x
     prog = MathematicalProgram()
     prog.AddIndeterminates(x)
     if options.do_balance:
@@ -271,19 +274,19 @@ def levelsetLP(x, V0, f, gram, options):
 
     assert (np.all(eig(H)[0] <= 0))
     # % construct slack var
-    sigma1 = prog.NewContinuousVariables(1, "s")[0]
-    prog.AddConstraint(sigma1 >= 0)
+    rho = prog.NewContinuousVariables(1, "r")[0]
+    prog.AddConstraint(rho >= 0)
     L1 = prog.NewFreePolynomial(Variables(x), options.degL1).ToExpression()
-
-    # for p in (L * V).monomial_to_coefficient_map():
-    # if p.first.total_degree() == 7:
-    #     print(p.first)
+    candidateDecomp = system.sym_psi.T@gram@system.sym_psi
 
     deg = int(np.floor((options.degL1 + Polynomial(Vdot, x).TotalDegree() -
-       options.degV) / 2))
-    prog.AddConstraint((x.T@x)**np.floor(deg) * (V - sigma1) + L1 * Vdot)
-    prog.AddCost(-sigma1)
-
+                        options.degV) / 2))
+    residual = ((x.T@x)**np.floor(deg) * (V - rho) + L1 * Vdot) - candidateDecomp
+    coeffs = list(Polynomial(residual, x).monomial_to_coefficient_map().values
+                  ())
+    for i in range(len(coeffs)):
+        prog.AddConstraint(coeffs[i] == 0)
+    prog.AddCost(-rho)
     solver = MosekSolver()
     solver.set_stream_logging(True, "")
     result = solver.Solve(prog, None, None)
@@ -291,12 +294,12 @@ def levelsetLP(x, V0, f, gram, options):
     # print('w/ solver %s' % (result.get_solver_id().name()))
     assert result.is_success()
     L1 = result.GetSolution(L1)
-    sigma1 = result.GetSolution(sigma1)
-    print(sigma1)
-    V = V / sigma1
+    rho = result.GetSolution(rho)
+    print(rho)
+    V = V / rho
     V = (V.Substitute(dict(zip(x, inv(T) @ x))))
-    # print(V)
     return V
+
 
 def LPCandidate(phi, dphidx, f, num_samples=None):
     if num_samples is None:

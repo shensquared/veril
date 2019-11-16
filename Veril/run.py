@@ -111,7 +111,7 @@ def verifyVDP(max_deg=3, method='SGD'):
         V = Verifier.levelsetMethod(
             vdp.sym_x, V0, vdp.sym_f, verifierOptions)
         plotFunnel(V)
-    return [model, V]
+    return [model, V, vdp]
 
 
 def verifyClosedLoop(max_deg=2):
@@ -139,8 +139,7 @@ def verifyClosedLoop(max_deg=2):
                 augedSys.sym_x, V0, augedSys.sym_f, verifierOptions)
 
 
-def SGDLevelSetGramCandidate(model, V, max_deg=3):
-    vdp = ClosedLoop.VanderPol()
+def SGDLevelSetGramCandidate(model, V, vdp, max_deg=3):
     sym_x = vdp.sym_x
     train_x = withinLevelSet(V)[0]
     train_y = np.ones((train_x.shape[0], 1))
@@ -152,13 +151,18 @@ def SGDLevelSetGramCandidate(model, V, max_deg=3):
     [V, Vdot, xxd, psi, sigma] = vdp.get_levelset_features(train_x)
     verifyModel = SampledLyap.GramDecompModelForLevelsetPoly(
         vdp.num_states, sigma_deg, psi_deg)
-    history = verifyModel.fit([V, Vdot, xxd, psi, sigma], train_y, epochs=200)
+    history = verifyModel.fit([V, Vdot, xxd, psi, sigma], train_y, epochs=100)
     return verifyModel
 
 
-[model, V] = verifyVDP(method='SGD')
-verifyModel = SGDLevelSetGramCandidate(model, V)
+[model, V, vdp] = verifyVDP(method='SGD')
+verifyModel = SGDLevelSetGramCandidate(model, V, vdp)
 [gram, rho, L] = SampledLyap.GetLevelsetGram(verifyModel)
 plotFunnel(V / rho)
+verifierOptions = Verifier.opt(vdp.num_states, vdp.degf, do_balance=False,
+                               degV=vdp.degV, converged_tol=1e-2,
+                               max_iterations=1)
+V = Verifier.levelsetLP(V, vdp, gram, verifierOptions)
+plotFunnel(V)
 # verifyClosedLoop()
 # train(**options)
