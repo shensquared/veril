@@ -169,7 +169,7 @@ def GramDecompModelForLevelsetPoly(sys_dim, sigma_deg, psi_deg):
 
 
 def rho_reg(weight_matrix):
-    return 0.0001 * K.abs(K.sum(weight_matrix))
+    return 0.001 * K.abs(K.sum(weight_matrix))
 
 
 def guidedMSE(y_true, y_pred):

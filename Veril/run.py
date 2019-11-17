@@ -110,7 +110,7 @@ def verifyVDP(max_deg=3, method='SGD'):
         V = Verifier.levelsetMethod(
             vdp.sym_x, V0, vdp.sym_f, verifierOptions)
         plotFunnel(V)
-    return [model, V, vdp]
+    return V0, vdp
 
 
 def verifyClosedLoop(max_deg=2):
@@ -138,32 +138,34 @@ def verifyClosedLoop(max_deg=2):
                 augedSys.sym_x, V0, augedSys.sym_f, verifierOptions)
 
 
-def SGDLevelSetGramCandidate(model, V, vdp, max_deg=3):
+def SGDLevelSetGramCandidate(V, vdp, max_deg=3):
     sym_x = vdp.sym_x
-    train_x = vdp.get_x(d=3).T
+    train_x = vdp.get_x(d=10).T
     train_y = np.ones((train_x.shape[0], 1))
     vdp.set_features(max_deg)
-    P = SampledLyap.GetGram(model)
     sigma_deg = 8
     psi_deg = 8
-    vdp.set_levelset_features(P, sigma_deg)
+    vdp.set_levelset_features(V, sigma_deg)
     [V, Vdot, xxd, psi, sigma] = vdp.get_levelset_features(train_x)
     verifyModel = SampledLyap.GramDecompModelForLevelsetPoly(
         vdp.num_states, sigma_deg, psi_deg)
-    history = verifyModel.fit([V, Vdot, xxd, psi, sigma], train_y, epochs=100,
+    history = verifyModel.fit([V, Vdot, xxd, psi, sigma], train_y, epochs=300,
                               shuffle=True)
     return verifyModel
 
 
-[model, V, vdp] = verifyVDP(method='SGD')
-verifyModel = SGDLevelSetGramCandidate(model, V, vdp)
+V, vdp = verifyVDP(method='SGD')
+verifyModel = SGDLevelSetGramCandidate(V, vdp)
+x = np.array([-1.2, 2]).reshape((1, 2))
+pp = vdp.get_levelset_features(x)
+print(verifyModel.predict(pp))
 [gram, rho, L] = SampledLyap.GetLevelsetGram(verifyModel)
-Verifier.checkresidual(V, vdp, gram, rho, L)
 plotFunnel(V * rho)
+Verifier.checkResidual(vdp, gram, rho, L, x)
 verifierOptions = Verifier.opt(vdp.num_states, vdp.degf, do_balance=False,
                                degV=vdp.degV, converged_tol=1e-2,
                                max_iterations=1)
-V = Verifier.levelsetLP(V, vdp, gram, verifierOptions)
+V = Verifier.levelsetLP(vdp, gram, verifierOptions)
 plotFunnel(V)
 # verifyClosedLoop()
 # train(**options)

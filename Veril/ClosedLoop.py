@@ -161,8 +161,8 @@ class ClosedLoopSys(object):
         #          'samples', phi=phi, dphidx=dphidx, f=f)
         return [phi, dphidx, f]
 
-    def set_levelset_features(self, P, sigma_deg):
-        self.sym_V = self.sym_phi.T@P@self.sym_phi
+    def set_levelset_features(self, V, sigma_deg):
+        self.sym_V = V
         self.sym_Vdot = self.sym_V.Jacobian(self.sym_x) @ self.sym_f
         self.degVdot = Polynomial(self.sym_Vdot, self.sym_x).TotalDegree()
         deg = int(np.floor((sigma_deg + self.degVdot - self.degV) / 2))

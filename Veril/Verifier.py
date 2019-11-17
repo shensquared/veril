@@ -256,16 +256,13 @@ def levelsetMethod(x, V0, f, options):
     return V
 
 
-def levelsetLP(V0, system, gram, options):
+def levelsetLP(system, gram, options):
     f = system.sym_f
     x = system.sym_x
+    V = system.sym_V
+    Vdot = system.sym_Vdot
     prog = MathematicalProgram()
     prog.AddIndeterminates(x)
-    if options.do_balance:
-        [T, V, f, _, _] = balance(x, V0, f, None, None)
-    else:
-        T, V, f = np.eye(options.nX), V0, f
-    Vdot = (V.Jacobian(x) @ f)
 
     # % construct slack var
     rho = prog.NewContinuousVariables(1, "r")[0]
@@ -300,15 +297,18 @@ def levelsetLP(V0, system, gram, options):
     return V
 
 
-def checkResidual(V, system, gram, rho, L):
+def checkResidual(system, gram, rho, L, x_val):
     f = system.sym_f
     x = system.sym_x
-    Vdot = (V.Jacobian(x) @ f)
+    V=system.sym_V
+    Vdot = system.sym_Vdot
     l_coeffs = L.T
     L1 = l_coeffs@system.sym_sigma
     candidateDecomp = system.sym_psi.T@gram@system.sym_psi
-
-    levelsetPoly = (system.sym_xxd * (V * rho - 1) + L1 * Vdot)
+    levelsetPoly = (system.sym_xxd * (V * rho - 1) + L1 * Vdot)[0]
+    env = dict(zip(x,x_val.T))
+    ratio = levelsetPoly.Evaluate(env)/candidateDecomp.Evaluate(env)
+    print(ratio)
     residual = Polynomial((levelsetPoly - candidateDecomp), x)
     residual_coeffs_mapping = residual.monomial_to_coefficient_map()
     coeffs = list(residual_coeffs_mapping.values())
