@@ -9,7 +9,7 @@ from pydrake.all import (MathematicalProgram, Polynomial,
                          Expression, SolutionResult, MonomialBasis,
                          Variables, Solve, Jacobian, Evaluate,
                          RealContinuousLyapunovEquation, Substitute,
-                         MosekSolver, tanh)
+                         MosekSolver, tanh, pow)
 
 import numpy as np
 from numpy.linalg import eig, inv
@@ -22,6 +22,7 @@ from keras.models import load_model
 
 from Veril import Plants
 from Veril.CustomLayers import JanetController
+import itertools
 
 
 def get_NNorCL(NNorCL='CL', **kwargs):
@@ -115,10 +116,16 @@ def originalSysInitialV(CL):
     return x.T@S0@x
 
 
-def GetMonomials(x, deg):
-    # y = list(itertools.combinations_with_replacement(np.append(1, x), deg))
-    # return np.stack([np.prod(j) for j in y])[1:]
-    return np.array([i.ToExpression() for i in MonomialBasis(x, deg)])
+def GetMonomials(x, deg, remove_one=False):
+    y = list(itertools.combinations_with_replacement(np.append(pow(x[0], 0), x),
+                                                     deg))
+    basis = [np.prod(j) for j in y]
+    if remove_one:
+        return np.stack(basis)[1:]
+    else:
+        return np.stack(basis)
+
+    # return np.array([i.ToExpression() for i in MonomialBasis(x, deg)])
 
 
 class ClosedLoopSys(object):
@@ -163,7 +170,7 @@ class ClosedLoopSys(object):
         self.sym_sigma = GetMonomials(self.sym_x, sigma_deg)
         psi_deg = int(np.floor(max(2 * deg + self.degV, sigma_deg +
                                    self.degVdot) / 2))
-        self.sym_psi = GetMonomials(self.sym_x, psi_deg)
+        self.sym_psi = GetMonomials(self.sym_x, psi_deg, remove_one=False)
 
     def get_levelset_features(self, x):
         # x: (num_samples, sys_dim)

@@ -238,8 +238,8 @@ def levelsetMethod(x, V0, f, options):
 
     deg = int(np.floor((options.degL1 + Polynomial(Vdot, x).TotalDegree() -
                         options.degV) / 2))
-    prog.AddSosConstraint((x.T@x)**(deg) * (V - rho) + L1 * Vdot)
-    prog.AddCost(-rho)
+    prog.AddSosConstraint((x.T@x)**(deg) * (rho * V - 1) + L1 * Vdot)
+    prog.AddCost(rho)
 
     solver = MosekSolver()
     solver.set_stream_logging(True, "")
@@ -250,9 +250,9 @@ def levelsetMethod(x, V0, f, options):
     L1 = result.GetSolution(L1)
     rho = result.GetSolution(rho)
     print(rho)
-    V = V / rho
+    V = V * rho
     V = (V.Substitute(dict(zip(x, inv(T) @ x))))
-    # print(V)
+    # print(L1)
     return V
 
 
@@ -267,26 +267,25 @@ def levelsetLP(V0, system, gram, options):
         T, V, f = np.eye(options.nX), V0, f
     Vdot = (V.Jacobian(x) @ f)
 
-    H = Jacobian(Vdot.Jacobian(x).T, x)
-    env = dict(zip(x, np.zeros(x.shape)))
-    H = .5 * np.array([[i.Evaluate(env) for i in j]for j in H])
-    print((eig(H)[0]))
-
-    assert (np.all(eig(H)[0] <= 0))
     # % construct slack var
     rho = prog.NewContinuousVariables(1, "r")[0]
     prog.AddConstraint(rho >= 0)
-    L1 = prog.NewFreePolynomial(Variables(x), options.degL1).ToExpression()
-    candidateDecomp = system.sym_psi.T@gram@system.sym_psi
+    scaling = prog.NewContinuousVariables(gram.shape[0], "s")
+    for i in scaling:
+        prog.AddConstraint(i >= 0)
+    slack = prog.NewContinuousVariables(1, "l")[0]
 
-    deg = int(np.floor((options.degL1 + Polynomial(Vdot, x).TotalDegree() -
-                        options.degV) / 2))
-    residual = ((x.T@x)**np.floor(deg) * (V - rho) + L1 * Vdot) - candidateDecomp
-    coeffs = list(Polynomial(residual, x).monomial_to_coefficient_map().values
-                  ())
-    for i in range(len(coeffs)):
-        prog.AddConstraint(coeffs[i] == 0)
-    prog.AddCost(-rho)
+    l_coeffs = prog.NewContinuousVariables(system.sym_sigma.shape[0], "L")
+    L1 = l_coeffs@system.sym_sigma
+    candidateDecomp = system.sym_psi.T@np.diag(scaling)@gram@system.sym_psi
+
+    levelsetPoly = (system.sym_xxd * (V * rho - 1) + L1 * Vdot + slack)
+    residual = Polynomial(levelsetPoly - candidateDecomp, x)
+    residual_coeffs_mapping = residual.monomial_to_coefficient_map()
+    coeffs = list(residual_coeffs_mapping.values())
+    for i in coeffs:
+        prog.AddConstraint(i == 0)
+    prog.AddCost(rho)
     solver = MosekSolver()
     solver.set_stream_logging(True, "")
     result = solver.Solve(prog, None, None)
@@ -296,12 +295,28 @@ def levelsetLP(V0, system, gram, options):
     L1 = result.GetSolution(L1)
     rho = result.GetSolution(rho)
     print(rho)
-    V = V / rho
+    V = V * rho
     V = (V.Substitute(dict(zip(x, inv(T) @ x))))
     return V
 
 
-def LPCandidate(phi, dphidx, f, num_samples=None):
+def checkResidual(V, system, gram, rho, L):
+    f = system.sym_f
+    x = system.sym_x
+    Vdot = (V.Jacobian(x) @ f)
+    l_coeffs = L.T
+    L1 = l_coeffs@system.sym_sigma
+    candidateDecomp = system.sym_psi.T@gram@system.sym_psi
+
+    levelsetPoly = (system.sym_xxd * (V * rho - 1) + L1 * Vdot)
+    residual = Polynomial((levelsetPoly - candidateDecomp), x)
+    residual_coeffs_mapping = residual.monomial_to_coefficient_map()
+    coeffs = list(residual_coeffs_mapping.values())
+    for i in coeffs:
+        print(i)
+
+
+def LPCandidateForV(phi, dphidx, f, num_samples=None):
     if num_samples is None:
         num_samples = phi.shape[0]
     monomial_dim = phi.shape[-1]

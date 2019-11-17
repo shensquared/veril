@@ -124,10 +124,10 @@ def GramDecompModelForLevelsetPoly(sys_dim, sigma_deg, psi_deg):
     psi_dim = f(sys_dim + psi_deg) // f(psi_deg) // f(sys_dim)
     psi = Input(shape=(psi_dim,), name='psi')
     layers = [
-        # Dense(monomial_dim, use_bias=False),
-        # Dense(math.floor(monomial_dim / 2), use_bias=False),
-        Dense(10, use_bias=False),
-        Dense(4, use_bias=False),
+        Dense(psi_dim, use_bias=False),
+        Dense(math.floor(psi_dim / 2), use_bias=False),
+        # Dense(10, use_bias=False),
+        # Dense(4, use_bias=False),
     ]
     layers = layers + [TransLayer(i) for i in layers[::-1]]
     psiLL = Sequential(layers, name='Gram')(psi)  # (None,
@@ -144,8 +144,7 @@ def GramDecompModelForLevelsetPoly(sys_dim, sigma_deg, psi_deg):
     sigma = Input(shape=(sigma_dim,), name='sigma')
 
     multiplierLayers = [
-        # Dense(monomial_dim, use_bias=False),
-        # Dense(math.floor(monomial_dim / 2), use_bias=False),
+        # Dense(sigma_dim, use_bias=False),
         Dense(4, use_bias=False),
         Dense(1, use_bias=False),
     ]
@@ -155,14 +154,14 @@ def GramDecompModelForLevelsetPoly(sys_dim, sigma_deg, psi_deg):
     rholayer = [Dense(1, use_bias=False, kernel_regularizer=rho_reg)]
     # kernel_regularizer=rho_reg
     rholayer = rholayer + [TransLayer(i) for i in rholayer[::-1]]
-    xxdrho = Sequential(rholayer, name='rho')(xxd)
+    xxdVrho = Sequential(rholayer, name='rho')(xxdV)
     # xxdrho = xxd
-    # residual = sos - (xxdV-xxdrho+L1Vdot)
-    vminusrho = Subtract()([xxdV, xxdrho])
+    # residual = sos - (xxdVrho-xxdrho+L1Vdot)
+    vminusrho = Subtract()([xxdVrho, xxd])
     vminusrhoplusvdot = Add()([vminusrho, L1Vdot])
-    residual = Divide()([vminusrhoplusvdot, candidateSOS])
-    # outputs = Dot(-1)([residual, xxdrho])
-    model = Model(inputs=[V, Vdot, xxd, psi, sigma], outputs=residual)
+    ratio = Divide()([vminusrhoplusvdot, candidateSOS])
+    # outputs = Dot(-1)([ratio, xxdrho])
+    model = Model(inputs=[V, Vdot, xxd, psi, sigma], outputs=ratio)
     model.compile(loss='mse', metrics=[mean_pred, 'mse'],
                   optimizer='adam')
     print(model.summary())
@@ -170,12 +169,13 @@ def GramDecompModelForLevelsetPoly(sys_dim, sigma_deg, psi_deg):
 
 
 def rho_reg(weight_matrix):
-    return -0.0001 * K.abs(K.sum(weight_matrix))
+    return 0.0001 * K.abs(K.sum(weight_matrix))
 
 
 def guidedMSE(y_true, y_pred):
-    if K.sign(y_pred) is 1 and K.sign(y_true - y_pred) is 1:
-        return 0
+    # want slighty greater than one
+    if K.sign(y_pred - y_true) is 1:
+        return 0.1 * K.square(y_pred - y_true)
     else:
         return K.square(y_pred - y_true)
 
