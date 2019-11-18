@@ -138,12 +138,11 @@ class ClosedLoopSys(object):
         self.sym_f = self.PolynomialDynamics()
         self.degf = max([Polynomial(i, self.sym_x).TotalDegree() for i in
                          self.sym_f])
-
         if VFeatureDeg == 1:
-            self.sym_phi = np.array([Expression(i) for i in self.sym_x])
+            sym_x_expression = np.array([Expression(i) for i in self.sym_x])
+            self.sym_phi = np.append(pow(self.sym_x[0], 0), sym_x_expression)
         else:
             self.sym_phi = GetMonomials(self.sym_x, VFeatureDeg)
-        # self.sym_psi = GetMonomials(self.sym_x, SFeatureDeg)
         self.sym_dphidx = Jacobian(self.sym_phi, self.sym_x)
 
     def get_features(self, x):
