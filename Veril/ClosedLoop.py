@@ -296,7 +296,7 @@ class TanhPolyCL(ClosedLoopSys):
     # from the tanh nonlinearity, tau_c, and tau_f
     """
 
-    def __init__(self, CL, model_file_name):
+    def __init__(self, CL, model_file_name, taylor_approx=False):
         self.output_kernel = (K.eval(CL.cell.output_kernel))
         self.feedthrough_kernel = (K.eval(CL.cell.feedthrough_kernel))
         self.recurrent_kernel_f = (K.eval(CL.cell.recurrent_kernel_f))
@@ -307,15 +307,23 @@ class TanhPolyCL(ClosedLoopSys):
         self.plant = Plants.get(CL.plant_name, CL.dt, CL.obs_idx)
         self.nx = CL.cell.num_plant_states
         self.units = CL.units
-        self.num_states = self.nx + 3 * self.units
         self.dt = CL.dt
+
+        self.taylor_approx = taylor_approx
 
         prog = MathematicalProgram()
         self.x = prog.NewIndeterminates(self.nx, "x")
         self.c = prog.NewIndeterminates(self.units, "c")
-        self.tau_f = prog.NewIndeterminates(self.units, "tf")
-        self.tau_c = prog.NewIndeterminates(self.units, "tc")
-        self.sym_x = np.concatenate((self.x, self.c, self.tau_f, self.tau_c))
+
+        if taylor_approx:
+            self.sym_x = np.concatenate((self.x, self.c))
+            self.num_states = self.nx + self.units
+        else:
+            self.tau_f = prog.NewIndeterminates(self.units, "tf")
+            self.tau_c = prog.NewIndeterminates(self.units, "tc")
+            self.sym_x = np.concatenate(
+                (self.x, self.c, self.tau_f, self.tau_c))
+            self.num_states = self.nx + 3 * self.units
         self.model_file_name = model_file_name
 
     def InverseRecastMap(self):
@@ -330,32 +338,94 @@ class TanhPolyCL(ClosedLoopSys):
         arg_c = x@self.kernel_c + c@self.recurrent_kernel_c
         return [arg_f, arg_c]
 
-    def PolynomialDynamics(self, sample_states=None):
+    def get_features(self, x):
+        # x: (num_samples, sys_dim)
+        f = self.NonlinearDynamics(sample_states=x)
+        self.verifi_f = self.NonlinearDynamics()
+        n_samples = x.shape[0]
+        phi = np.zeros((n_samples, self.sym_phi.shape[0]))
+        dphidx = np.zeros((n_samples, self.sym_phi.shape[0], self.num_states))
+        for i in range(n_samples):
+            env = dict(zip(self.sym_x, x[i, :]))
+            phi[i, :] = [i.Evaluate(env) for i in self.sym_phi]
+            dphidx[i, :, :] = [[i.Evaluate(env) for i in j]for j in
+                               self.sym_dphidx]
+        # np.savez(self.model_file_name + '-' + str(n_samples) +
+        #          'samples', phi=phi, dphidx=dphidx, f=f)
+        return [phi, dphidx, f]
+
+    def NonlinearDynamics(self, sample_states=None):
         if sample_states is None:
             x = self.x
             c = self.c
-            tau_f = self.tau_f
-            tau_c = self.tau_c
         else:
             x = sample_states[:, 0:self.nx]
             c = sample_states[:, self.nx:self.nx + self.units]
-            tau_f = sample_states[:, self.nx +
-                                  self.units:self.nx + 2 * self.units]
-            tau_c = sample_states[:, self.nx + 2 *
-                                  self.units:self.nx + 3 * self.units]
 
         shift_y_tm1 = self.plant.get_obs(x) - self.plant.y0
-
         u = c@self.output_kernel + shift_y_tm1@self.feedthrough_kernel
         xdot = self.plant.xdot(x.T, u.T).T
         ydot = self.plant.ydot(x.T, u.T).T
+        # use the argument to approximate the tau:
+        [arg_f, arg_c] = self.ArgsForTanh(shift_y_tm1, c)
+        if sample_states is None:
+            tau_f = np.array([tanh(i) for i in arg_f])
+            tau_c = np.array([tanh(i) for i in arg_c])
+        else:
+            tau_f = np.tanh(arg_f)
+            tau_c = np.tanh(arg_c)
         cdot = (.5 * (- c + c * tau_f + tau_c - tau_c * tau_f)) / self.dt
         # TODO: should be y0dot but let's for now assume the two are the same
         # (since currently all y0=zeros)
-        tau_f_dot = (1 - tau_f**2) * self.ArgsForTanh(ydot, cdot)[0]
-        tau_c_dot = (1 - tau_c**2) * self.ArgsForTanh(ydot, cdot)[1]
-        f = np.hstack((xdot, cdot, tau_f_dot, tau_c_dot))
+        f = np.hstack((xdot, cdot))
         return f
+
+    def PolynomialDynamics(self, sample_states=None):
+        if self.taylor_approx:
+            if sample_states is None:
+                x = self.x
+                c = self.c
+            else:
+                x = sample_states[:, 0:self.nx]
+                c = sample_states[:, self.nx:self.nx + self.units]
+
+            shift_y_tm1 = self.plant.get_obs(x) - self.plant.y0
+            u = c@self.output_kernel + shift_y_tm1@self.feedthrough_kernel
+            xdot = self.plant.xdot(x.T, u.T).T
+            ydot = self.plant.ydot(x.T, u.T).T
+            # use the argument to approximate the tau:
+            [tau_f, tau_c] = self.ArgsForTanh(shift_y_tm1, c)
+            cdot = (.5 * (- c + c * tau_f + tau_c - tau_c * tau_f)) / self.dt
+            # TODO: should be y0dot but let's for now assume the two are the same
+            # (since currently all y0=zeros)
+            f = np.hstack((xdot, cdot))
+            return f
+        else:
+            if sample_states is None:
+                x = self.x
+                c = self.c
+                tau_f = self.tau_f
+                tau_c = self.tau_c
+            else:
+                x = sample_states[:, 0:self.nx]
+                c = sample_states[:, self.nx:self.nx + self.units]
+                tau_f = sample_states[:, self.nx +
+                                      self.units:self.nx + 2 * self.units]
+                tau_c = sample_states[:, self.nx + 2 *
+                                      self.units:self.nx + 3 * self.units]
+
+            shift_y_tm1 = self.plant.get_obs(x) - self.plant.y0
+
+            u = c@self.output_kernel + shift_y_tm1@self.feedthrough_kernel
+            xdot = self.plant.xdot(x.T, u.T).T
+            ydot = self.plant.ydot(x.T, u.T).T
+            cdot = (.5 * (- c + c * tau_f + tau_c - tau_c * tau_f)) / self.dt
+            # TODO: should be y0dot but let's for now assume the two are the same
+            # (since currently all y0=zeros)
+            tau_f_dot = (1 - tau_f**2) * self.ArgsForTanh(ydot, cdot)[0]
+            tau_c_dot = (1 - tau_c**2) * self.ArgsForTanh(ydot, cdot)[1]
+            f = np.hstack((xdot, cdot, tau_f_dot, tau_c_dot))
+            return f
 
     def sampleInitialStatesInclduingTanh(self, num_samples, **kwargs):
         """sample initial states in [x,c,tau_f,tau_c] space. But since really only
@@ -372,10 +442,13 @@ class TanhPolyCL(ClosedLoopSys):
         [x, _, _] = self.plant.get_data(
             num_samples, 1, self.units, **kwargs)[0]
         shifted_y = self.plant.get_obs(x) - self.plant.y0
-        c = np.random.uniform(-1, 1, (num_samples, self.units))
-        tanh_f = np.tanh(self.ArgsForTanh(shifted_y, c)[0])
-        tanh_c = np.tanh(self.ArgsForTanh(shifted_y, c)[1])
-        s = np.hstack((x, c, tanh_f, tanh_c))
+        c = np.random.uniform(-.01, .01, (num_samples, self.units))
+        if self.taylor_approx:
+            s = np.hstack((x, c))
+        else:
+            tanh_f = np.tanh(self.ArgsForTanh(shifted_y, c)[0])
+            tanh_c = np.tanh(self.ArgsForTanh(shifted_y, c)[1])
+            s = np.hstack((x, c, tanh_f, tanh_c))
         return s
 
     def linearizeTanhPolyCL(self):
@@ -391,13 +464,18 @@ class TanhPolyCL(ClosedLoopSys):
             TYPE: the linearization, evaluated at zero
         """
         # TODO: for now linearize at zero, need to linearize at plant.x0
-        x = self.sym_x
-        f = self.PolynomialDynamics()
-        J = Jacobian(f, x)
-        env = dict(zip(x, np.zeros(x.shape)))
+
+        # x = self.sym_x
+        # f = self.PolynomialDynamics()
+        x = self.x
+        c = self.c
+        xc = np.concatenate((self.x, self.c))
+        f = self.NonlinearDynamics()
+        J = Jacobian(f, xc)
+        env = dict(zip(xc, np.zeros(xc.shape)))
         A = np.array([[i.Evaluate(env) for i in j]for j in J])
         # print('A  %s' % A)
         print('eig of the linearized A matrix for augmented with tanh poly system %s' % (
             eig(A)[0]))
-        S = solve_lyapunov(A.T, -np.eye(x.shape[0]))
+        S = solve_lyapunov(A.T, -np.eye(xc.shape[0]))
         return A, S

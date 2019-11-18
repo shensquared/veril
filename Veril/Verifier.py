@@ -276,7 +276,7 @@ def levelsetLP(system, gram, options):
     L1 = l_coeffs@system.sym_sigma
     candidateDecomp = system.sym_psi.T@np.diag(scaling)@gram@system.sym_psi
 
-    levelsetPoly = (system.sym_xxd * (V-rho) + L1 * Vdot + slack)
+    levelsetPoly = (system.sym_xxd * (V - rho) + L1 * Vdot + slack)
     residual = Polynomial(levelsetPoly - candidateDecomp, x)
     residual_coeffs_mapping = residual.monomial_to_coefficient_map()
     coeffs = list(residual_coeffs_mapping.values())
@@ -303,14 +303,14 @@ def levelsetLP(system, gram, options):
 def checkResidual(system, gram, rho, L, x_val):
     f = system.sym_f
     x = system.sym_x
-    V=system.sym_V
+    V = system.sym_V
     Vdot = system.sym_Vdot
     l_coeffs = L.T
     L1 = l_coeffs@system.sym_sigma
     candidateDecomp = system.sym_psi.T@gram@system.sym_psi
     levelsetPoly = (system.sym_xxd * (V * rho - 1) + L1 * Vdot)[0]
-    env = dict(zip(x,x_val.T))
-    ratio = levelsetPoly.Evaluate(env)/candidateDecomp.Evaluate(env)
+    env = dict(zip(x, x_val.T))
+    ratio = levelsetPoly.Evaluate(env) / candidateDecomp.Evaluate(env)
     print(ratio)
     residual = Polynomial((levelsetPoly - candidateDecomp), x)
     residual_coeffs_mapping = residual.monomial_to_coefficient_map()
