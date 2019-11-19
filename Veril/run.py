@@ -150,7 +150,7 @@ def SGDLevelSetGramCandidate(V, vdp, max_deg=3):
     [V, Vdot, xxd, psi, sigma] = vdp.get_levelset_features(train_x)
     verifyModel = SampledLyap.GramDecompModelForLevelsetPoly(
         vdp.num_states, sigma_deg, psi_deg)
-    history = verifyModel.fit([V, Vdot, xxd, psi, sigma], train_y, epochs=10,
+    history = verifyModel.fit([V, Vdot, xxd, psi, sigma], train_y, epochs=70,
                               shuffle=True)
     return verifyModel
 
@@ -167,9 +167,9 @@ print(verifyModel.predict(pp))
 
 Verifier.checkResidual(vdp, gram, rho, L, x)
 V = Verifier.levelsetSDP(vdp, gram, g)
-# plotFunnel(V)
+plotFunnel(V)
 
-verifyClosedLoop(max_deg=2)
+# verifyClosedLoop(max_deg=2)
 # train(**options)
 # CL, model_file_name = ClosedLoop.get_NNorCL(**options)
 # augedSys = ClosedLoop.TanhPolyCL(CL, model_file_name, taylor_approx=True)

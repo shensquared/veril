@@ -313,10 +313,11 @@ def levelsetSDP(system, gram,g):
     prog.AddPositiveSemidefiniteConstraint(P)
 
     candidateDecomp = Polynomial(system.sym_psi.T@g@P@g.T@system.sym_psi,x)
-    levelsetPoly = (xxd * (V - Polynomial(rho,x)) + L1 *(Vdot))
+    # levelsetPoly = (xxd * (V - Polynomial(rho,x)) + L1 *(Vdot))
+    levelsetPoly = (xxd * (V*Polynomial(rho,x)-1) + L1 *(Vdot))
     prog.AddEqualityConstraintBetweenPolynomials(candidateDecomp,levelsetPoly)
 
-    prog.AddCost(-rho)
+    prog.AddCost(rho)
     solver = MosekSolver()
     solver.set_stream_logging(True, "")
     result = solver.Solve(prog, None, None)
@@ -326,7 +327,7 @@ def levelsetSDP(system, gram,g):
     # L1 = result.GetSolution(L1)
     rho = result.GetSolution(rho)
     print(rho)
-    V = V.ToExpression() / rho
+    V = V.ToExpression()*rho
     return V
 
 
@@ -338,7 +339,7 @@ def checkResidual(system, gram, rho, L, x_val):
     l_coeffs = L.T
     L1 = l_coeffs@system.sym_sigma
     candidateDecomp = system.sym_psi.T@gram@system.sym_psi
-    levelsetPoly = (system.sym_xxd * (V  - rho) + L1 * Vdot)[0]
+    levelsetPoly = (system.sym_xxd * (V*rho-1) + L1 * Vdot)[0]
     env = dict(zip(x, x_val.T))
     ratio = levelsetPoly.Evaluate(env) / candidateDecomp.Evaluate(env)
     print(ratio)

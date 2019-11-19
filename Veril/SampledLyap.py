@@ -153,10 +153,14 @@ def GramDecompModelForLevelsetPoly(sys_dim, sigma_deg, psi_deg):
     rholayer = [Dense(1, use_bias=False, kernel_regularizer=rho_reg)]
     # kernel_regularizer=rho_reg
     rholayer = rholayer + [TransLayer(i) for i in rholayer[::-1]]
-    xxdrho = Sequential(rholayer, name='rho')(xxd)
-    # xxdrho = xxd
+
     # residual = sos - (xxdV-xxdrho+L1Vdot)
-    vminusrho = Subtract()([xxdV, xxdrho])
+    # if use xxd(V-rho)
+    # xxdrho = Sequential(rholayer, name='rho')(xxd)
+    # vminusrho = Subtract()([xxdV, xxdrho])
+    # if use xxd(rho*V - 1)
+    xxdVrho = Sequential(rholayer, name='rho')(xxdV)
+    vminusrho = Subtract()([xxdVrho, xxd])
     vminusrhoplusvdot = Add()([vminusrho, L1Vdot])
     ratio = Divide()([vminusrhoplusvdot, candidateSOS])
     # outputs = Dot(-1)([ratio, xxdrho])
@@ -168,7 +172,7 @@ def GramDecompModelForLevelsetPoly(sys_dim, sigma_deg, psi_deg):
 
 
 def rho_reg(weight_matrix):
-    return -0.001 * K.abs(K.sum(weight_matrix))
+    return 0.001 * K.abs(K.sum(weight_matrix))
 
 
 def guidedMSE(y_true, y_pred):
