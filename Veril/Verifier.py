@@ -326,7 +326,7 @@ def levelsetSDP(system, gram,g):
     # L1 = result.GetSolution(L1)
     rho = result.GetSolution(rho)
     print(rho)
-    V = V / rho
+    V = V.ToExpression() / rho
     return V
 
 
