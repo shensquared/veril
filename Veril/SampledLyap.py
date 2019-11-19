@@ -78,8 +78,6 @@ def polyModel(sys_dim, max_deg):
     layers = [
         # Dense(monomial_dim, use_bias=False),
         # Dense(math.floor(monomial_dim / 2), use_bias=False),
-        # Dense(10, use_bias=False),
-        # Dense(4, use_bias=False),
         Dense(monomial_dim, use_bias=False),
     ]
     layers = layers + [TransLayer(i) for i in layers[::-1]]
@@ -146,7 +144,7 @@ def GramDecompModelForLevelsetPoly(sys_dim, sigma_deg, psi_deg):
 
     multiplierLayers = [
         # Dense(sigma_dim, use_bias=False),
-        Dense(4, use_bias=False),
+        # Dense(4, use_bias=False),
         Dense(1, use_bias=False),
     ]
     L1 = Sequential(multiplierLayers, name='multiplier')(sigma)

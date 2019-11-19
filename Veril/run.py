@@ -118,14 +118,14 @@ def verifyClosedLoop(max_deg=2):
     augedSys = ClosedLoop.TanhPolyCL(CL, model_file_name, taylor_approx=True)
     augedSys.set_features(max_deg)
     samples = augedSys.sampleInitialStatesInclduingTanh(
-        30000, lb=-.001, ub=.001)
+        30000, lb=-.01, ub=.01)
     [phi, dphidx, f] = augedSys.get_features(samples)
 
     y = np.zeros(phi.shape)
     nx = augedSys.num_states
     degf = augedSys.degf
     model = SampledLyap.polyModel(nx, max_deg)
-    history = model.fit([phi, dphidx, f], y, epochs=31)
+    history = model.fit([phi, dphidx, f], y, epochs=100, shuffle=True)
     verifierOptions = Verifier.opt(nx, degf, do_balance=False, degV=2 *
                                    max_deg, converged_tol=1e-2,
                                    max_iterations=20)
@@ -155,18 +155,14 @@ def SGDLevelSetGramCandidate(V, vdp, max_deg=3):
     return verifyModel
 
 
-V, vdp = verifyVDP(method='SGD')
-verifyModel = SGDLevelSetGramCandidate(V, vdp)
-x = np.array([-1.2, 2]).reshape((1, 2))
-pp = vdp.get_levelset_features(x)
-print(verifyModel.predict(pp))
-[gram, g, rho, L] = SampledLyap.GetLevelsetGram(verifyModel)
-Verifier.checkResidual(vdp, gram, rho, L, x)
-# V=Verifier.levelsetLP(vdp, gram)
-V = Verifier.levelsetSDP(vdp, gram, g)
+# V, vdp = verifyVDP(method='SGD')
+# verifyModel = SGDLevelSetGramCandidate(V, vdp)
+# [gram, g, rho, L] = SampledLyap.GetLevelsetGram(verifyModel)
+# Verifier.checkResidual(vdp, gram, rho, L, x)
+# V = Verifier.levelsetSDP(vdp, gram, g)
+# plotFunnel(V)
 
-plotFunnel(V)
-# verifyClosedLoop(max_deg=2)
+verifyClosedLoop(max_deg=2)
 # train(**options)
 # CL, model_file_name = ClosedLoop.get_NNorCL(**options)
 # augedSys = ClosedLoop.TanhPolyCL(CL, model_file_name, taylor_approx=True)
