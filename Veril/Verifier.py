@@ -323,7 +323,7 @@ def levelsetSDP(system, gram,g):
     print(result.get_solution_result())
     # print('w/ solver %s' % (result.get_solver_id().name()))
     assert result.is_success()
-    L1 = result.GetSolution(L1)
+    # L1 = result.GetSolution(L1)
     rho = result.GetSolution(rho)
     print(rho)
     V = V / rho
@@ -338,7 +338,7 @@ def checkResidual(system, gram, rho, L, x_val):
     l_coeffs = L.T
     L1 = l_coeffs@system.sym_sigma
     candidateDecomp = system.sym_psi.T@gram@system.sym_psi
-    levelsetPoly = (system.sym_xxd * (V * rho - 1) + L1 * Vdot)[0]
+    levelsetPoly = (system.sym_xxd * (V  - rho) + L1 * Vdot)[0]
     env = dict(zip(x, x_val.T))
     ratio = levelsetPoly.Evaluate(env) / candidateDecomp.Evaluate(env)
     print(ratio)

@@ -153,10 +153,10 @@ def GramDecompModelForLevelsetPoly(sys_dim, sigma_deg, psi_deg):
     rholayer = [Dense(1, use_bias=False, kernel_regularizer=rho_reg)]
     # kernel_regularizer=rho_reg
     rholayer = rholayer + [TransLayer(i) for i in rholayer[::-1]]
-    xxdVrho = Sequential(rholayer, name='rho')(xxdV)
+    xxdrho = Sequential(rholayer, name='rho')(xxd)
     # xxdrho = xxd
-    # residual = sos - (xxdVrho-xxdrho+L1Vdot)
-    vminusrho = Subtract()([xxdVrho, xxd])
+    # residual = sos - (xxdV-xxdrho+L1Vdot)
+    vminusrho = Subtract()([xxdV, xxdrho])
     vminusrhoplusvdot = Add()([vminusrho, L1Vdot])
     ratio = Divide()([vminusrhoplusvdot, candidateSOS])
     # outputs = Dot(-1)([ratio, xxdrho])
@@ -168,7 +168,7 @@ def GramDecompModelForLevelsetPoly(sys_dim, sigma_deg, psi_deg):
 
 
 def rho_reg(weight_matrix):
-    return 0.001 * K.abs(K.sum(weight_matrix))
+    return -0.001 * K.abs(K.sum(weight_matrix))
 
 
 def guidedMSE(y_true, y_pred):
@@ -204,5 +204,8 @@ def GetLevelsetGram(model):
         g = np.linalg.multi_dot(gram_weights)
     gram = g@g.T
     rho = rho_weights[0]**2
-    L = np.linalg.multi_dot(L_weights)
+    if len(L_weights) == 1:
+        L = L_weights[0]
+    else:
+        L = np.linalg.multi_dot(L_weights)
     return [gram, g, rho, L]
