@@ -274,8 +274,7 @@ def levelsetLP(system, gram):
 
     l_coeffs = prog.NewContinuousVariables(system.sym_sigma.shape[0], "L")
     L1 = l_coeffs@system.sym_sigma
-    candidateDecomp = Polynomial(system.sym_psi.T@np.diag
-    (scaling)@gram@system.sym_psi,x)
+    candidateDecomp = Polynomial(system.sym_psi.T@np.diag(scaling)@gram@system.sym_psi,x)
 
     levelsetPoly = Polynomial(system.sym_xxd * (V - rho) + L1 * Vdot + slack,x)
     prog.AddEqualityConstraintBetweenPolynomials(candidateDecomp,levelsetPoly)
@@ -292,6 +291,44 @@ def levelsetLP(system, gram):
     V = V / rho
     V = (V.Substitute(dict(zip(x, inv(T) @ x))))
     return V
+
+def levelsetSDP(system, gram,g):
+    f = system.sym_f
+    x = system.sym_x
+    V = Polynomial(system.sym_V,x)
+    Vdot = Polynomial(system.sym_Vdot,x)
+    xxd = Polynomial(system.sym_xxd,x)
+
+    prog = MathematicalProgram()
+    prog.AddIndeterminates(x)
+
+    # % construct slack var
+    rho = prog.NewContinuousVariables(1, "r")[0]
+    prog.AddConstraint(rho >= 0)
+    if np.all(eig(gram)[0] >= 0):
+        g = np.linalg.cholesky(gram)
+
+    L1 =prog.NewFreePolynomial(Variables(x), 8)
+    P = prog.NewSymmetricContinuousVariables(system.sym_psi.shape[0], "P")
+    prog.AddPositiveSemidefiniteConstraint(P)
+
+    candidateDecomp = Polynomial(system.sym_psi.T@g@P@g.T@system.sym_psi,x)
+    levelsetPoly = (xxd * (V - Polynomial(rho,x)) + L1 *(Vdot))
+    prog.AddEqualityConstraintBetweenPolynomials(candidateDecomp,levelsetPoly)
+
+    prog.AddCost(-rho)
+    solver = MosekSolver()
+    solver.set_stream_logging(True, "")
+    result = solver.Solve(prog, None, None)
+    print(result.get_solution_result())
+    # print('w/ solver %s' % (result.get_solver_id().name()))
+    assert result.is_success()
+    L1 = result.GetSolution(L1)
+    rho = result.GetSolution(rho)
+    print(rho)
+    V = V / rho
+    return V
+
 
 def checkResidual(system, gram, rho, L, x_val):
     f = system.sym_f

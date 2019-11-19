@@ -76,10 +76,11 @@ def polyModel(sys_dim, max_deg):
     monomial_dim = f(sys_dim + max_deg) // f(max_deg) // f(sys_dim)
     phi = Input(shape=(monomial_dim,))
     layers = [
+        # Dense(monomial_dim, use_bias=False),
+        # Dense(math.floor(monomial_dim / 2), use_bias=False),
+        # Dense(10, use_bias=False),
+        # Dense(4, use_bias=False),
         Dense(monomial_dim, use_bias=False),
-        Dense(math.floor(monomial_dim / 2), use_bias=False),
-        Dense(10, use_bias=False),
-        Dense(4, use_bias=False),
     ]
     layers = layers + [TransLayer(i) for i in layers[::-1]]
     phiLL = Sequential(layers)(phi)  # (None, monomial_dim)
@@ -199,8 +200,11 @@ def GetLevelsetGram(model):
             L_weights = L_weights + [weight]
         else:
             print('should not have other weights')
-    L = np.linalg.multi_dot(gram_weights)
-    gram = L@L.T
+    if len(gram_weights) == 1:
+        g = gram_weights[0]
+    else:
+        g = np.linalg.multi_dot(gram_weights)
+    gram = g@g.T
     rho = rho_weights[0]**2
     L = np.linalg.multi_dot(L_weights)
-    return [gram, rho, L]
+    return [gram, g, rho, L]
