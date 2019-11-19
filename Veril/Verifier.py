@@ -256,7 +256,7 @@ def levelsetMethod(x, V0, f, options):
     return V
 
 
-def levelsetLP(system, gram, options):
+def levelsetLP(system, gram):
     f = system.sym_f
     x = system.sym_x
     V = system.sym_V
@@ -274,14 +274,11 @@ def levelsetLP(system, gram, options):
 
     l_coeffs = prog.NewContinuousVariables(system.sym_sigma.shape[0], "L")
     L1 = l_coeffs@system.sym_sigma
-    candidateDecomp = system.sym_psi.T@np.diag(scaling)@gram@system.sym_psi
+    candidateDecomp = Polynomial(system.sym_psi.T@np.diag
+    (scaling)@gram@system.sym_psi,x)
 
-    levelsetPoly = (system.sym_xxd * (V - rho) + L1 * Vdot + slack)
-    residual = Polynomial(levelsetPoly - candidateDecomp, x)
-    residual_coeffs_mapping = residual.monomial_to_coefficient_map()
-    coeffs = list(residual_coeffs_mapping.values())
-    for i in coeffs:
-        prog.AddConstraint(i == 0)
+    levelsetPoly = Polynomial(system.sym_xxd * (V - rho) + L1 * Vdot + slack,x)
+    prog.AddEqualityConstraintBetweenPolynomials(candidateDecomp,levelsetPoly)
     prog.AddCost(-rho)
     solver = MosekSolver()
     solver.set_stream_logging(True, "")
@@ -295,10 +292,6 @@ def levelsetLP(system, gram, options):
     V = V / rho
     V = (V.Substitute(dict(zip(x, inv(T) @ x))))
     return V
-
-    V = (V.Substitute(dict(zip(x, inv(T) @ x))))
-    return V
-
 
 def checkResidual(system, gram, rho, L, x_val):
     f = system.sym_f
