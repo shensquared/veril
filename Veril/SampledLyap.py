@@ -125,7 +125,7 @@ def GramDecompModelForLevelsetPoly(sys_dim, sigma_deg, psi_deg):
     psi = Input(shape=(psi_dim,), name='psi')
     layers = [
         Dense(psi_dim, use_bias=False),
-        Dense(math.floor(psi_dim / 2), use_bias=False),
+        # Dense(math.floor(psi_dim / 2), use_bias=False),
         # Dense(10, use_bias=False),
         # Dense(4, use_bias=False),
     ]
