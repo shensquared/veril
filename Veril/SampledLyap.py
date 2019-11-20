@@ -207,6 +207,7 @@ def GetLevelsetGram(model):
     else:
         g = np.linalg.multi_dot(gram_weights)
     gram = g@g.T
+    print('cond # of the candidate gram: %s' %np.linalg.cond(gram))
     rho = rho_weights[0]**2
     if len(L_weights) == 1:
         L = L_weights[0]

@@ -8,7 +8,7 @@ from pydrake.all import (MathematicalProgram, Polynomial,
                          Expression, SolutionResult,
                          Variables, Solve, Jacobian, Evaluate,
                          RealContinuousLyapunovEquation, Substitute,
-                         MosekSolver)
+                         MosekSolver,MonomialBasis)
 
 
 class opt:
@@ -238,7 +238,19 @@ def levelsetMethod(x, V0, f, options):
 
     deg = int(np.floor((options.degL1 + Polynomial(Vdot, x).TotalDegree() -
                         options.degV) / 2))
-    prog.AddSosConstraint((x.T@x)**(deg) * (V - rho) + L1 * Vdot)
+    # prog.AddSosConstraint((x.T@x)**(deg) * (V - rho) + L1 * Vdot)
+    levelsetPoly = Polynomial((x.T@x)**(deg) * (V - rho) + L1 * Vdot,x)
+    basis = MonomialBasis(x,8)
+    candidate=Polynomial()
+    P = prog.NewSymmetricContinuousVariables(45, "P")
+    prog.AddPositiveSemidefiniteConstraint(P)
+
+    for i in range(45):
+        candidate.AddProduct((P[i,i]),basis[i]*basis[i])
+        for j in range(i+1,45):
+            candidate.AddProduct(2 * (P[i,j]), basis[i]*basis[j])
+
+    prog.AddEqualityConstraintBetweenPolynomials(candidate,levelsetPoly)
     prog.AddCost(-rho)
 
     solver = MosekSolver()
@@ -249,11 +261,13 @@ def levelsetMethod(x, V0, f, options):
     assert result.is_success()
     L1 = result.GetSolution(L1)
     rho = result.GetSolution(rho)
+    P = result.GetSolution(P)
+    print('cond # of gram is %s' %np.linalg.cond(P))
     print(rho)
     V = V / rho
     V = (V.Substitute(dict(zip(x, inv(T) @ x))))
     # print(L1)
-    return V
+    return V, P, L1
 
 
 def levelsetLP(system, gram):
@@ -262,7 +276,6 @@ def levelsetLP(system, gram):
     V = system.sym_V
     Vdot = system.sym_Vdot
     prog = MathematicalProgram()
-    prog.AddIndeterminates(x)
 
     # % construct slack var
     rho = prog.NewContinuousVariables(1, "r")[0]
@@ -292,12 +305,14 @@ def levelsetLP(system, gram):
     V = (V.Substitute(dict(zip(x, inv(T) @ x))))
     return V
 
-def levelsetSDP(system, gram,g):
+def levelsetSDP(system, gram, g, L1):
     f = system.sym_f
     x = system.sym_x
     V = Polynomial(system.sym_V,x)
     Vdot = Polynomial(system.sym_Vdot,x)
-    xxd = Polynomial(system.sym_xxd,x)
+    V=system.sym_V
+    Vdot = system.sym_Vdot
+    # xxd = Polynomial(system.sym_xxd,x)
 
     prog = MathematicalProgram()
     prog.AddIndeterminates(x)
@@ -305,18 +320,11 @@ def levelsetSDP(system, gram,g):
     # % construct slack var
     rho = prog.NewContinuousVariables(1, "r")[0]
     prog.AddConstraint(rho >= 0)
-    if np.all(eig(gram)[0] >= 0):
-        g = np.linalg.cholesky(gram)
+    # if np.all(eig(gram)[0] >= 0):
+    #     g = np.linalg.cholesky(gram)
 
-
-  # for (int i = 0; i < grammian.rows(); ++i) {
-  #   p.AddProduct(grammian(i, i), pow(monomial_basis(i), 2));
-  #   for (int j = i + 1; j < grammian.cols(); ++j) {
-  #     p.AddProduct(2 * grammian(i, j), monomial_basis(i) * monomial_basis(j));
-  #   }
-  # }
     dim_psi = system.sym_psi.shape[0]
-    L1 =prog.NewFreePolynomial(Variables(x), 8)
+    L1 =prog.NewFreePolynomial(Variables(x), 8).ToExpression()
     P = prog.NewSymmetricContinuousVariables(dim_psi, "P")
     prog.AddPositiveSemidefiniteConstraint(P)
 
@@ -328,16 +336,16 @@ def levelsetSDP(system, gram,g):
 
     for i in range(dim_psi):
         candidate.AddProduct((trans_P[i,i]),basis[i]*basis[i])
-        for j in range(i,dim_psi):
+        for j in range(i+1,dim_psi):
             candidate.AddProduct(2 * (trans_P[i,j]), basis[i]*basis[j])
 
-
-    # candidateDecomp = Polynomial(@P@g.T@system.sym_psi,x)
-    # levelsetPoly = (xxd * (V - Polynomial(rho,x)) + L1 *(Vdot))
-    levelsetPoly = (xxd * (V*Polynomial(rho,x)-1) + L1 *(Vdot))
+    # candidateDecomp = system.sym_psi.T@trans_P@system.sym_psi
+    # residual = candidateDecomp-candidate.ToExpression()
+    levelsetPoly = Polynomial((x.T@x)**(5) * (V - rho) + L1 * Vdot,x)
+    # levelsetPoly = (xxd * (V*Polynomial(rho,x)-1) + L1 *(Vdot))
     prog.AddEqualityConstraintBetweenPolynomials(candidate,levelsetPoly)
 
-    prog.AddCost(rho)
+    prog.AddCost(-rho)
     solver = MosekSolver()
     solver.set_stream_logging(True, "")
     result = solver.Solve(prog, None, None)

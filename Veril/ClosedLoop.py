@@ -117,15 +117,15 @@ def originalSysInitialV(CL):
 
 
 def GetMonomials(x, deg, remove_one=False):
-    y = list(itertools.combinations_with_replacement(np.append(pow(x[0], 0), x),
-                                                     deg))
-    basis = [np.prod(j) for j in y]
-    if remove_one:
-        return np.stack(basis)[1:]
-    else:
-        return np.stack(basis)
+    # y = list(itertools.combinations_with_replacement(np.append(pow(x[0], 0), x),
+    #                                                  deg))
+    # basis = [np.prod(j) for j in y]
+    # if remove_one:
+    #     return np.stack(basis)[1:]
+    # else:
+    #     return np.stack(basis)
 
-    # return np.array([i.ToExpression() for i in MonomialBasis(x, deg)])
+    return np.array([i.ToExpression() for i in MonomialBasis(x, deg)])
 
 
 class ClosedLoopSys(object):
