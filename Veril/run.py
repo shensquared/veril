@@ -141,7 +141,7 @@ def verifyClosedLoop(max_deg=2):
 
 def SGDLevelSetGramCandidate(V, vdp, max_deg=3):
     sym_x = vdp.sym_x
-    train_x = vdp.get_x(d=10).T
+    train_x = vdp.get_x(d=10,num_grid=10).T
     train_y = np.ones((train_x.shape[0], 1))
     vdp.set_features(max_deg)
     sigma_deg = 8
@@ -150,7 +150,7 @@ def SGDLevelSetGramCandidate(V, vdp, max_deg=3):
     [V, Vdot, xxd, psi, sigma] = vdp.get_levelset_features(train_x)
     verifyModel = SampledLyap.GramDecompModelForLevelsetPoly(
         vdp.num_states, sigma_deg, psi_deg)
-    history = verifyModel.fit([V, Vdot, xxd, psi, sigma], train_y, epochs=70,
+    history = verifyModel.fit([V, Vdot, xxd, psi, sigma], train_y, epochs=10,
                               shuffle=True)
     return verifyModel
 

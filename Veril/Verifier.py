@@ -308,14 +308,34 @@ def levelsetSDP(system, gram,g):
     if np.all(eig(gram)[0] >= 0):
         g = np.linalg.cholesky(gram)
 
+
+  # for (int i = 0; i < grammian.rows(); ++i) {
+  #   p.AddProduct(grammian(i, i), pow(monomial_basis(i), 2));
+  #   for (int j = i + 1; j < grammian.cols(); ++j) {
+  #     p.AddProduct(2 * grammian(i, j), monomial_basis(i) * monomial_basis(j));
+  #   }
+  # }
+    dim_psi = system.sym_psi.shape[0]
     L1 =prog.NewFreePolynomial(Variables(x), 8)
-    P = prog.NewSymmetricContinuousVariables(system.sym_psi.shape[0], "P")
+    P = prog.NewSymmetricContinuousVariables(dim_psi, "P")
     prog.AddPositiveSemidefiniteConstraint(P)
 
-    candidateDecomp = Polynomial(system.sym_psi.T@g@P@g.T@system.sym_psi,x)
+    # newbasis = np.array([Polynomial(i,x) for i in system.sym_psi.T@g])
+    candidate=Polynomial()
+    trans_P=g@P@g.T
+    # basis =system.sym_psi
+    basis = MonomialBasis(x,8)
+
+    for i in range(dim_psi):
+        candidate.AddProduct((trans_P[i,i]),basis[i]*basis[i])
+        for j in range(i,dim_psi):
+            candidate.AddProduct(2 * (trans_P[i,j]), basis[i]*basis[j])
+
+
+    # candidateDecomp = Polynomial(@P@g.T@system.sym_psi,x)
     # levelsetPoly = (xxd * (V - Polynomial(rho,x)) + L1 *(Vdot))
     levelsetPoly = (xxd * (V*Polynomial(rho,x)-1) + L1 *(Vdot))
-    prog.AddEqualityConstraintBetweenPolynomials(candidateDecomp,levelsetPoly)
+    prog.AddEqualityConstraintBetweenPolynomials(candidate,levelsetPoly)
 
     prog.AddCost(rho)
     solver = MosekSolver()
