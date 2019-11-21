@@ -76,8 +76,8 @@ def polyModel(sys_dim, max_deg):
     monomial_dim = f(sys_dim + max_deg) // f(max_deg) // f(sys_dim)
     phi = Input(shape=(monomial_dim,))
     layers = [
-        # Dense(monomial_dim, use_bias=False),
-        # Dense(math.floor(monomial_dim / 2), use_bias=False),
+        Dense(monomial_dim, use_bias=False),
+        Dense((monomial_dim*2), use_bias=False),
         Dense(monomial_dim, use_bias=False),
     ]
     layers = layers + [TransLayer(i) for i in layers[::-1]]

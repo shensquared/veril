@@ -156,22 +156,22 @@ def SGDLevelSetGramCandidate(V, vdp, max_deg=3):
 
 
 V, vdp, P, L1= verifyVDP(method='SGD')
-verifyModel = SGDLevelSetGramCandidate(V, vdp)
-[gram, g, rho, L] = SampledLyap.GetLevelsetGram(verifyModel)
-print('rho is %s' %rho)
-
-
-# x = np.array([-1.2, 2]).reshape((1, 2))
-# pp = vdp.get_levelset_features(x)
-# print(verifyModel.predict(pp))
-
-# Verifier.checkResidual(vdp, gram, rho, L, x)
-# vdp.set_levelset_features(V, 8)
-V = Verifier.levelsetSDP(vdp, gram, g, L1)
-plotFunnel(V)
-
-# verifyClosedLoop(max_deg=2)
-# train(**options)
-# CL, model_file_name = ClosedLoop.get_NNorCL(**options)
-# augedSys = ClosedLoop.TanhPolyCL(CL, model_file_name, taylor_approx=True)
-# augedSys.linearizeTanhPolyCL()
+# verifyModel = SGDLevelSetGramCandidate(V, vdp)
+# [gram, g, rho, L] = SampledLyap.GetLevelsetGram(verifyModel)
+# print('rho is %s' %rho)
+#
+#
+# # x = np.array([-1.2, 2]).reshape((1, 2))
+# # pp = vdp.get_levelset_features(x)
+# # print(verifyModel.predict(pp))
+#
+# # Verifier.checkResidual(vdp, gram, rho, L, x)
+# # vdp.set_levelset_features(V, 8)
+# V = Verifier.levelsetSDP(vdp, gram, g, L1)
+# plotFunnel(V)
+#
+# # verifyClosedLoop(max_deg=2)
+# # train(**options)
+# # CL, model_file_name = ClosedLoop.get_NNorCL(**options)
+# # augedSys = ClosedLoop.TanhPolyCL(CL, model_file_name, taylor_approx=True)
+# # augedSys.linearizeTanhPolyCL()
