@@ -107,10 +107,9 @@ def verifyVDP(max_deg=3, method='SGD'):
         else:
             P = Verifier.LPCandidateForV(phi, dphidx, f, num_samples=None)
         V0 = vdp.sym_phi.T@P@vdp.sym_phi
-        V, P, L1 = Verifier.levelsetMethod(
-            vdp.sym_x, V0, vdp.sym_f, verifierOptions)
+        V = Verifier.levelsetMethod(sym_x, V0, vdp.sym_f, verifierOptions)
         plotFunnel(V)
-    return V0, vdp, P, L1
+    return V0
 
 
 def verifyClosedLoop(max_deg=2):
@@ -155,7 +154,7 @@ def SGDLevelSetGramCandidate(V, vdp, max_deg=3):
     return verifyModel
 
 
-V, vdp, P, L1= verifyVDP(method='SGD')
+V = verifyVDP(method='SGD')
 # verifyModel = SGDLevelSetGramCandidate(V, vdp)
 # [gram, g, rho, L] = SampledLyap.GetLevelsetGram(verifyModel)
 # print('rho is %s' %rho)

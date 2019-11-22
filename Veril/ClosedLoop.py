@@ -22,7 +22,7 @@ from keras.models import load_model
 
 from Veril import Plants
 from Veril.CustomLayers import JanetController
-import itertools
+# import itertools
 
 
 def get_NNorCL(NNorCL='CL', **kwargs):
