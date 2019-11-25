@@ -15,6 +15,7 @@ import Verifier
 import ClosedLoop
 from CustomLayers import JanetController
 import SampledLyap
+import sample_variety
 from util.plotFunnel import plotFunnel
 from util.samples import withinLevelSet
 
@@ -107,9 +108,12 @@ def verifyVDP(max_deg=3, method='SGD'):
         else:
             P = Verifier.LPCandidateForV(phi, dphidx, f, num_samples=None)
         V0 = vdp.sym_phi.T@P@vdp.sym_phi
+        Vdot = vdp.sym_phi.T@P@vdp.sym_dphidx@vdp.sym_f
         V = Verifier.levelsetMethod(sym_x, V0, vdp.sym_f, verifierOptions)
+
         plotFunnel(V)
-    return V0
+    vdp.set_levelset_features(V0, 8)
+    return V0, Vdot, vdp
 
 
 def verifyClosedLoop(max_deg=2):
@@ -154,7 +158,11 @@ def SGDLevelSetGramCandidate(V, vdp, max_deg=3):
     return verifyModel
 
 
-V = verifyVDP(method='SGD')
+V, Vdot, vdp = verifyVDP(method='SGD')
+samples = sample_variety.sample_on_variety(Vdot, 20)
+V, rho, P = sample_variety.solve_SDP_on_samples(vdp, samples)
+plotFunnel(V)
+sample_variety.check_vanishing(vdp, rho, P)
 # verifyModel = SGDLevelSetGramCandidate(V, vdp)
 # [gram, g, rho, L] = SampledLyap.GetLevelsetGram(verifyModel)
 # print('rho is %s' %rho)
