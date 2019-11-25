@@ -16,7 +16,7 @@ import ClosedLoop
 from CustomLayers import JanetController
 import SampledLyap
 import sample_variety
-from util.plotFunnel import plotFunnel
+from util.plot_funnel import plot_funnel
 from util.samples import withinLevelSet
 
 options = {
@@ -109,18 +109,18 @@ def verifyVDP(max_deg=3, method='SGD'):
             P = Verifier.LPCandidateForV(phi, dphidx, f, num_samples=None)
         V0 = vdp.sym_phi.T@P@vdp.sym_phi
         Vdot = vdp.sym_phi.T@P@vdp.sym_dphidx@vdp.sym_f
-        V = Verifier.levelsetMethod(sym_x, V0, vdp.sym_f, verifierOptions)
+        V = Verifier.levelset_sos(sym_x, V0, vdp.sym_f, verifierOptions)
 
-        plotFunnel(V)
+        plot_funnel(V)
     vdp.set_levelset_features(V0, 8)
     return V0, Vdot, vdp
 
 
-def verifyClosedLoop(max_deg=2):
+def verify_closed_loop(max_deg=2):
     CL, model_file_name = ClosedLoop.get_NNorCL(**options)
     augedSys = ClosedLoop.TanhPolyCL(CL, model_file_name, taylor_approx=True)
     augedSys.set_features(max_deg)
-    samples = augedSys.sampleInitialStatesInclduingTanh(
+    samples = augedSys.sample_init_states_w_tanh(
         30000, lb=-.01, ub=.01)
     [phi, dphidx, f] = augedSys.get_features(samples)
 
@@ -138,7 +138,7 @@ def verifyClosedLoop(max_deg=2):
         else:
             P = SampledLyap.GetGram(model)
             V0 = augedSys.sym_phi.T@P@augedSys.sym_phi
-            V = Verifier.levelsetMethod(
+            V = Verifier.levelset_sos(
                 augedSys.sym_x, V0, augedSys.verifi_f, verifierOptions)
 
 
@@ -161,7 +161,7 @@ def SGDLevelSetGramCandidate(V, vdp, max_deg=3):
 V, Vdot, vdp = verifyVDP(method='SGD')
 samples = sample_variety.sample_on_variety(Vdot, 20)
 V, rho, P = sample_variety.solve_SDP_on_samples(vdp, samples)
-plotFunnel(V)
+plot_funnel(V)
 sample_variety.check_vanishing(vdp, rho, P)
 # verifyModel = SGDLevelSetGramCandidate(V, vdp)
 # [gram, g, rho, L] = SampledLyap.GetLevelsetGram(verifyModel)
@@ -172,12 +172,12 @@ sample_variety.check_vanishing(vdp, rho, P)
 # # pp = vdp.get_levelset_features(x)
 # # print(verifyModel.predict(pp))
 #
-# # Verifier.checkResidual(vdp, gram, rho, L, x)
+# # Verifier.check_residual(vdp, gram, rho, L, x)
 # # vdp.set_levelset_features(V, 8)
-# V = Verifier.levelsetSDP(vdp, gram, g, L1)
-# plotFunnel(V)
+# V = Verifier.levelset_w_feature_transformation(vdp, gram, g, L1)
+# plot_funnel(V)
 #
-# # verifyClosedLoop(max_deg=2)
+# # verify_closed_loop(max_deg=2)
 # # train(**options)
 # # CL, model_file_name = ClosedLoop.get_NNorCL(**options)
 # # augedSys = ClosedLoop.TanhPolyCL(CL, model_file_name, taylor_approx=True)

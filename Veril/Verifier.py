@@ -161,7 +161,7 @@ def optimizeV(x, f, L1, L2, V0, sigma1, options):
     return V, rho
 
 
-def levelsetMethod(x, V0, f, options):
+def levelset_sos(x, V0, f, options):
     prog = MathematicalProgram()
     prog.AddIndeterminates(x)
     if options.do_balance:
@@ -173,7 +173,7 @@ def levelsetMethod(x, V0, f, options):
     H = Jacobian(Vdot.Jacobian(x).T, x)
     env = dict(zip(x, np.zeros(x.shape)))
     H = .5 * np.array([[i.Evaluate(env) for i in j]for j in H])
-    print('Hessian of Vdot %s' %(eig(H)[0]))
+    print('Hessian of Vdot %s' % (eig(H)[0]))
     assert (np.all(eig(H)[0] <= 0))
     # % construct slack var
     rho = prog.NewContinuousVariables(1, "r")[0]
@@ -203,7 +203,7 @@ def levelsetMethod(x, V0, f, options):
     return V
 
 
-def levelsetSDP(system, gram, g, L1):
+def levelset_w_feature_transformation(system, gram, g, L1):
     # dirty, hard coded everything
     f = system.sym_f
     x = system.sym_x
@@ -229,7 +229,6 @@ def levelsetSDP(system, gram, g, L1):
         candidate.AddProduct((P[i, i]), basis[i] * basis[i])
         for j in range(i + 1, 45):
             candidate.AddProduct(2 * (P[i, j]), basis[i] * basis[j])
-
 
     dim_psi = system.sym_psi.shape[0]
     L1 = prog.NewFreePolynomial(Variables(x), 8).ToExpression()
@@ -267,7 +266,7 @@ def levelsetSDP(system, gram, g, L1):
     return V
 
 
-def balanceQuadForm(S, P):
+def balance_quad_form(S, P):
     # copied from the old drake, with only syntax swap
     #  Quadratic Form "Balancing"
     #
@@ -307,7 +306,7 @@ def balance(x, V, f, S, A):
         J = Jacobian(f, x)
         env = dict(zip(x, np.zeros(x.shape)))
         A = np.array([[i.Evaluate(env) for i in j]for j in J])
-    [T, D] = balanceQuadForm(S, (S@A + A.T@S))
+    [T, D] = balance_quad_form(S, (S@A + A.T@S))
     # print('T is %s' % (T))
     # Sbal = (T.T)@(S)@(T)
     Vbal = V.Substitute(dict(zip(x, T@x)))
@@ -322,7 +321,7 @@ def clean(poly, x, tol=1e-9):
 
 
 ################
-def checkResidual(system, gram, rho, L, x_val):
+def check_residual(system, gram, rho, L, x_val):
     f = system.sym_f
     x = system.sym_x
     V = system.sym_V
@@ -341,7 +340,7 @@ def checkResidual(system, gram, rho, L, x_val):
         print(i)
 
 
-def RecastBack(V, CL_sys):
+def recast_poly_back_to_nonlinear(V, CL_sys):
     """Recast the polynomial Lyapunov candidate back to the original coornidate.
     e.g. originally, we might have recast the non-linearity sin(x) as s, so
     that we have a V=x**2+s**2. In order to visualize, we need the inverse 
@@ -353,7 +352,7 @@ def RecastBack(V, CL_sys):
         V (Inderterminates): V(x)
         CL_sys(ClosedLoopSystem): encodes the mapping
     """
-    env = CL_sys.InverseRecastMap()
+    env = CL_sys.inverse_recast_map()
     nonPolyV = V.Substitute(env)
     return nonPolyV
 

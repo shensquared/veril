@@ -37,7 +37,7 @@ test_num_samples = 2
 
 plant = Plants.get(CL.plant_name, CL.dt, CL.obs_idx)
 augedSys = ClosedLoop.TanhPolyCL(CL, model_file_name)
-x = augedSys.sampleInitialStatesInclduingTanh(test_num_samples)
+x = augedSys.sample_init_states_w_tanh(test_num_samples)
 initx=x[:,0:2]
 initc=x[:,2:6]
 ext_in = np.zeros((test_num_samples, test_time_steps,1))

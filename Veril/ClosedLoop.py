@@ -116,7 +116,7 @@ def originalSysInitialV(CL):
     return x.T@S0@x
 
 
-def GetMonomials(x, deg, remove_one=False):
+def get_monomials(x, deg, remove_one=False):
     # y = list(itertools.combinations_with_replacement(np.append(pow(x[0], 0), x),
     #                                                  deg))
     # basis = [np.prod(j) for j in y]
@@ -135,19 +135,19 @@ class ClosedLoopSys(object):
 
     def set_features(self, VFeatureDeg):
         self.degV = 2 * VFeatureDeg
-        self.sym_f = self.PolynomialDynamics()
+        self.sym_f = self.polynomial_dynamics()
         self.degf = max([Polynomial(i, self.sym_x).TotalDegree() for i in
                          self.sym_f])
         if VFeatureDeg == 1:
             sym_x_expression = np.array([Expression(i) for i in self.sym_x])
             self.sym_phi = np.append(pow(self.sym_x[0], 0), sym_x_expression)
         else:
-            self.sym_phi = GetMonomials(self.sym_x, VFeatureDeg)
+            self.sym_phi = get_monomials(self.sym_x, VFeatureDeg)
         self.sym_dphidx = Jacobian(self.sym_phi, self.sym_x)
 
     def get_features(self, x):
         # x: (num_samples, sys_dim)
-        f = self.PolynomialDynamics(sample_states=x)
+        f = self.polynomial_dynamics(sample_states=x)
         n_samples = x.shape[0]
         phi = np.zeros((n_samples, self.sym_phi.shape[0]))
         dphidx = np.zeros((n_samples, self.sym_phi.shape[0], self.num_states))
@@ -166,10 +166,10 @@ class ClosedLoopSys(object):
         self.degVdot = Polynomial(self.sym_Vdot, self.sym_x).TotalDegree()
         deg = int(np.floor((sigma_deg + self.degVdot - self.degV) / 2))
         self.sym_xxd = (self.sym_x.T@self.sym_x)**(deg)
-        self.sym_sigma = GetMonomials(self.sym_x, sigma_deg)
+        self.sym_sigma = get_monomials(self.sym_x, sigma_deg)
         psi_deg = int(np.floor(max(2 * deg + self.degV, sigma_deg +
                                    self.degVdot) / 2))
-        self.sym_psi = GetMonomials(self.sym_x, psi_deg, remove_one=False)
+        self.sym_psi = get_monomials(self.sym_x, psi_deg, remove_one=False)
 
     def get_levelset_features(self, x):
         # x: (num_samples, sys_dim)
@@ -209,7 +209,7 @@ class VanderPol(ClosedLoopSys):
         x1, x2 = x1.ravel(), x2.ravel()
         return np.array([x1, x2])  # (2, num_grid**2)
 
-    def PolynomialDynamics(self, sample_states=None):
+    def polynomial_dynamics(self, sample_states=None):
         if sample_states is None:
             sym_x = self.sym_x
             return -np.array([sym_x[1], -sym_x[0] - sym_x[1] * (sym_x[0]**2 -
@@ -326,22 +326,22 @@ class TanhPolyCL(ClosedLoopSys):
             self.num_states = self.nx + 3 * self.units
         self.model_file_name = model_file_name
 
-    def InverseRecastMap(self):
-        [arg_f, arg_c] = self.ArgsForTanh(self.x, self.c)
+    def inverse_recast_map(self):
+        [arg_f, arg_c] = self.args_for_tanh(self.x, self.c)
         tau_f = [tanh(i) for i in arg_f]
         tau_c = [tanh(i) for i in arg_c]
         env = dict(zip(np.append(self.tau_c, self.tau_f), tau_c + tau_f))
         return env
 
-    def ArgsForTanh(self, x, c):
+    def args_for_tanh(self, x, c):
         arg_f = x@self.kernel_f + c@self.recurrent_kernel_f
         arg_c = x@self.kernel_c + c@self.recurrent_kernel_c
         return [arg_f, arg_c]
 
     def get_features(self, x):
         # x: (num_samples, sys_dim)
-        f = self.NonlinearDynamics(sample_states=x)
-        self.verifi_f = self.NonlinearDynamics()
+        f = self.nonlinear_dynamics(sample_states=x)
+        self.verifi_f = self.nonlinear_dynamics()
         n_samples = x.shape[0]
         phi = np.zeros((n_samples, self.sym_phi.shape[0]))
         dphidx = np.zeros((n_samples, self.sym_phi.shape[0], self.num_states))
@@ -354,7 +354,7 @@ class TanhPolyCL(ClosedLoopSys):
         #          'samples', phi=phi, dphidx=dphidx, f=f)
         return [phi, dphidx, f]
 
-    def NonlinearDynamics(self, sample_states=None):
+    def nonlinear_dynamics(self, sample_states=None):
         if sample_states is None:
             x = self.x
             c = self.c
@@ -367,7 +367,7 @@ class TanhPolyCL(ClosedLoopSys):
         xdot = self.plant.xdot(x.T, u.T).T
         ydot = self.plant.ydot(x.T, u.T).T
         # use the argument to approximate the tau:
-        [arg_f, arg_c] = self.ArgsForTanh(shift_y_tm1, c)
+        [arg_f, arg_c] = self.args_for_tanh(shift_y_tm1, c)
         if sample_states is None:
             tau_f = np.array([tanh(i) for i in arg_f])
             tau_c = np.array([tanh(i) for i in arg_c])
@@ -380,7 +380,7 @@ class TanhPolyCL(ClosedLoopSys):
         f = np.hstack((xdot, cdot))
         return f
 
-    def PolynomialDynamics(self, sample_states=None):
+    def polynomial_dynamics(self, sample_states=None):
         if self.taylor_approx:
             if sample_states is None:
                 x = self.x
@@ -394,7 +394,7 @@ class TanhPolyCL(ClosedLoopSys):
             xdot = self.plant.xdot(x.T, u.T).T
             ydot = self.plant.ydot(x.T, u.T).T
             # use the argument to approximate the tau:
-            [tau_f, tau_c] = self.ArgsForTanh(shift_y_tm1, c)
+            [tau_f, tau_c] = self.args_for_tanh(shift_y_tm1, c)
             cdot = (.5 * (- c + c * tau_f + tau_c - tau_c * tau_f)) / self.dt
             # TODO: should be y0dot but let's for now assume the two are the same
             # (since currently all y0=zeros)
@@ -422,12 +422,12 @@ class TanhPolyCL(ClosedLoopSys):
             cdot = (.5 * (- c + c * tau_f + tau_c - tau_c * tau_f)) / self.dt
             # TODO: should be y0dot but let's for now assume the two are the same
             # (since currently all y0=zeros)
-            tau_f_dot = (1 - tau_f**2) * self.ArgsForTanh(ydot, cdot)[0]
-            tau_c_dot = (1 - tau_c**2) * self.ArgsForTanh(ydot, cdot)[1]
+            tau_f_dot = (1 - tau_f**2) * self.args_for_tanh(ydot, cdot)[0]
+            tau_c_dot = (1 - tau_c**2) * self.args_for_tanh(ydot, cdot)[1]
             f = np.hstack((xdot, cdot, tau_f_dot, tau_c_dot))
             return f
 
-    def sampleInitialStatesInclduingTanh(self, num_samples, **kwargs):
+    def sample_init_states_w_tanh(self, num_samples, **kwargs):
         """sample initial states in [x,c,tau_f,tau_c] space. But since really only
         x and c are independent, bake in the relationship that tau_f=tanh(arg_f)
         and tau_c=tanh(arg_c) here. Also return the augmented poly system dyanmcis
@@ -446,12 +446,12 @@ class TanhPolyCL(ClosedLoopSys):
         if self.taylor_approx:
             s = np.hstack((x, c))
         else:
-            tanh_f = np.tanh(self.ArgsForTanh(shifted_y, c)[0])
-            tanh_c = np.tanh(self.ArgsForTanh(shifted_y, c)[1])
+            tanh_f = np.tanh(self.args_for_tanh(shifted_y, c)[0])
+            tanh_c = np.tanh(self.args_for_tanh(shifted_y, c)[1])
             s = np.hstack((x, c, tanh_f, tanh_c))
         return s
 
-    def linearizeTanhPolyCL(self):
+    def do_linearization(self, which_dynamics='nonlinear'):
         """
         linearize f, which is the augmented (via the change of variable recasting)
         w.r.t. the states x.
@@ -465,14 +465,17 @@ class TanhPolyCL(ClosedLoopSys):
         """
         # TODO: for now linearize at zero, need to linearize at plant.x0
 
-        # x = self.sym_x
-        # f = self.PolynomialDynamics()
-        x = self.x
-        c = self.c
-        xc = np.concatenate((self.x, self.c))
-        f = self.NonlinearDynamics()
+        if which_dynamics is 'nonlinear':
+            x = self.x
+            c = self.c
+            xc = np.concatenate((self.x, self.c))
+            f = self.nonlinear_dynamics()
+        elif which_dynamics is 'polynomial':
+            xc = self.sym_x
+            f = self.polynomial_dynamics()
         J = Jacobian(f, xc)
         env = dict(zip(xc, np.zeros(xc.shape)))
+
         A = np.array([[i.Evaluate(env) for i in j]for j in J])
         # print('A  %s' % A)
         print('eig of the linearized A matrix for augmented with tanh poly system %s' % (
