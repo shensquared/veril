@@ -15,7 +15,7 @@ from keras.layers.recurrent import RNN
 from keras.layers.merge import _Merge
 
 import numpy as np
-from Veril import Plants
+from Veril import plants
 from tensorflow.python.ops.parallel_for.gradients import jacobian, batch_jacobian
 # import itertools
 # import math
@@ -258,7 +258,7 @@ class JanetControllerCell(Layer):
         self.plant_name = plant_name
         self.dt = dt
         self.obs_idx = obs_idx
-        self.plant = Plants.get(plant_name, dt, obs_idx)
+        self.plant = plants.get(plant_name, dt, obs_idx)
         self.num_plant_states = self.plant.num_states
         self.num_plant_output = self.plant.num_outputs
         self.num_plant_disturb = self.plant.num_disturb
@@ -1291,8 +1291,8 @@ class Polynomials(Layer):
 
     def call(self, inputs):
         y = list(itertools.combinations_with_replacement(
-            range(self.n+1), self.max_deg))
-        exponents = [[i.count(j) for j in range(1,self.n+1)] for i in y][1:]
+            range(self.n + 1), self.max_deg))
+        exponents = [[i.count(j) for j in range(1, self.n + 1)] for i in y][1:]
         output = K.concatenate([K.prod(j, axis=-1, keepdims=True) for j in
                                 [K.pow(inputs, i) for i in exponents]])
         # cross = K.expand_dims(K.prod(K.pow(inputs,1),axis=-1))
@@ -1306,7 +1306,8 @@ class Polynomials(Layer):
         assert self.n
         output_shape = list(input_shape)
         f = lambda x: math.factorial(x)
-        output_shape[-1] = f(self.n + self.max_deg) // f(self.max_deg) // f(self.n) -1
+        output_shape[-1] = f(self.n +
+                             self.max_deg) // f(self.max_deg) // f(self.n) - 1
         return tuple(output_shape)
 
     def get_config(self):
@@ -1339,9 +1340,11 @@ class DiffPoly(Layer):
         self.built = True
 
     def call(self, inputs):
-        y = list(itertools.combinations_with_replacement(range(self.n+1), self.max_deg))
-        exponents = [[i.count(j) for j in range(1,self.n+1)] for i in y][1:]
-        phi = K.concatenate([K.prod(j, axis=-1, keepdims=True) for j in [K.pow(inputs, i) for i in exponents]])
+        y = list(itertools.combinations_with_replacement(
+            range(self.n + 1), self.max_deg))
+        exponents = [[i.count(j) for j in range(1, self.n + 1)] for i in y][1:]
+        phi = K.concatenate([K.prod(j, axis=-1, keepdims=True)
+                             for j in [K.pow(inputs, i) for i in exponents]])
         output = batch_jacobian(phi, inputs)
         # output = K.concatenate([output,K.ones((1,))])
         return output
@@ -1351,7 +1354,8 @@ class DiffPoly(Layer):
         assert input_shape[-1]
         output_shape = list(input_shape)
         f = lambda x: math.factorial(x)
-        output_shape.insert(-1, (f(self.n + self.max_deg) // f(self.max_deg) //f(self.n))-1)
+        output_shape.insert(-1, (f(self.n + self.max_deg) //
+                                 f(self.max_deg) // f(self.n)) - 1)
         return tuple(output_shape)
 
     def get_config(self):

@@ -6,7 +6,7 @@ from keras import regularizers, initializers
 from keras.utils import CustomObjectScope
 
 import math
-from CustomLayers import DotKernel, Divide, TransLayer
+from custom_layers import DotKernel, Divide, TransLayer
 import numpy as np
 '''
 A note about the DOT layer: if input is 1: (None, a) and 2: (None, a) then no
@@ -30,7 +30,7 @@ def max_negativity(y_true, y_pred):
     return K.max(y_pred)
 
 
-def linearModel(sys_dim, A):
+def linear_model_for_V(sys_dim, A):
     x = Input(shape=(sys_dim,))  # (None, sys_dim)
     layers = [
         Dense(5, input_shape=(sys_dim,), use_bias=False,
@@ -56,7 +56,7 @@ def linearModel(sys_dim, A):
 #     callbacks = []
 #     x, y = get_data()
 #     A = np.array([[-.1, 0], [1, -2]])
-#     model = linearModel(2, A)
+#     model = linear_model_for_V(2, A)
 #     print(model.predict(x))
 #     history = model.fit(x, y, epochs=15, verbose=True, callbacks=callbacks)
 #     # getting the weights and verify the eigs
@@ -70,7 +70,7 @@ def linearModel(sys_dim, A):
 #     return P
 
 # TODO lambda f (two args in)
-def polyModel(sys_dim, max_deg):
+def poly_model_for_V(sys_dim, max_deg):
     f = lambda x: math.factorial(x)
     # -1 since V doesn't have a constant monomial
     monomial_dim = f(sys_dim + max_deg) // f(max_deg) // f(sys_dim)
@@ -99,16 +99,16 @@ def polyModel(sys_dim, max_deg):
 
 # def polyTrain(nx, max_deg, x, V=None, model=None):
 #     if model is None:
-#         model = polyModel(nx, max_deg)
+#         model = poly_model_for_V(nx, max_deg)
 #     history = model.fit(train_x, train_y, shuffle=True, epochs=15,
 #        verbose=True)
-#     P = GetGram(model)
+#     P = get_gram_for_V(model)
 #     model_file_name = '../data/Kernel/polyModel.h5'
 #     model.save(model_file_name)
 #     print("Saved model" + model_file_name + " to disk")
 #     return P, model, history
 
-def GetGram(model):
+def get_gram_for_V(model):
     weights = model.get_weights()
     if len(weights) == 1:
         L = weights[0]
@@ -117,7 +117,7 @@ def GetGram(model):
     return L@L.T
 
 
-def GramDecompModelForLevelsetPoly(sys_dim, sigma_deg, psi_deg):
+def gram_decomp_model_for_levelsetpoly(sys_dim, sigma_deg, psi_deg):
     f = lambda x: math.factorial(x)
     # -1 since V doesn't have a constant monomial
     psi_dim = f(sys_dim + psi_deg) // f(psi_deg) // f(sys_dim)
@@ -175,7 +175,7 @@ def rho_reg(weight_matrix):
     return 0.001 * K.abs(K.sum(weight_matrix))
 
 
-def guidedMSE(y_true, y_pred):
+def guided_MSE(y_true, y_pred):
     # want slighty greater than one
     if K.sign(y_pred - y_true) is 1:
         return 0.1 * K.square(y_pred - y_true)
@@ -187,7 +187,7 @@ def mean_pred(y_true, y_pred):
     return y_pred
 
 
-def GetLevelsetGram(model):
+def get_gram_trans_for_levelset_poly(model):
     names = [weight.name for layer in model.layers for weight in layer.weights]
     weights = model.get_weights()
     gram_weights = []

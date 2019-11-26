@@ -366,7 +366,7 @@ def IQC_tanh(x, y):
                       (y - x) * y))
 
 
-# def LPCandidateForV(phi, dphidx, f, num_samples=None):
+# def solve_LP_for_V(phi, dphidx, f, num_samples=None):
 #     if num_samples is None:
 #         num_samples = phi.shape[0]
 #     monomial_dim = phi.shape[-1]

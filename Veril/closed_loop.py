@@ -20,8 +20,8 @@ from keras import backend as K
 from keras.utils import CustomObjectScope
 from keras.models import load_model
 
-from Veril import Plants
-from Veril.CustomLayers import JanetController
+from Veril import plants
+from Veril.custom_layers import JanetController
 # import itertools
 
 
@@ -83,7 +83,7 @@ def batchSim(CL, timesteps, num_samples=10000, init=None):
 
 
 def originalSysInitialV(CL):
-    plant = Plants.get(CL.plant_name, CL.dt, CL.obs_idx)
+    plant = plants.get(CL.plant_name, CL.dt, CL.obs_idx)
     A0 = CL.linearize()
     full_dim = plant.num_states + CL.units
     prog = MathematicalProgram()
@@ -304,7 +304,7 @@ class TanhPolyCL(ClosedLoopSys):
         self.recurrent_kernel_c = (K.eval(CL.cell.recurrent_kernel_c))
         self.kernel_c = (K.eval(CL.cell.kernel_c))
 
-        self.plant = Plants.get(CL.plant_name, CL.dt, CL.obs_idx)
+        self.plant = plants.get(CL.plant_name, CL.dt, CL.obs_idx)
         self.nx = CL.cell.num_plant_states
         self.units = CL.units
         self.dt = CL.dt

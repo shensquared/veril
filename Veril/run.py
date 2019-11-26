@@ -10,11 +10,11 @@ from keras.callbacks import ModelCheckpoint
 import h5py
 import numpy as np
 
-import Plants
-import Verifier
-import ClosedLoop
-from CustomLayers import JanetController
-import SampledLyap
+from Veril import plants
+import verifier
+import closed_loop
+from custom_layers import JanetController
+import sample_lyap
 import sample_variety
 from util.plot_funnel import plot_funnel
 from util.samples import withinLevelSet
@@ -45,7 +45,7 @@ def train(pre_trained=None, **kwargs):
     tag = kwargs.pop('tag')
     plant_name = kwargs.pop('plant_name')
 
-    plant = Plants.get(plant_name, dt, obs_idx)
+    plant = plants.get(plant_name, dt, obs_idx)
     if pre_trained is None:
         [init_x, init_c, ext_in] = [
             Input(shape=(plant.num_states,), name='init_x'),
@@ -83,7 +83,7 @@ def train(pre_trained=None, **kwargs):
 
 
 def verifyVDP(max_deg=3, method='SGD'):
-    vdp = ClosedLoop.VanderPol()
+    vdp = closed_loop.VanderPol()
     sym_x = vdp.sym_x
     model = None
     train_x = np.load('../data/VDP/stableSamples.npy')
@@ -92,24 +92,24 @@ def verifyVDP(max_deg=3, method='SGD'):
     vdp.set_features(max_deg)
     [phi, dphidx, f] = vdp.get_features(train_x)
 
-    verifierOptions = Verifier.opt(vdp.num_states, vdp.degf, do_balance=False,
+    verifierOptions = verifier.opt(vdp.num_states, vdp.degf, do_balance=False,
                                    degV=2 * max_deg, converged_tol=1e-2,
                                    max_iterations=1)
     for i in range(verifierOptions.max_iterations):
         if method is 'SGD':
             y = np.zeros(phi.shape)
             if model is None:
-                model = SampledLyap.polyModel(vdp.num_states, max_deg)
+                model = sample_lyap.poly_model_for_V(vdp.num_states, max_deg)
             history = model.fit([phi, dphidx, f], y, epochs=15)
             if history.history['loss'][-1] >= 0:
                 break
             else:
-                P = SampledLyap.GetGram(model)
+                P = sample_lyap.get_gram_for_V(model)
         else:
-            P = Verifier.LPCandidateForV(phi, dphidx, f, num_samples=None)
+            P = verifier.solve_LP_for_V(phi, dphidx, f, num_samples=None)
         V0 = vdp.sym_phi.T@P@vdp.sym_phi
         Vdot = vdp.sym_phi.T@P@vdp.sym_dphidx@vdp.sym_f
-        V = Verifier.levelset_sos(sym_x, V0, vdp.sym_f, verifierOptions)
+        V = verifier.levelset_sos(sym_x, V0, vdp.sym_f, verifierOptions)
 
         plot_funnel(V)
     vdp.set_levelset_features(V0, 8)
@@ -117,8 +117,8 @@ def verifyVDP(max_deg=3, method='SGD'):
 
 
 def verify_closed_loop(max_deg=2):
-    CL, model_file_name = ClosedLoop.get_NNorCL(**options)
-    augedSys = ClosedLoop.TanhPolyCL(CL, model_file_name, taylor_approx=True)
+    CL, model_file_name = closed_loop.get_NNorCL(**options)
+    augedSys = closed_loop.TanhPolyCL(CL, model_file_name, taylor_approx=True)
     augedSys.set_features(max_deg)
     samples = augedSys.sample_init_states_w_tanh(
         30000, lb=-.01, ub=.01)
@@ -127,18 +127,18 @@ def verify_closed_loop(max_deg=2):
     y = np.zeros(phi.shape)
     nx = augedSys.num_states
     degf = augedSys.degf
-    model = SampledLyap.polyModel(nx, max_deg)
+    model = sample_lyap.poly_model_for_V(nx, max_deg)
     history = model.fit([phi, dphidx, f], y, epochs=100, shuffle=True)
-    verifierOptions = Verifier.opt(nx, degf, do_balance=False, degV=2 *
+    verifierOptions = verifier.opt(nx, degf, do_balance=False, degV=2 *
                                    max_deg, converged_tol=1e-2,
                                    max_iterations=20)
     for i in range(verifierOptions.max_iterations):
         if history.history['loss'][-1] >= 0:
             break
         else:
-            P = SampledLyap.GetGram(model)
+            P = sample_lyap.get_gram_for_V(model)
             V0 = augedSys.sym_phi.T@P@augedSys.sym_phi
-            V = Verifier.levelset_sos(
+            V = verifier.levelset_sos(
                 augedSys.sym_x, V0, augedSys.verifi_f, verifierOptions)
 
 
@@ -151,7 +151,7 @@ def SGDLevelSetGramCandidate(V, vdp, max_deg=3):
     psi_deg = 8
     vdp.set_levelset_features(V, sigma_deg)
     [V, Vdot, xxd, psi, sigma] = vdp.get_levelset_features(train_x)
-    verifyModel = SampledLyap.GramDecompModelForLevelsetPoly(
+    verifyModel = sample_lyap.gram_decomp_model_for_levelsetpoly(
         vdp.num_states, sigma_deg, psi_deg)
     history = verifyModel.fit([V, Vdot, xxd, psi, sigma], train_y, epochs=100,
                               shuffle=True)
@@ -159,12 +159,12 @@ def SGDLevelSetGramCandidate(V, vdp, max_deg=3):
 
 
 V, Vdot, vdp = verifyVDP(method='SGD')
-samples = sample_variety.sample_on_variety(Vdot, 20)
-V, rho, P = sample_variety.solve_SDP_on_samples(vdp, samples)
-plot_funnel(V)
-sample_variety.check_vanishing(vdp, rho, P)
+# samples = sample_variety.sample_on_variety(Vdot, 20)
+# V, rho, P = sample_variety.solve_SDP_on_samples(vdp, samples)
+# plot_funnel(V)
+# sample_variety.check_vanishing(vdp, rho, P)
 # verifyModel = SGDLevelSetGramCandidate(V, vdp)
-# [gram, g, rho, L] = SampledLyap.GetLevelsetGram(verifyModel)
+# [gram, g, rho, L] = sample_lyap.get_gram_trans_for_levelset_poly(verifyModel)
 # print('rho is %s' %rho)
 #
 #
@@ -172,13 +172,13 @@ sample_variety.check_vanishing(vdp, rho, P)
 # # pp = vdp.get_levelset_features(x)
 # # print(verifyModel.predict(pp))
 #
-# # Verifier.check_residual(vdp, gram, rho, L, x)
+# # verifier.check_residual(vdp, gram, rho, L, x)
 # # vdp.set_levelset_features(V, 8)
-# V = Verifier.levelset_w_feature_transformation(vdp, gram, g, L1)
+# V = verifier.levelset_w_feature_transformation(vdp, gram, g, L1)
 # plot_funnel(V)
 #
-# # verify_closed_loop(max_deg=2)
-# # train(**options)
-# # CL, model_file_name = ClosedLoop.get_NNorCL(**options)
-# # augedSys = ClosedLoop.TanhPolyCL(CL, model_file_name, taylor_approx=True)
+# verify_closed_loop(max_deg=2)
+# train(**options)
+# # CL, model_file_name = closed_loop.get_NNorCL(**options)
+# # augedSys = closed_loop.TanhPolyCL(CL, model_file_name, taylor_approx=True)
 # # augedSys.linearizeTanhPolyCL()

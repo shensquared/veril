@@ -9,7 +9,7 @@ import pydrake.symbolic as sym
 from pydrake.all import (MathematicalProgram, Polynomial, SolutionResult,
                          Solve, Jacobian, Evaluate, RealContinuousLyapunovEquation, Substitute)
 from scipy.linalg import solve_lyapunov, solve_discrete_lyapunov
-from Veril.Verifier import *
+from Veril.verifier import *
 
 
 # plant = 'Cubic'

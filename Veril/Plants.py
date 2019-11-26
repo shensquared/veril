@@ -148,7 +148,7 @@ class Satellite(Plant):
         # self.states = np.random.uniform(lb, ub, (1,self.num_states))
         # self.states = K.random_uniform((self.num_states,), lb, ub)
 
-    def Sigma(self, alpha):
+    def sigma(self, alpha):
         # accepts alpha of shape (None,3)
         # [a1, a2, a3] = alpha
         # return np.array([[0, -a3, a2], [a3, 0, -a1], [-a2, a1, 0]])
@@ -183,15 +183,15 @@ class Satellite(Plant):
                                    [1, 0, 0], [0, 1, 0], [0, 0, 1]],
                                   shape=(6, 3)))
         # CT dynamics:
-        # H*dot(w)=-Sigma(w)*H*w+u, or equivalently:
-        # dot(w)=H_inv*(-Sigma(w)*H*w+u), forward Euler
-        # w2=w+(H_inv.dot(np.dot(-self.Sigma(w),np.dot(H,w))+u))*self.dt
+        # H*dot(w)=-sigma(w)*H*w+u, or equivalently:
+        # dot(w)=H_inv*(-sigma(w)*H*w+u), forward Euler
+        # w2=w+(H_inv.dot(np.dot(-self.sigma(w),np.dot(H,w))+u))*self.dt
         _ = K.transpose(K.dot(H, K.transpose(w)))
         _ = self.dt * K.dot(H_inv, -K.transpose(self.cross(w, _)))
         _ = K.transpose(_)
         w2 = (w + _) + K.transpose(K.dot(H_inv, K.transpose(u)) * self.dt)
 
-        # dot(phi)=.5*(eye+phi*phi.T+Sigma(phi))*w
+        # dot(phi)=.5*(eye+phi*phi.T+sigma(phi))*w
         _ = K.dot(K.transpose(phi), phi)
         _ = .5 * K.dot(_ + eye3, K.transpose(w)) * self.dt
         _ = _ + .5 * K.transpose(self.cross(phi, w)) * self.dt
@@ -204,7 +204,7 @@ class Satellite(Plant):
         # for comparing keras and numpy behaviors:
         # np_u = np.array([4,8,7])
         # np_u = np.reshape(np_u,(3,1))
-        # np_w2=w+(H_inv.dot(np.dot(-self.Sigma(w),np.dot(H,w))+np_u))*self.dt
+        # np_w2=w+(H_inv.dot(np.dot(-self.sigma(w),np.dot(H,w))+np_u))*self.dt
         # tensor_w2=K.eval(w2)
 
         self.states = K.concatenate([w2, phi2])
@@ -220,18 +220,18 @@ class Satellite(Plant):
         w = x[:, :3]
         phi = x[:, 3:6]
         # CT dynamics:
-        # H*dot(w)=-Sigma(w)*H*w+u, or equivalently:
-        # dot(w)=H_inv*(-Sigma(w)*H*w+u), forward Euler
-        # w2=w+(H_inv.dot(np.dot(-self.Sigma(w),np.dot(H,w))+u))*self.dt
-        # _ = np.linalg.multi_dot([H_inv,-self.Sigma(w),H,w])*self.dt
+        # H*dot(w)=-sigma(w)*H*w+u, or equivalently:
+        # dot(w)=H_inv*(-sigma(w)*H*w+u), forward Euler
+        # w2=w+(H_inv.dot(np.dot(-self.sigma(w),np.dot(H,w))+u))*self.dt
+        # _ = np.linalg.multi_dot([H_inv,-self.sigma(w),H,w])*self.dt
         # dot prod realization
-        _ = K.transpose(K.dot(K.dot(K.dot(H_inv, -self.Sigma(w)), H),
+        _ = K.transpose(K.dot(K.dot(K.dot(H_inv, -self.sigma(w)), H),
                               K.transpose(w))) * self.dt
         w2 = (w + _) + K.transpose(K.dot(H_inv, K.transpose(u)) * self.dt)
 
-        # dot(phi)=.5*(eye+phi*phi.T+Sigma(phi))*w
+        # dot(phi)=.5*(eye+phi*phi.T+sigma(phi))*w
         # dot product realization
-        phi2 = phi + K.transpose(.5 * K.dot((eye3 + self.Sigma(phi) +
+        phi2 = phi + K.transpose(.5 * K.dot((eye3 + self.sigma(phi) +
                                              K.dot(K.transpose(phi), phi)),
                                             K.transpose(w))) * self.dt
         print(K.eval(K.concatenate([w2, phi2])))
