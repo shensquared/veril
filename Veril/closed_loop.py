@@ -67,10 +67,6 @@ def batchSim(CL, timesteps, num_samples=10000, init=None):
     One set is the stable trajectory and the other set is the unstable one.
 
     Args:
-        CL (TYPE): Description
-        timesteps (TYPE): Description
-        init (TYPE): Description
-        num_samples (TYPE): Description
     """
     if init is None:
         x = np.random.randn(num_samples, CL.cell.num_plant_states)
@@ -80,6 +76,19 @@ def batchSim(CL, timesteps, num_samples=10000, init=None):
     for i in range(timesteps):
         init = call_CLsys(CL, init, num_samples)
     return init
+
+
+def sample_stable_inits(model, num_samples, timesteps):
+    for this_layer in model.layers:
+        if hasattr(this_layer, 'cell'):
+            CL = this_layer
+    plant = plants.get(CL.plant_name, CL.dt, CL.obs_idx)
+    init = plant.get_data(num_samples, timesteps, CL.units, random_c=True)[0]
+    pred = model.predict(init)
+    pred_norm = np.sum(np.abs(pred)**2, axis=-1)**(1. / 2)
+    stable_init = [i[np.isclose(pred_norm, 0)] for i in init]
+    # don't need the external disturbance for now
+    return stable_init[:-1]
 
 
 def originalSysInitialV(CL):
