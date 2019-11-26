@@ -9,6 +9,7 @@ from keras import backend as K
 
 # TODO: differentiate between true CT and foward-euler CT (true DT converted)
 
+
 def get(plant_name, dt, obs_idx):
     if isinstance(plant_name, six.string_types):
         identifier = str(plant_name)
@@ -41,7 +42,7 @@ class Plant:
             Warning('WIP')
             if K.is_tensor(x):
                 return K.dot(K.constant(np.eye(self.num_states)
-                    [self.obs_idx]),x)
+                                        [self.obs_idx]), x)
             else:
                 return x[self.obs_idx]
 
@@ -52,9 +53,12 @@ class Plant:
         else:
             return xdot[self.obs_idx]
 
-    def get_data(self, num_samples, timesteps, num_units, lb=-1, ub=1):
+    def get_data(self, num_samples, timesteps, num_units, lb=-1, ub=1, random_c=False):
         init_x = np.random.uniform(lb, ub, (num_samples, self.num_states))
-        init_c = np.zeros((num_samples, num_units))
+        if random_c:
+            init_c = np.random.uniform(lb, ub, (num_samples, num_units))
+        else:
+            init_c = np.zeros((num_samples, num_units))
         ext_in = np.zeros((num_samples, timesteps, self.num_disturb))
         x = [init_x, init_c, ext_in]
         y = np.tile(self.y0, (num_samples, 1))
@@ -110,7 +114,7 @@ class Pendulum(Plant):
                 [-thetadot, 0, -s],
                 [-self.g / self.l, 0, (-self.b) / (self.m * self.l * self.l)]]
 
-    def get_data(self, num_samples, timesteps, num_units, lb=-1, ub=1):
+    def get_data(self, num_samples, timesteps, num_units, lb=-1, ub=1, random_c=False):
         # u = np.linspace(-np.pi, np.pi, np.sqrt(num_samples))
         # v = np.linspace(-1, 1, np.sqrt(num_samples))
         # u, v = np.meshgrid(u, v)
@@ -120,7 +124,10 @@ class Pendulum(Plant):
         thetadot = np.random.uniform(lb, ub, (num_samples,))
 
         init_x_train = np.array([np.sin(theta), np.cos(theta), thetadot]).T
-        init_c_train = np.zeros((num_samples, num_units))
+        if random_c:
+            init_c_train = np.random.uniform(lb, ub, (num_samples, num_units))
+        else:
+            init_c_train = np.zeros((num_samples, num_units))
         ext_in_train = np.zeros((num_samples, timesteps, self.num_disturb))
         x_train = [init_x_train, init_c_train, ext_in_train]
         y_train = np.tile(self.y0, (num_samples, 1))
