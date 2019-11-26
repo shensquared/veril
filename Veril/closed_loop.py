@@ -78,17 +78,17 @@ def batchSim(CL, timesteps, num_samples=10000, init=None):
     return init
 
 
-def sample_stable_inits(model, num_samples, timesteps):
+def sample_stable_inits(model, num_samples, timesteps, **kwargs):
     for this_layer in model.layers:
         if hasattr(this_layer, 'cell'):
             CL = this_layer
     plant = plants.get(CL.plant_name, CL.dt, CL.obs_idx)
-    init = plant.get_data(num_samples, timesteps, CL.units, random_c=True)[0]
+    init = plant.get_data(num_samples, timesteps, CL.units, random_c=True, **kwargs)[0]
     pred = model.predict(init)
     pred_norm = np.sum(np.abs(pred)**2, axis=-1)**(1. / 2)
     stable_init = [i[np.isclose(pred_norm, 0)] for i in init]
     # don't need the external disturbance for now
-    return stable_init[:-1]
+    return np.hstack(stable_init[:-1])
 
 
 def originalSysInitialV(CL):
