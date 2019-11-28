@@ -33,6 +33,15 @@ def sample_on_variety(variety, num_samples):
     return samples[1:, :]
 
 
+def coordinate_ring_transform(sampled_monomials):
+    [u, s, v] = np.linalg.svd(sampled_monomials)
+    tol = max(sampled_monomials.shape) * s[0] * 1e-16
+    n = sum(s > tol)
+    q = v[:, :n].T
+    T = u@np.diag(s)[:, :n]
+    return q, T
+
+
 def solve_SDP_on_samples(system, samples):
     prog = MathematicalProgram()
 
