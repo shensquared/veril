@@ -61,17 +61,18 @@ def coordinate_ring_transform(sampled_monomials):
     return U_transformed.T, T, n
 
 
-def solve_SDP_on_samples(system, samples):
-    prog = MathematicalProgram()
+def solve_SDP_on_samples(system, samples, do_transform=False):
+    [V, Vdot, xxd, psi, sigma] = system.get_levelset_features(samples)
 
+    prog = MathematicalProgram()
     rho = prog.NewContinuousVariables(1, "r")[0]
     prog.AddConstraint(rho >= 0)
+    if do_transform:
+        psi, T, n = coordinate_ring_transform(psi)
 
-    dim_psi = system.sym_psi.shape[0]
+    dim_psi = psi.shape[1]
     P = prog.NewSymmetricContinuousVariables(dim_psi, "P")
     prog.AddPositiveSemidefiniteConstraint(P)
-
-    [V, Vdot, xxd, psi, sigma] = system.get_levelset_features(samples)
 
     for i in range(samples.shape[0]):
         residual = xxd[i] * (V[i] - rho) - psi[i].T@P@psi[i]
