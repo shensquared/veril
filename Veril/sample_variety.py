@@ -34,12 +34,31 @@ def sample_on_variety(variety, num_samples):
 
 
 def coordinate_ring_transform(sampled_monomials):
-    [u, s, v] = np.linalg.svd(sampled_monomials)
-    tol = max(sampled_monomials.shape) * s[0] * 1e-16
-    n = sum(s > tol)
-    q = v[:, :n].T
-    T = u@np.diag(s)[:, :n]
-    return q, T
+    """reduce the dimensionality of the sampled-monimials by taking advantage
+    of the coordiate ring structure (similar to Gaussian elimination used in
+    Grobner basis)
+
+    Args:
+        sampled_monomials: (num_samples, monomial_dim)
+        U =sampled_monomials.T (monomial_dim, num_samples)
+        [u,s,v] = svd(U)
+        n = # of non-zero values in s
+        U= T@U_transformed, where
+        T:(monomial_dim, n),
+        U_transformed:(n,num_samples)
+
+    Returns:
+        U_transformed.T (num_samples, reduced_monomials)
+    """
+    U = sampled_monomials.T
+    [u, diag_s, v] = np.linalg.svd(U)
+    tol = max(U.shape) * diag_s[0] * 1e-16
+    n = sum(diag_s > tol)
+    s = np.zeros(U.shape)
+    np.fill_diagonal(s, diag_s)
+    U_transformed = v[:n, :]
+    T = u@s[:, :n]
+    return U_transformed.T, T, n
 
 
 def solve_SDP_on_samples(system, samples):
