@@ -61,26 +61,26 @@ def coordinate_ring_transform(sampled_monomials):
     return U_transformed.T, T, n
 
 
-def prune_sample(V):
+def prune_sample(all_samples):
     """returns the number of samples necessary
 
     Args:
-        V (TYPE): (m,n), current samples,
+        all_samples (TYPE): (m,n), current samples,
         m (TYPE): current number of samples
         n (TYPE): monomial_dim (or reduced_monomial if do_transformation)
     """
-    m, n = V.shape
+    m, n = all_samples.shape
     n2 = n * (n + 1) / 2
     m0 = min(m, n2)
-    V0 = V[:m0, :]
+    sub_samples = all_samples[:m0, :]
 
-    c = np.power(V0@V0.T, 2)  # c = q'*q
+    c = np.power(sub_samples@sub_samples.T, 2)  # c = q'*q
     s = abs(np.linalg.eig(c)[0])
     tol = max(c.shape) * np.spacing(max(s))
-    r = sum(s > tol)
-    if r == m0 and r < n2:
+    sample_rank = sum(s > tol)
+    if sample_rank == m0 and sample_rank < n2:
         print('Insufficient samples!!')
-    return r
+    return sample_rank, sub_samples
 
 
 def solve_SDP_on_samples(system, samples, do_transform=False):
@@ -91,13 +91,13 @@ def solve_SDP_on_samples(system, samples, do_transform=False):
     prog.AddConstraint(rho >= 0)
     if do_transform:
         psi, T, n = coordinate_ring_transform(psi)
-    r = prune_sample(psi)
-
+    rank, psi = prune_sample(psi)
+    print('sample rank is %s' %rank)
     dim_psi = psi.shape[1]
     P = prog.NewSymmetricContinuousVariables(dim_psi, "P")
     prog.AddPositiveSemidefiniteConstraint(P)
 
-    for i in range(samples.shape[0]):
+    for i in range(psi.shape[0]):
         residual = xxd[i] * (V[i] - rho) - psi[i].T@P@psi[i]
         prog.AddConstraint(residual[0] == 0)
 
@@ -120,4 +120,5 @@ def check_vanishing(system, rho, P):
     for i in range(test_samples.shape[0]):
         levelset = (xxd[i] * (V[i] - rho))[0]
         candidate = psi[i].T@P@psi[i]
+        print('two polynomials evaluation ratio %s' %(levelset/candidate))
         assert(np.isclose(levelset, candidate, rtol=1e-04))
