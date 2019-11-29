@@ -61,6 +61,28 @@ def coordinate_ring_transform(sampled_monomials):
     return U_transformed.T, T, n
 
 
+def prune_sample(V):
+    """returns the number of samples necessary
+
+    Args:
+        V (TYPE): (m,n), current samples,
+        m (TYPE): current number of samples
+        n (TYPE): monomial_dim (or reduced_monomial if do_transformation)
+    """
+    m, n = V.shape
+    n2 = n * (n + 1) / 2
+    m0 = min(m, n2)
+    V0 = V[:m0, :]
+
+    c = np.power(V0@V0.T, 2)  # c = q'*q
+    s = abs(np.linalg.eig(c)[0])
+    tol = max(c.shape) * np.spacing(max(s))
+    r = sum(s > tol)
+    if r == m0 and r < n2:
+        print('Insufficient samples!!')
+    return r
+
+
 def solve_SDP_on_samples(system, samples, do_transform=False):
     [V, Vdot, xxd, psi, sigma] = system.get_levelset_features(samples)
 
@@ -69,6 +91,7 @@ def solve_SDP_on_samples(system, samples, do_transform=False):
     prog.AddConstraint(rho >= 0)
     if do_transform:
         psi, T, n = coordinate_ring_transform(psi)
+    r = prune_sample(psi)
 
     dim_psi = psi.shape[1]
     P = prog.NewSymmetricContinuousVariables(dim_psi, "P")
