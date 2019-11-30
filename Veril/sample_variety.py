@@ -8,12 +8,28 @@ from pydrake.all import (Polynomial, Variable, Variables, Evaluate, Substitute,
                          MathematicalProgram, MosekSolver)
 
 
-def sample_on_variety(variety, num_samples):
+def sample_on_variety(variety, num_attempts):
+    """returns the pure 'x' samples on one given variety. i.e. return the roots
+    to the given multi-variate polynomial. Note that, due to the numerical
+    accuracy of numpy's polyroots, only returning all the real roots.
+    Args:
+        variety (Pydrake expression or polynomial): the variety-defining
+        polynomial
+        num_attempts (int): number of 'attempts' of turning the multi-variate
+        into univarite, i.e., the final num_roots != num_attempts. (since
+        there're d complex roots for a univariate polynomial of degree d, and
+        thus more than 1 real root)
+
+    Returns:
+        n_roots-by-num_states(num_x in the variety): all real roots for the
+        univarite polynomial coming from the num_attempts attemps of
+        transformation
+    """
     x = np.array(list(variety.GetVariables()))
     nx = x.shape[0]
     t = Variable('t')
     samples = np.zeros((2,))
-    for i in range(num_samples):
+    for i in range(num_attempts):
         alphas = np.random.uniform(-1, 1, nx)
         betas = np.random.uniform(-1, 1, nx)
         parameterization = alphas * t + betas
@@ -31,6 +47,22 @@ def sample_on_variety(variety, num_samples):
         root_x = root_x[np.isclose(varitey_x, 0, atol=4e-12), :]
         samples = np.vstack([samples, root_x])
     return samples[1:, :]
+
+
+def sample_to_monomials(system, variety, num_samples, do_transform=False):
+    enough_samples = False
+    sufficient_samples = 0
+    while not enough_samples:
+        samples = sample_on_variety(variety, num_samples + sufficient_samples)
+        [V, Vdot, xxd, psi, sigma] = system.get_levelset_features(samples)
+        if do_transform:
+            psi, T, n = coordinate_ring_transform(psi)
+        enough_samples, sufficient_num_samples = prune_sample(psi)
+        print('sample rank is %s' % sufficient_num_samples)
+
+    return [V[:sufficient_num_samples], Vdot[:sufficient_num_samples], xxd
+            [:sufficient_num_samples], psi[:sufficient_num_samples, :], sigma
+            [:sufficient_num_samples, :]]
 
 
 def coordinate_ring_transform(sampled_monomials):
@@ -65,10 +97,11 @@ def prune_sample(all_samples):
     """returns the number of samples necessary
 
     Args:
-        all_samples (TYPE): (m,n), current samples,
-        m (TYPE): current number of samples
-        n (TYPE): monomial_dim (or reduced_monomial if do_transformation)
+        all_samples (ndarry): (m,n), current samples,
+        m (int): current number of samples
+        n (int): monomial_dim (or reduced_monomial if do_transformation)
     """
+    enough_samples = True
     m, n = all_samples.shape
     n2 = n * (n + 1) / 2
     m0 = min(m, n2)
@@ -79,20 +112,17 @@ def prune_sample(all_samples):
     tol = max(c.shape) * np.spacing(max(s))
     sample_rank = sum(s > tol)
     if sample_rank == m0 and sample_rank < n2:
+        enough_samples = False
         print('Insufficient samples!!')
-    return sample_rank, sub_samples
+    return enough_samples, m0
 
 
-def solve_SDP_on_samples(system, samples, do_transform=False):
-    [V, Vdot, xxd, psi, sigma] = system.get_levelset_features(samples)
-
+def solve_SDP_on_samples(system, sampled_quantities):
     prog = MathematicalProgram()
     rho = prog.NewContinuousVariables(1, "r")[0]
     prog.AddConstraint(rho >= 0)
-    if do_transform:
-        psi, T, n = coordinate_ring_transform(psi)
-    rank, psi = prune_sample(psi)
-    print('sample rank is %s' %rank)
+
+    [V, Vdot, xxd, psi, sigma] = sampled_quantities
     dim_psi = psi.shape[1]
     P = prog.NewSymmetricContinuousVariables(dim_psi, "P")
     prog.AddPositiveSemidefiniteConstraint(P)
@@ -117,8 +147,14 @@ def solve_SDP_on_samples(system, samples, do_transform=False):
 def check_vanishing(system, rho, P):
     test_samples = sample_on_variety(system.sym_Vdot, 1)
     [V, Vdot, xxd, psi, sigma] = system.get_levelset_features(test_samples)
+    idx = []
+    isVanishing = True
     for i in range(test_samples.shape[0]):
         levelset = (xxd[i] * (V[i] - rho))[0]
         candidate = psi[i].T@P@psi[i]
-        print('two polynomials evaluation ratio %s' %(levelset/candidate))
-        assert(np.isclose(levelset, candidate, rtol=1e-04))
+        ratio = levelset / candidate
+        print('two polynomials evals ratio %s' % ratio)
+        if abs(ratio-1) > 1e-2:
+            isVanishing = False
+            idx += [i]
+    return isVanishing, [V[idx], Vdot[idx], xxd[idx], psi[idx], sigma[idx]]

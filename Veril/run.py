@@ -159,10 +159,15 @@ def SGDLevelSetGramCandidate(V, vdp, max_deg=3):
 
 
 V, Vdot, vdp = verifyVDP(method='SGD')
-# samples = sample_variety.sample_on_variety(Vdot, 20)
-# V, rho, P = sample_variety.solve_SDP_on_samples(vdp, samples)
-# plot_funnel(V)
-# sample_variety.check_vanishing(vdp, rho, P)
+isVanishing = False
+samples = sample_variety.sample_to_monomials(vdp, Vdot, 20)
+while not isVanishing:
+    V, rho, P = sample_variety.solve_SDP_on_samples(vdp, samples)
+    isVanishing, new_samples = sample_variety.check_vanishing(vdp, rho, P)
+    samples = [np.vstack(i) for i in zip(samples, new_samples)]
+plot_funnel(V)
+
+
 # verifyModel = SGDLevelSetGramCandidate(V, vdp)
 # [gram, g, rho, L] = sample_lyap.get_gram_trans_for_levelset_poly(verifyModel)
 # print('rho is %s' %rho)
@@ -179,6 +184,12 @@ V, Vdot, vdp = verifyVDP(method='SGD')
 #
 # verify_closed_loop(max_deg=2)
 # train(**options)
-# # CL, model_file_name = closed_loop.get_NNorCL(**options)
-# # augedSys = closed_loop.TanhPolyCL(CL, model_file_name, taylor_approx=True)
+# old_sampels = np.load('DIsamples.npy')
+# model, model_file_name = closed_loop.get_NNorCL(NNorCL='NN', **options)
+# samples =closed_loop.sample_stable_inits(model, 20000, 1000, lb=-1.5,ub=1.5)
+# np.save('DIsamples', np.vstack([old_sampels,samples]))
+
+# closed_loop.originalSysInitialV(CL)
+# augedSys = closed_loop.TanhPolyCL(CL, model_file_name, taylor_approx=True)
+# augedSys.do_linearization(which_dynamics='nonlinear')
 # # augedSys.linearizeTanhPolyCL()
