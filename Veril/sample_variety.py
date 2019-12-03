@@ -8,28 +8,28 @@ from pydrake.all import (Polynomial, Variable, Variables, Evaluate, Substitute,
                          MathematicalProgram, MosekSolver)
 
 
-def sample_on_variety(variety, num_attempts):
+def sample_on_variety(variety, root_threads):
     """returns the pure 'x' samples on one given variety. i.e. return the roots
     to the given multi-variate polynomial. Note that, due to the numerical
     accuracy of numpy's polyroots, only returning all the real roots.
     Args:
         variety (Pydrake expression or polynomial): the variety-defining
         polynomial
-        num_attempts (int): number of 'attempts' of turning the multi-variate
-        into univarite, i.e., the final num_roots != num_attempts. (since
+        root_threads (int): number of 'attempts' of turning the multi-variate
+        into univarite, i.e., the final num_roots != root_threads. (since
         there're d complex roots for a univariate polynomial of degree d, and
         thus more than 1 real root)
 
     Returns:
         n_roots-by-num_states(num_x in the variety): all real roots for the
-        univarite polynomial coming from the num_attempts attemps of
+        univarite polynomial coming from the root_threads attemps of
         transformation
     """
     x = np.array(list(variety.GetVariables()))
     nx = x.shape[0]
     t = Variable('t')
     samples = np.zeros((2,))
-    for i in range(num_attempts):
+    for i in range(root_threads):
         alphas = np.random.uniform(-1, 1, nx)
         betas = np.random.uniform(-1, 1, nx)
         parameterization = alphas * t + betas
@@ -49,11 +49,11 @@ def sample_on_variety(variety, num_attempts):
     return samples[1:, :]
 
 
-def sample_to_monomials(system, variety, num_samples, do_transform=False):
+def sample_to_monomials(system, variety, root_threads, do_transform=False):
     enough_samples = False
     sufficient_samples = 0
     while not enough_samples:
-        samples = sample_on_variety(variety, num_samples + sufficient_samples)
+        samples = sample_on_variety(variety, root_threads + sufficient_samples)
         [V, Vdot, xxd, psi, sigma] = system.get_levelset_features(samples)
         if do_transform:
             psi, T, n = coordinate_ring_transform(psi)
