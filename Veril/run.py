@@ -16,7 +16,7 @@ import closed_loop
 from custom_layers import JanetController
 import sample_lyap
 import sample_variety
-from util.plot_funnel import plot_funnel
+from util.plots import *
 from util.samples import withinLevelSet
 
 options = {
