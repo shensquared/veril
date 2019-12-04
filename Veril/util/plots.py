@@ -13,7 +13,7 @@ def plot_funnel(V):
 
 
 def scatterSamples(samples):
-    plt.scatter(samples[:, 0], samples[:1])
+    plt.scatter(samples[:, 0], samples[:,1])
     xlim = np.load('../data/VDP/VanDerPol_limitCycle.npy')
     bdry = plt.plot(xlim[0, :], xlim[1, :], color='red', label='ROA boundary')
     plt.show()
