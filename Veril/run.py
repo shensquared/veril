@@ -157,17 +157,19 @@ def SGDLevelSetGramCandidate(V, vdp, max_deg=3):
                               shuffle=True)
     return verifyModel
 
+def verify_varity(system, variety, root_threads):
+    isVanishing = False
+    samples = sample_variety.sample_to_monomials(system, variety, root_threads)
+    while not isVanishing:
+        V, rho, P = sample_variety.solve_SDP_on_samples(vdp, samples)
+        isVanishing, new_samples = sample_variety.check_vanishing(vdp, rho, P)
+        samples = [np.vstack(i) for i in zip(samples, new_samples)]
+    plot_funnel(V)
 
 V, Vdot, vdp = verifyVDP(method='SGD')
-isVanishing = False
-samples = sample_variety.sample_to_monomials(vdp, Vdot, 20)
-while not isVanishing:
-    V, rho, P = sample_variety.solve_SDP_on_samples(vdp, samples)
-    isVanishing, new_samples = sample_variety.check_vanishing(vdp, rho, P)
-    samples = [np.vstack(i) for i in zip(samples, new_samples)]
-plot_funnel(V)
-
-
+vdp.set_sample_variety_features(V)
+# scatterSamples(sample_variety.sample_on_variety(Vdot,30))
+verify_varity(vdp,Vdot, 30)
 # verifyModel = SGDLevelSetGramCandidate(V, vdp)
 # [gram, g, rho, L] = sample_lyap.get_gram_trans_for_levelset_poly(verifyModel)
 # print('rho is %s' %rho)

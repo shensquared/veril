@@ -197,6 +197,13 @@ class ClosedLoopSys(object):
             sigma[i, :] = [i.Evaluate(env) for i in self.sym_sigma]
         return [V, Vdot, xxd, psi, sigma]
 
+    def set_sample_variety_features(self, V):
+        # this requires far lower degreed multiplier xxd and consequentially
+        # lower degree psi, re-write both
+        deg = int(np.ceil((self.degVdot - self.degV) / 2))
+        self.sym_xxd = (self.sym_x.T@self.sym_x)**(deg)
+        psi_deg = int(((2 * deg + self.degV) / 2))
+        self.sym_psi = get_monomials(self.sym_x, psi_deg, remove_one=False)
 
 class VanderPol(ClosedLoopSys):
 

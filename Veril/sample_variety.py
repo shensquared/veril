@@ -44,7 +44,7 @@ def sample_on_variety(variety, root_threads):
         root_x = np.array([alphas * i + betas for i in root_t])
         varitey_x = np.array([variety.Evaluate(dict(zip(x, i)))
                               for i in root_x])
-        root_x = root_x[np.isclose(varitey_x, 0, atol=4e-12), :]
+        root_x = root_x[np.isclose(varitey_x, 0, atol=4e-13), :]
         samples = np.vstack([samples, root_x])
     return samples[1:, :]
 
@@ -54,15 +54,14 @@ def sample_to_monomials(system, variety, root_threads, do_transform=False):
     sufficient_samples = 0
     while not enough_samples:
         samples = sample_on_variety(variety, root_threads + sufficient_samples)
-        [V, Vdot, xxd, psi, sigma] = system.get_levelset_features(samples)
+        [V, Vdot, xxd, psi, _] = system.get_levelset_features(samples)
         if do_transform:
             psi, T, n = coordinate_ring_transform(psi)
         enough_samples, sufficient_num_samples = prune_sample(psi)
         print('sample rank is %s' % sufficient_num_samples)
 
     return [V[:sufficient_num_samples], Vdot[:sufficient_num_samples], xxd
-            [:sufficient_num_samples], psi[:sufficient_num_samples, :], sigma
-            [:sufficient_num_samples, :]]
+            [:sufficient_num_samples], psi[:sufficient_num_samples, :]]
 
 
 def coordinate_ring_transform(sampled_monomials):
@@ -122,7 +121,7 @@ def solve_SDP_on_samples(system, sampled_quantities):
     rho = prog.NewContinuousVariables(1, "r")[0]
     prog.AddConstraint(rho >= 0)
 
-    [V, Vdot, xxd, psi, sigma] = sampled_quantities
+    [V, Vdot, xxd, psi] = sampled_quantities
     dim_psi = psi.shape[1]
     P = prog.NewSymmetricContinuousVariables(dim_psi, "P")
     prog.AddPositiveSemidefiniteConstraint(P)
