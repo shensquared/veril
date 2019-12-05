@@ -157,9 +157,9 @@ def SGDLevelSetGramCandidate(V, vdp, max_deg=3):
                               shuffle=True)
     return verifyModel
 
-def verify_varity(system, variety, root_threads):
+def verify_varity(system, variety, init_root_threads):
     isVanishing = False
-    samples = sample_variety.sample_to_monomials(system, variety, root_threads)
+    samples = sample_variety.sample_monomials(system, variety, init_root_threads)
     while not isVanishing:
         V, rho, P = sample_variety.solve_SDP_on_samples(vdp, samples)
         isVanishing, new_samples = sample_variety.check_vanishing(vdp, rho, P)

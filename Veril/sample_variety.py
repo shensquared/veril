@@ -44,12 +44,12 @@ def sample_on_variety(variety, root_threads):
         root_x = np.array([alphas * i + betas for i in root_t])
         varitey_x = np.array([variety.Evaluate(dict(zip(x, i)))
                               for i in root_x])
-        root_x = root_x[np.isclose(varitey_x, 0, atol=4e-13), :]
+        root_x = root_x[np.isclose(varitey_x, 0, atol=4e-12), :]
         samples = np.vstack([samples, root_x])
     return samples[1:, :]
 
 
-def sample_to_monomials(system, variety, root_threads, do_transform=False):
+def sample_monomials(system, variety, root_threads, do_transform=False):
     enough_samples = False
     sufficient_samples = 0
     while not enough_samples:
@@ -63,15 +63,14 @@ def sample_to_monomials(system, variety, root_threads, do_transform=False):
     return [V[:sufficient_num_samples], Vdot[:sufficient_num_samples], xxd
             [:sufficient_num_samples], psi[:sufficient_num_samples, :]]
 
-
-def coordinate_ring_transform(sampled_monomials):
+def coordinate_ring_transform(monomial_samples):
     """reduce the dimensionality of the sampled-monimials by taking advantage
     of the coordiate ring structure (similar to Gaussian elimination used in
     Grobner basis)
 
     Args:
-        sampled_monomials: (num_samples, monomial_dim)
-        U =sampled_monomials.T (monomial_dim, num_samples)
+        monomial_samples: (num_samples, monomial_dim)
+        U =monomial_samples.T (monomial_dim, num_samples)
         [u,s,v] = svd(U)
         n = # of non-zero values in s
         U= T@U_transformed, where
@@ -81,7 +80,7 @@ def coordinate_ring_transform(sampled_monomials):
     Returns:
         U_transformed.T (num_samples, reduced_monomials)
     """
-    U = sampled_monomials.T
+    U = monomial_samples.T
     [u, diag_s, v] = np.linalg.svd(U)
     tol = max(U.shape) * diag_s[0] * 1e-16
     n = sum(diag_s > tol)
@@ -92,13 +91,19 @@ def coordinate_ring_transform(sampled_monomials):
     return U_transformed.T, T, n
 
 
-def prune_sample(all_samples):
-    """returns the number of samples necessary
+def check_genericity(all_samples):
+    """check the rank condition of the samples to make sure the genericity is
+    satisfied
 
     Args:
         all_samples (ndarry): (m,n), current samples,
         m (int): current number of samples
         n (int): monomial_dim (or reduced_monomial if do_transformation)
+    Returns:
+        enough_samples (Bool): if the current sample set is generic enough
+        m0 (int): current samples rank, gives good indicator of whether to
+        augment or truncate the current sample set
+        diff_m (int): m-m0
     """
     enough_samples = True
     m, n = all_samples.shape
@@ -113,7 +118,8 @@ def prune_sample(all_samples):
     if sample_rank == m0 and sample_rank < n2:
         enough_samples = False
         print('Insufficient samples!!')
-    return enough_samples, m0
+    diff_m = m - m0
+    return enough_samples, m0, diff_m
 
 
 def solve_SDP_on_samples(system, sampled_quantities):
@@ -123,6 +129,7 @@ def solve_SDP_on_samples(system, sampled_quantities):
 
     [V, Vdot, xxd, psi] = sampled_quantities
     dim_psi = psi.shape[1]
+    print('SDP size is %s' %dim_psi)
     P = prog.NewSymmetricContinuousVariables(dim_psi, "P")
     prog.AddPositiveSemidefiniteConstraint(P)
 
@@ -153,7 +160,7 @@ def check_vanishing(system, rho, P):
         candidate = psi[i].T@P@psi[i]
         ratio = levelset / candidate
         print('two polynomials evals ratio %s' % ratio)
-        if abs(ratio-1) > 1e-2:
+        if abs(ratio - 1) > 1e-2:
             isVanishing = False
             idx += [i]
     return isVanishing, [V[idx], Vdot[idx], xxd[idx], psi[idx], sigma[idx]]
