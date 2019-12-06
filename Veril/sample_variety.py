@@ -29,7 +29,8 @@ def sample_on_variety(variety, root_threads):
     nx = x.shape[0]
     t = Variable('t')
     samples = np.zeros((2,))
-    for i in range(root_threads):
+    num_roots = 0
+    while num_roots < root_threads:
         alphas = np.random.uniform(-1, 1, nx)
         betas = np.random.uniform(-1, 1, nx)
         parameterization = alphas * t + betas
@@ -46,6 +47,7 @@ def sample_on_variety(variety, root_threads):
                               for i in root_x])
         root_x = root_x[np.isclose(varitey_x, 0, atol=4e-12), :]
         samples = np.vstack([samples, root_x])
+        num_roots = samples.shape[0] - 1
     return samples[1:, :]
 
 
