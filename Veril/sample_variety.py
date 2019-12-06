@@ -48,22 +48,22 @@ def sample_on_variety(variety, root_threads):
         root_x = root_x[np.isclose(varitey_x, 0, atol=4e-12), :]
         samples = np.vstack([samples, root_x])
         num_roots = samples.shape[0] - 1
-    return samples[1:, :]
+    return samples[1:1 + root_threads, :]
 
 
 def sample_monomials(system, variety, root_threads, do_transform=False):
     enough_samples = False
-    sufficient_samples = 0
+    diff_m = 0
+    samples = sample_on_variety(variety, root_threads)
     while not enough_samples:
-        samples = sample_on_variety(variety, root_threads + sufficient_samples)
+        new_samples = sample_on_variety(variety, 1)
+        samples = np.vstack([samples, new_samples])
         [V, Vdot, xxd, psi, _] = system.get_levelset_features(samples)
         if do_transform:
             psi, T, n = coordinate_ring_transform(psi)
-        enough_samples, sufficient_num_samples = prune_sample(psi)
-        print('sample rank is %s' % sufficient_num_samples)
+        enough_samples = check_genericity(psi)
+    return [V, Vdot, xxd, psi]
 
-    return [V[:sufficient_num_samples], Vdot[:sufficient_num_samples], xxd
-            [:sufficient_num_samples], psi[:sufficient_num_samples, :]]
 
 def coordinate_ring_transform(monomial_samples):
     """reduce the dimensionality of the sampled-monimials by taking advantage
@@ -115,13 +115,18 @@ def check_genericity(all_samples):
 
     c = np.power(sub_samples@sub_samples.T, 2)  # c = q'*q
     s = abs(np.linalg.eig(c)[0])
-    tol = max(c.shape) * np.spacing(max(s))
+    tol = max(c.shape) * np.spacing(max(s)) / 100
     sample_rank = sum(s > tol)
     if sample_rank == m0 and sample_rank < n2:
+        # meaning m<n2 and sample full rank, use huristic and return an
+        # increase of 30%
+        # print('Insufficient samples!!')
         enough_samples = False
-        print('Insufficient samples!!')
-    diff_m = m - m0
-    return enough_samples, m0, diff_m
+        # diff_m >0, increase subsequent sampling
+        # diff_m = np.ceil((n2 - m) / 2)
+    # sample_rank by construction less than m0, so unless the previous if is
+    # true, diff_m < 0, can do subsequent down-sample
+    return enough_samples
 
 
 def solve_SDP_on_samples(system, sampled_quantities):
@@ -131,7 +136,8 @@ def solve_SDP_on_samples(system, sampled_quantities):
 
     [V, Vdot, xxd, psi] = sampled_quantities
     dim_psi = psi.shape[1]
-    print('SDP size is %s' %dim_psi)
+    print('SDP size is %s' % dim_psi)
+    print('num SDP is %s' % psi.shape[0])
     P = prog.NewSymmetricContinuousVariables(dim_psi, "P")
     prog.AddPositiveSemidefiniteConstraint(P)
 

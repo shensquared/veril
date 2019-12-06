@@ -157,9 +157,11 @@ def SGDLevelSetGramCandidate(V, vdp, max_deg=3):
                               shuffle=True)
     return verifyModel
 
-def verify_varity(system, variety, init_root_threads):
+
+def verify_varity(system, variety, init_root_threads=1):
     isVanishing = False
-    samples = sample_variety.sample_monomials(system, variety, init_root_threads)
+    samples = sample_variety.sample_monomials(
+        system, variety, init_root_threads)
     while not isVanishing:
         V, rho, P = sample_variety.solve_SDP_on_samples(vdp, samples)
         isVanishing, new_samples = sample_variety.check_vanishing(vdp, rho, P)
@@ -169,7 +171,7 @@ def verify_varity(system, variety, init_root_threads):
 V, Vdot, vdp = verifyVDP(method='SGD')
 vdp.set_sample_variety_features(V)
 # scatterSamples(sample_variety.sample_on_variety(Vdot,30))
-verify_varity(vdp,Vdot, 30)
+verify_varity(vdp, Vdot)
 # verifyModel = SGDLevelSetGramCandidate(V, vdp)
 # [gram, g, rho, L] = sample_lyap.get_gram_trans_for_levelset_poly(verifyModel)
 # print('rho is %s' %rho)
