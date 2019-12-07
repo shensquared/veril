@@ -203,6 +203,61 @@ def levelset_sos(x, V0, f, options):
     return V
 
 
+def balance_quad_form(S, P):
+    # copied from the old drake, with only syntax swap
+    #  Quadratic Form "Balancing"
+    #
+    #    T = balqf(S,P)
+    #
+    #  Input:
+    #    S -- n-by-n symmetric positive definite.
+    #    P -- n-by-n symmetric, full rank.
+    #
+    #  Finds a T such that:
+    #    T'*S*T = D
+    #    T'*P*T = D^(-1)
+
+    # if np.linalg.norm(S - S.T, 1) > 1e-8:
+        # raise Error('S must be symmetric')
+    # if np.linalg.norm(P - P.T, 1) > 1e-8:
+        # raise Error('P must be symmetric')
+    # if np.linalg.cond(P) > 1e10:
+        # raise Error('P must be full rank')
+
+    # Tests if S positive def. for us.
+    V = inv(np.linalg.cholesky(S).T)
+    [N, l, U] = np.linalg.svd((V.T.dot(P)).dot(V))
+    if N.ravel()[0] < 0:
+        N = -N
+    T = (V.dot(N)).dot(np.diag(np.power(l, -.25, dtype=float)))
+    D = np.diag(np.power(l, -.5, dtype=float))
+    return T, D
+
+
+def balance(x, V, f, S, A):
+    if S is None:
+        H = Jacobian(V.Jacobian(x).T, x)
+        env = dict(zip(x, np.zeros(x.shape)))
+        S = .5 * np.array([[i.Evaluate(env) for i in j]for j in H])
+    if A is None:
+        J = Jacobian(f, x)
+        env = dict(zip(x, np.zeros(x.shape)))
+        A = np.array([[i.Evaluate(env) for i in j]for j in J])
+    [T, D] = balance_quad_form(S, (S@A + A.T@S))
+    # print('T is %s' % (T))
+    # Sbal = (T.T)@(S)@(T)
+    Vbal = V.Substitute(dict(zip(x, T@x)))
+    fbal = inv(T)@[i.Substitute(dict(zip(x, T@x))) for i in f]
+    return T, Vbal, fbal, S, A
+
+
+def clean(poly, x, tol=1e-9):
+    if isinstance(poly, Expression):
+        poly = Polynomial(poly, x)
+    return poly.RemoveTermsWithSmallCoefficients(tol).ToExpression()
+
+
+################
 def levelset_w_feature_transformation(system, gram, g, L1):
     # dirty, hard coded everything
     f = system.sym_f
@@ -266,61 +321,6 @@ def levelset_w_feature_transformation(system, gram, g, L1):
     return V
 
 
-def balance_quad_form(S, P):
-    # copied from the old drake, with only syntax swap
-    #  Quadratic Form "Balancing"
-    #
-    #    T = balqf(S,P)
-    #
-    #  Input:
-    #    S -- n-by-n symmetric positive definite.
-    #    P -- n-by-n symmetric, full rank.
-    #
-    #  Finds a T such that:
-    #    T'*S*T = D
-    #    T'*P*T = D^(-1)
-
-    # if np.linalg.norm(S - S.T, 1) > 1e-8:
-        # raise Error('S must be symmetric')
-    # if np.linalg.norm(P - P.T, 1) > 1e-8:
-        # raise Error('P must be symmetric')
-    # if np.linalg.cond(P) > 1e10:
-        # raise Error('P must be full rank')
-
-    # Tests if S positive def. for us.
-    V = inv(np.linalg.cholesky(S).T)
-    [N, l, U] = np.linalg.svd((V.T.dot(P)).dot(V))
-    if N.ravel()[0] < 0:
-        N = -N
-    T = (V.dot(N)).dot(np.diag(np.power(l, -.25, dtype=float)))
-    D = np.diag(np.power(l, -.5, dtype=float))
-    return T, D
-
-
-def balance(x, V, f, S, A):
-    if S is None:
-        H = Jacobian(V.Jacobian(x).T, x)
-        env = dict(zip(x, np.zeros(x.shape)))
-        S = .5 * np.array([[i.Evaluate(env) for i in j]for j in H])
-    if A is None:
-        J = Jacobian(f, x)
-        env = dict(zip(x, np.zeros(x.shape)))
-        A = np.array([[i.Evaluate(env) for i in j]for j in J])
-    [T, D] = balance_quad_form(S, (S@A + A.T@S))
-    # print('T is %s' % (T))
-    # Sbal = (T.T)@(S)@(T)
-    Vbal = V.Substitute(dict(zip(x, T@x)))
-    fbal = inv(T)@[i.Substitute(dict(zip(x, T@x))) for i in f]
-    return T, Vbal, fbal, S, A
-
-
-def clean(poly, x, tol=1e-9):
-    if isinstance(poly, Expression):
-        poly = Polynomial(poly, x)
-    return poly.RemoveTermsWithSmallCoefficients(tol).ToExpression()
-
-
-################
 def check_residual(system, gram, rho, L, x_val):
     f = system.sym_f
     x = system.sym_x
@@ -343,8 +343,8 @@ def check_residual(system, gram, rho, L, x_val):
 def recast_poly_back_to_nonlinear(V, CL_sys):
     """Recast the polynomial Lyapunov candidate back to the original coornidate.
     e.g. originally, we might have recast the non-linearity sin(x) as s, so
-    that we have a V=x**2+s**2. In order to visualize, we need the inverse 
-    mapping, so that the levelset of V can be properly plotted in the 'x' 
+    that we have a V=x**2+s**2. In order to visualize, we need the inverse
+    mapping, so that the levelset of V can be properly plotted in the 'x'
     cooridnate
 
     Args:

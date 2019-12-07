@@ -187,30 +187,30 @@ def mean_pred(y_true, y_pred):
     return y_pred
 
 
-def get_gram_trans_for_levelset_poly(model):
-    names = [weight.name for layer in model.layers for weight in layer.weights]
-    weights = model.get_weights()
-    gram_weights = []
-    rho_weights = []
-    L_weights = []
-    for name, weight in zip(names, weights):
-        if 'Gram' in name:
-            gram_weights = gram_weights + [weight]
-        elif 'rho' in name:
-            rho_weights = rho_weights + [weight]
-        elif 'multiplier' in name:
-            L_weights = L_weights + [weight]
-        else:
-            print('should not have other weights')
-    if len(gram_weights) == 1:
-        g = gram_weights[0]
-    else:
-        g = np.linalg.multi_dot(gram_weights)
-    gram = g@g.T
-    print('cond # of the candidate gram: %s' %np.linalg.cond(gram))
-    rho = rho_weights[0]**2
-    if len(L_weights) == 1:
-        L = L_weights[0]
-    else:
-        L = np.linalg.multi_dot(L_weights)
-    return [gram, g, rho, L]
+# def get_gram_trans_for_levelset_poly(model):
+#     names = [weight.name for layer in model.layers for weight in layer.weights]
+#     weights = model.get_weights()
+#     gram_weights = []
+#     rho_weights = []
+#     L_weights = []
+#     for name, weight in zip(names, weights):
+#         if 'Gram' in name:
+#             gram_weights = gram_weights + [weight]
+#         elif 'rho' in name:
+#             rho_weights = rho_weights + [weight]
+#         elif 'multiplier' in name:
+#             L_weights = L_weights + [weight]
+#         else:
+#             print('should not have other weights')
+#     if len(gram_weights) == 1:
+#         g = gram_weights[0]
+#     else:
+#         g = np.linalg.multi_dot(gram_weights)
+#     gram = g@g.T
+#     print('cond # of the candidate gram: %s' %np.linalg.cond(gram))
+#     rho = rho_weights[0]**2
+#     if len(L_weights) == 1:
+#         L = L_weights[0]
+#     else:
+#         L = np.linalg.multi_dot(L_weights)
+#     return [gram, g, rho, L]

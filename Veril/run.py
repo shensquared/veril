@@ -142,23 +142,7 @@ def verify_closed_loop(max_deg=2):
                 augedSys.sym_x, V0, augedSys.verifi_f, verifierOptions)
 
 
-def SGDLevelSetGramCandidate(V, vdp, max_deg=3):
-    sym_x = vdp.sym_x
-    train_x = vdp.get_x(d=10).T
-    train_y = np.ones((train_x.shape[0], 1))
-    vdp.set_features(max_deg)
-    sigma_deg = 8
-    psi_deg = 8
-    vdp.set_levelset_features(V, sigma_deg)
-    [V, Vdot, xxd, psi, sigma] = vdp.get_levelset_features(train_x)
-    verifyModel = sample_lyap.gram_decomp_model_for_levelsetpoly(
-        vdp.num_states, sigma_deg, psi_deg)
-    history = verifyModel.fit([V, Vdot, xxd, psi, sigma], train_y, epochs=100,
-                              shuffle=True)
-    return verifyModel
-
-
-def verify_varity(system, variety, init_root_threads=1):
+def verify_variety(system, variety, init_root_threads=1):
     isVanishing = False
     samples = sample_variety.sample_monomials(
         system, variety, init_root_threads)
@@ -169,23 +153,10 @@ def verify_varity(system, variety, init_root_threads=1):
     plot_funnel(V)
 
 V, Vdot, vdp = verifyVDP(method='SGD')
-vdp.set_sample_variety_features(V)
 # scatterSamples(sample_variety.sample_on_variety(Vdot,30))
-verify_varity(vdp, Vdot)
-# verifyModel = SGDLevelSetGramCandidate(V, vdp)
-# [gram, g, rho, L] = sample_lyap.get_gram_trans_for_levelset_poly(verifyModel)
-# print('rho is %s' %rho)
-#
-#
-# # x = np.array([-1.2, 2]).reshape((1, 2))
-# # pp = vdp.get_levelset_features(x)
-# # print(verifyModel.predict(pp))
-#
-# # verifier.check_residual(vdp, gram, rho, L, x)
-# # vdp.set_levelset_features(V, 8)
-# V = verifier.levelset_w_feature_transformation(vdp, gram, g, L1)
-# plot_funnel(V)
-#
+vdp.set_sample_variety_features(V)
+verify_variety(vdp, Vdot)
+
 # verify_closed_loop(max_deg=2)
 # train(**options)
 # old_sampels = np.load('DIsamples.npy')
@@ -197,3 +168,26 @@ verify_varity(vdp, Vdot)
 # augedSys = closed_loop.TanhPolyCL(CL, model_file_name, taylor_approx=True)
 # augedSys.do_linearization(which_dynamics='nonlinear')
 # # augedSys.linearizeTanhPolyCL()
+
+
+############
+
+# def SGDLevelSetGramCandidate(V, vdp, max_deg=3):
+#     sym_x = vdp.sym_x
+#     train_x = vdp.get_x(d=10).T
+#     train_y = np.ones((train_x.shape[0], 1))
+#     vdp.set_features(max_deg)
+#     sigma_deg = 8
+#     psi_deg = 8
+#     vdp.set_levelset_features(V, sigma_deg)
+#     [V, Vdot, xxd, psi, sigma] = vdp.get_levelset_features(train_x)
+#     verifyModel = sample_lyap.gram_decomp_model_for_levelsetpoly(
+#         vdp.num_states, sigma_deg, psi_deg)
+#     history = verifyModel.fit([V, Vdot, xxd, psi, sigma], train_y, epochs=100,
+#                               shuffle=True)
+#     return verifyModel
+# verifyModel = SGDLevelSetGramCandidate(V, vdp)
+# [gram, g, rho, L] = sample_lyap.get_gram_trans_for_levelset_poly(verifyModel)
+# # x = np.array([-1.2, 2]).reshape((1, 2))
+# # pp = vdp.get_levelset_features(x)
+# # print(verifyModel.predict(pp))

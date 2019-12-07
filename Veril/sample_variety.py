@@ -171,4 +171,4 @@ def check_vanishing(system, rho, P):
         if abs(ratio - 1) > 1e-2:
             isVanishing = False
             idx += [i]
-    return isVanishing, [V[idx], Vdot[idx], xxd[idx], psi[idx], sigma[idx]]
+    return isVanishing, [V[idx], Vdot[idx], xxd[idx], psi[idx]]
