@@ -115,7 +115,7 @@ def check_genericity(all_samples):
 
     c = np.power(sub_samples@sub_samples.T, 2)  # c = q'*q
     s = abs(np.linalg.eig(c)[0])
-    tol = max(c.shape) * np.spacing(max(s)) / 100
+    tol = max(c.shape) * np.spacing(max(s)) * 1e3
     sample_rank = sum(s > tol)
     if sample_rank == m0 and sample_rank < n2:
         # meaning m<n2 and sample full rank, use huristic and return an
@@ -159,7 +159,7 @@ def solve_SDP_on_samples(system, sampled_quantities):
 
 
 def check_vanishing(system, rho, P):
-    test_samples = sample_on_variety(system.sym_Vdot, 1)
+    test_samples = sample_on_variety(system.sym_Vdot, 3)
     [V, Vdot, xxd, psi, sigma] = system.get_levelset_features(test_samples)
     idx = []
     isVanishing = True
