@@ -36,7 +36,7 @@ test_time_steps = 1
 test_num_samples = 2
 
 plant = plants.get(CL.plant_name, CL.dt, CL.obs_idx)
-augedSys = closed_loop.TanhPolyCL(CL, model_file_name)
+augedSys = closed_loop.PolyRNNCL(CL, model_file_name)
 x = augedSys.sample_init_states_w_tanh(test_num_samples)
 initx=x[:,0:2]
 initc=x[:,2:6]

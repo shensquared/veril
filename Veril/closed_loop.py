@@ -305,7 +305,7 @@ class VanderPol(ClosedLoopSys):
         plt.show()
 
 
-class TanhPolyCL(ClosedLoopSys):
+class PolyRNNCL(ClosedLoopSys):
     """Summary
     # returns the CONTINUOUS TIME closed-loop dynamics of the augmented states,
     # which include the plant state x, the RNN state c, the added two states

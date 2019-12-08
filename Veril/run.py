@@ -118,7 +118,7 @@ def verifyVDP(max_deg=3, method='SGD'):
 
 def verify_closed_loop(max_deg=2):
     CL, model_file_name = closed_loop.get_NNorCL(**options)
-    augedSys = closed_loop.TanhPolyCL(CL, model_file_name, taylor_approx=True)
+    augedSys = closed_loop.PolyRNNCL(CL, model_file_name, taylor_approx=True)
     augedSys.set_features(max_deg)
     samples = augedSys.sample_init_states_w_tanh(
         30000, lb=-.01, ub=.01)
@@ -157,21 +157,24 @@ V, Vdot, vdp = verifyVDP(method='SGD')
 vdp.set_sample_variety_features(V)
 verify_variety(vdp, Vdot)
 
+
+def sim_stable_samples(**options):
+    old_sampels = np.load('DIsamples.npy')
+    model, model_file_name = closed_loop.get_NNorCL(NNorCL='NN', **options)
+    samples =closed_loop.sample_stable_inits(model, 20000, 1000, lb=-1.5,ub=1.5)
+    np.save('DIsamples', np.vstack([old_sampels,samples]))
+
+
 # verify_closed_loop(max_deg=2)
 # train(**options)
-# old_sampels = np.load('DIsamples.npy')
-# model, model_file_name = closed_loop.get_NNorCL(NNorCL='NN', **options)
-# samples =closed_loop.sample_stable_inits(model, 20000, 1000, lb=-1.5,ub=1.5)
-# np.save('DIsamples', np.vstack([old_sampels,samples]))
 
 # closed_loop.originalSysInitialV(CL)
-# augedSys = closed_loop.TanhPolyCL(CL, model_file_name, taylor_approx=True)
+# augedSys = closed_loop.PolyRNNCL(CL, model_file_name, taylor_approx=True)
 # augedSys.do_linearization(which_dynamics='nonlinear')
-# # augedSys.linearizeTanhPolyCL()
+
 
 
 ############
-
 # def SGDLevelSetGramCandidate(V, vdp, max_deg=3):
 #     sym_x = vdp.sym_x
 #     train_x = vdp.get_x(d=10).T
