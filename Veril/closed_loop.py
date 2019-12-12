@@ -307,6 +307,69 @@ class VanderPol(ClosedLoopSys):
         plt.show()
 
 
+class Pendubot(ClosedLoopSys):
+
+    def __init__(self):
+        self.name = 'Pendubot'
+        self.num_states = 4
+        # self.num_inputs = 0
+        # self.num_outputs = 0
+        # self.trueROA = True
+        prog = MathematicalProgram()
+        self.sym_x = prog.NewIndeterminates(self.num_states, "x")
+
+    def get_x(self, d=2, num_grid=100):
+        x1 = np.linspace(-d, d, num_grid)
+        x2 = np.linspace(-d, d, num_grid)
+        x3 = np.linspace(-d, d, num_grid)
+        x4 = np.linspace(-d, d, num_grid)
+        x1 = x1[np.nonzero(x1)]
+        x2 = x2[np.nonzero(x2)]
+        x3 = x3[np.nonzero(x3)]
+        x4 = x4[np.nonzero(x4)]
+        x1, x2, x3, x4 = np.meshgrid(x1, x2, x3, x4)
+        x1, x2, x3, x4 = x1.ravel(), x2.ravel(), x3.ravel(), x4.ravel()
+        return np.array([x1, x2, x3, x4])  # (4, num_grid**2)
+
+    def polynomial_dynamics(self, sample_states=None):
+        if sample_states is None:
+            # [x1, x2, x3, x4] = self.sym_x
+            return self.fx(None, self.sym_x)
+        else:
+            x = sample_states.T
+            x1 = x[0, :]
+            x2 = x[1, :]
+            x3 = x[2, :]
+            x4 = x[3, :]
+            return self.fx(None, [x1, x2, x3, x4]).T
+        # f = np.array([x2, 782 * x1 + 135 * x2 + 689 * x3 + 90 * x4, x4,
+            # 279 * x1 * x3**2 − 1425 * x1 − 257 * x2 + 273 * x3**3 − \
+            # 1249 * x3 − 171 * x4])
+        # if sample_states is None:
+            # return f
+        # else:
+            # return f.T
+
+    def fx(self, t, y):
+        [x1, x2, x3, x4] = y
+        return np.array([x2, 782 * x1 + 135 * x2 + 689 * x3 + 90 * x4, x4,
+                           279 * x1 * x3**2 - 1425 * x1 - 257 * x2 + 273 *
+                           x3**3 - 1249 * x3 - 171 * x4])
+
+    def SimStableSamples(self, num_grid):
+        event = lambda t, x: np.linalg.norm(x) - 15
+        event.terminal = True
+        x = self.get_x(d=1.2, num_grid=num_grid)
+        stableSamples = np.zeros((self.num_states,))
+        for i in range(x.shape[-1]):
+            sol = integrate.solve_ivp(self.fx, [0, 15], x[:, i], events=event)
+            # if sol.status == 1:
+            # print('event stopping')
+            if sol.status == 0 and (np.linalg.norm(sol.y[:, -1])) <= 1e-2:
+                stableSamples = np.vstack((stableSamples, x[:, i]))
+        return stableSamples.T
+
+
 class PolyRNNCL(ClosedLoopSys):
     """Summary
     # returns the CONTINUOUS TIME closed-loop dynamics of the augmented states,
