@@ -90,7 +90,7 @@ def verifyVDP(max_deg=3, method='SGD'):
     # V = vdp.knownROA()
     # train_x, train_y = withinLevelSet(V)
     vdp.set_features(max_deg)
-    [phi, dphidx, f] = vdp.get_features(train_x)
+    [phi, dphidx, f] = vdp.train_for_V_features(train_x)
 
     verifierOptions = verifier.opt(vdp.num_states, vdp.degf, do_balance=False,
                                    degV=2 * max_deg, converged_tol=1e-2,
@@ -122,7 +122,7 @@ def verify_closed_loop(max_deg=2):
     augedSys.set_features(max_deg)
     samples = augedSys.sample_init_states_w_tanh(
         30000, lb=-.01, ub=.01)
-    [phi, dphidx, f] = augedSys.get_features(samples)
+    [phi, dphidx, f] = augedSys.train_for_V_features(samples)
 
     y = np.zeros(phi.shape)
     nx = augedSys.num_states
@@ -158,11 +158,12 @@ vdp.set_sample_variety_features(V)
 verify_variety(vdp, Vdot)
 
 
-def sim_stable_samples(**options):
+def sim_RNN_stable_samples(**options):
     old_sampels = np.load('DIsamples.npy')
     model, model_file_name = closed_loop.get_NNorCL(NNorCL='NN', **options)
-    samples =closed_loop.sample_stable_inits(model, 20000, 1000, lb=-1.5,ub=1.5)
-    np.save('DIsamples', np.vstack([old_sampels,samples]))
+    samples = closed_loop.sample_stable_inits(
+        model, 20000, 1000, lb=-1.5, ub=1.5)
+    np.save('DIsamples', np.vstack([old_sampels, samples]))
 
 
 # verify_closed_loop(max_deg=2)

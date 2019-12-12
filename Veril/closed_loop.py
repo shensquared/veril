@@ -24,6 +24,10 @@ from Veril import plants
 from Veril.custom_layers import JanetController
 # import itertools
 
+def get(system_name):
+    if isinstance(system_name, six.string_types):
+        identifier = str(system_name)
+        return globals()[identifier]()
 
 def get_NNorCL(NNorCL='CL', **kwargs):
     num_samples = kwargs['num_samples']
@@ -83,7 +87,8 @@ def sample_stable_inits(model, num_samples, timesteps, **kwargs):
         if hasattr(this_layer, 'cell'):
             CL = this_layer
     plant = plants.get(CL.plant_name, CL.dt, CL.obs_idx)
-    init = plant.get_data(num_samples, timesteps, CL.units, random_c=True, **kwargs)[0]
+    init = plant.get_data(num_samples, timesteps,
+                          CL.units, random_c=True, **kwargs)[0]
     pred = model.predict(init)
     pred_norm = np.sum(np.abs(pred)**2, axis=-1)**(1. / 2)
     stable_init = [i[np.isclose(pred_norm, 0)] for i in init]
@@ -154,7 +159,7 @@ class ClosedLoopSys(object):
             self.sym_phi = get_monomials(self.sym_x, VFeatureDeg)
         self.sym_dphidx = Jacobian(self.sym_phi, self.sym_x)
 
-    def get_features(self, x):
+    def train_for_V_features(self, x):
         # x: (num_samples, sys_dim)
         f = self.polynomial_dynamics(sample_states=x)
         n_samples = x.shape[0]
@@ -205,13 +210,14 @@ class ClosedLoopSys(object):
         psi_deg = int(((2 * deg + self.degV) / 2))
         self.sym_psi = get_monomials(self.sym_x, psi_deg, remove_one=False)
 
+
 class VanderPol(ClosedLoopSys):
 
     def __init__(self):
         self.name = 'VanderPol'
         self.num_states = 2
-        self.num_inputs = 0
-        self.num_outputs = 0
+        # self.num_inputs = 0
+        # self.num_outputs = 0
         self.trueROA = True
         prog = MathematicalProgram()
         self.sym_x = prog.NewIndeterminates(self.num_states, "x")
@@ -245,15 +251,11 @@ class VanderPol(ClosedLoopSys):
             (0.10556) * x2**2 * x1**2 + (-0.060367) * x2**3 * x1
         return V
 
-    def inward_vdp(self, t, y):
+    def fx(self, t, y):
         return - np.array([y[1], (1 - y[0]**2) * y[1] - y[0]])
 
     def outward_vdp(self, t, y):
-        return - self.inward_vdp(t, y)
-
-    def step_once(self):
-        sol = integrate.RK45(self.inward_vdp, 0, self.states, 1)
-        self.states = sol.y
+        return - self.fx(t, y)
 
     def SimStableSamples(self, num_samples):
         event = lambda t, x: np.linalg.norm(x) - 15
@@ -261,7 +263,7 @@ class VanderPol(ClosedLoopSys):
         x = self.get_x(d=3, num_grid=num_samples)
         stableSamples = np.zeros((2,))
         for i in range(x.shape[-1]):
-            sol = integrate.solve_ivp(self.inward_vdp, [0, 15], x[:, i],
+            sol = integrate.solve_ivp(self.fx, [0, 15], x[:, i],
                                       events=event)
             # if sol.status == 1:
             # print('event stopping')
@@ -354,7 +356,7 @@ class PolyRNNCL(ClosedLoopSys):
         arg_c = x@self.kernel_c + c@self.recurrent_kernel_c
         return [arg_f, arg_c]
 
-    def get_features(self, x):
+    def train_for_V_features(self, x):
         # x: (num_samples, sys_dim)
         f = self.nonlinear_dynamics(sample_states=x)
         self.verifi_f = self.nonlinear_dynamics()
