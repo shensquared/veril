@@ -24,10 +24,12 @@ from Veril import plants
 from Veril.custom_layers import JanetController
 # import itertools
 
+
 def get(system_name):
     if isinstance(system_name, six.string_types):
         identifier = str(system_name)
         return globals()[identifier]()
+
 
 def get_NNorCL(NNorCL='CL', **kwargs):
     num_samples = kwargs['num_samples']
@@ -333,12 +335,13 @@ class Pendubot(ClosedLoopSys):
 
     def get_slice_x(self, d=2, num_grid=200):
         x1 = np.linspace(-d, d, num_grid)
-        x2 = np.linspace(-d, d, num_grid)
+        x3 = np.linspace(-d, d, num_grid)
         x1 = x1[np.nonzero(x1)]
-        x2 = x2[np.nonzero(x2)]
-        x1, x2 = np.meshgrid(x1, x2)
-        x1, x2 = x1.ravel(), x2.ravel()
-        return np.array([x1, x2])  # (2, num_grid**2)
+        x3 = x3[np.nonzero(x3)]
+        x1, x3 = np.meshgrid(x1, x3)
+        x1, x3 = x1.ravel(), x3.ravel()
+        x2, x4 = np.zeros(x1.shape), np.zeros(x3.shape)
+        return np.array([x1, x2, x3, x4])  # (2, num_grid**2)
 
     def polynomial_dynamics(self, sample_states=None):
         if sample_states is None:
@@ -362,8 +365,8 @@ class Pendubot(ClosedLoopSys):
     def fx(self, t, y):
         [x1, x2, x3, x4] = y
         return np.array([x2, 782 * x1 + 135 * x2 + 689 * x3 + 90 * x4, x4,
-                           279 * x1 * x3**2 - 1425 * x1 - 257 * x2 + 273 *
-                           x3**3 - 1249 * x3 - 171 * x4])
+                         279 * x1 * x3**2 - 1425 * x1 - 257 * x2 + 273 *
+                         x3**3 - 1249 * x3 - 171 * x4])
 
     def SimStableSamples(self, num_grid):
         event = lambda t, x: np.linalg.norm(x) - 15
@@ -381,15 +384,17 @@ class Pendubot(ClosedLoopSys):
     def SimStableSamplesSlice(self, num_grid):
         event = lambda t, x: np.linalg.norm(x) - 15
         event.terminal = True
-        x = self.get_slice_x(d=1.2, num_grid=num_grid)
-        stableSamples = np.zeros((2,))
+        x = self.get_slice_x(d=2, num_grid=num_grid)
+        stableSamples = np.zeros((4,))
         for i in range(x.shape[-1]):
             sol = integrate.solve_ivp(self.fx, [0, 15], x[:, i], events=event)
             # if sol.status == 1:
             # print('event stopping')
             if sol.status == 0 and (np.linalg.norm(sol.y[:, -1])) <= 1e-2:
                 stableSamples = np.vstack((stableSamples, x[:, i]))
-        return stableSamples.T
+        stableSamples = stableSamples.T
+        stable_slice = np.array([stableSamples[0,:],stableSamples[2,:]])
+        return stable_slice.T
 
 
 class PolyRNNCL(ClosedLoopSys):

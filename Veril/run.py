@@ -84,11 +84,15 @@ def train_V(sys_name, max_deg=3, method='SGD'):
     sys = closed_loop.get(sys_name)
     sym_x = sys.sym_x
     model = None
-    train_x = np.load('../data/' + sys_name + '/stableSamples.npy')
+    model_dir = '../data/' + sys_name
+    train_x = np.load(model_dir + '/stableSamples.npy')
     # V = sys.knownROA()
     # train_x, train_y = withinLevelSet(V)
     sys.set_features(max_deg)
-    [phi, dphidx, f] = sys.train_for_V_features(train_x)
+    # [phi, dphidx, f] = sys.train_for_V_features(train_x)
+    [phi, dphidx, f] = [np.load(model_dir + '/stablephi.npy'),
+                        np.load(model_dir + '/stabledphidx.npy'),
+                        np.load(model_dir + '/stablef.npy')]
 
     verifierOptions = verifier.opt(sys.num_states, sys.degf, do_balance=False,
                                    degV=2 * max_deg, converged_tol=1e-2,
