@@ -36,7 +36,7 @@ options = {
 }
 
 
-def train(pre_trained=None, **kwargs):
+def train_RNN_controller(pre_trained=None, **kwargs):
     num_samples = kwargs.pop('num_samples')
     num_units = kwargs.pop('num_units')
     timesteps = kwargs.pop('timesteps')
@@ -79,27 +79,25 @@ def train(pre_trained=None, **kwargs):
     model.save(model_file_name)
     print("Saved model " + model_file_name + " to disk")
 
-# TODO: unify verification to based on 'plant_name' instead of hard-coded
 
-
-def verifyVDP(max_deg=3, method='SGD'):
-    vdp = closed_loop.VanderPol()
-    sym_x = vdp.sym_x
+def train_V(sys_name, max_deg=3, method='SGD'):
+    sys = closed_loop.get(sys_name)
+    sym_x = sys.sym_x
     model = None
-    train_x = np.load('../data/VDP/stableSamples.npy')
-    # V = vdp.knownROA()
+    train_x = np.load('../data/' + sys_name + '/stableSamples.npy')
+    # V = sys.knownROA()
     # train_x, train_y = withinLevelSet(V)
-    vdp.set_features(max_deg)
-    [phi, dphidx, f] = vdp.train_for_V_features(train_x)
+    sys.set_features(max_deg)
+    [phi, dphidx, f] = sys.train_for_V_features(train_x)
 
-    verifierOptions = verifier.opt(vdp.num_states, vdp.degf, do_balance=False,
+    verifierOptions = verifier.opt(sys.num_states, sys.degf, do_balance=False,
                                    degV=2 * max_deg, converged_tol=1e-2,
                                    max_iterations=1)
     for i in range(verifierOptions.max_iterations):
         if method is 'SGD':
             y = np.zeros(phi.shape)
             if model is None:
-                model = sample_lyap.poly_model_for_V(vdp.num_states, max_deg)
+                model = sample_lyap.poly_model_for_V(sys.num_states, max_deg)
             history = model.fit([phi, dphidx, f], y, epochs=15)
             if history.history['loss'][-1] >= 0:
                 break
@@ -107,16 +105,31 @@ def verifyVDP(max_deg=3, method='SGD'):
                 P = sample_lyap.get_gram_for_V(model)
         else:
             P = verifier.solve_LP_for_V(phi, dphidx, f, num_samples=None)
-        V0 = vdp.sym_phi.T@P@vdp.sym_phi
-        Vdot = vdp.sym_phi.T@P@vdp.sym_dphidx@vdp.sym_f
-        V = verifier.levelset_sos(sym_x, V0, vdp.sym_f, verifierOptions)
+        V0 = sys.sym_phi.T@P@sys.sym_phi
+        Vdot = sys.sym_phi.T@P@sys.sym_dphidx@sys.sym_f
+        V = verifier.levelset_sos(sym_x, V0, sys.sym_f, verifierOptions)
 
-        plot_funnel(V)
-    vdp.set_levelset_features(V0, 8)
-    return V0, Vdot, vdp
+        plot_funnel(V, sys_name)
+    sys.set_levelset_features(V0, 8)
+    return V0, Vdot, sys
 
 
-def verify_closed_loop(max_deg=2):
+def verify_via_variety(sys_name, init_root_threads=1):
+    V, Vdot, system = train_V(sys_name)
+    # scatterSamples(sample_variety.sample_on_variety(Vdot,30), sys_name)
+    system.set_sample_variety_features(V)
+
+    isVanishing = False
+    samples = sample_variety.sample_monomials(system, Vdot, init_root_threads)
+    while not isVanishing:
+        V, rho, P = sample_variety.solve_SDP_on_samples(system, samples)
+        isVanishing, new_samples = sample_variety.check_vanishing(
+            system, rho, P)
+        samples = [np.vstack(i) for i in zip(samples, new_samples)]
+    plot_funnel(V, sys_name)
+
+
+def verify_RNN_CL(max_deg=2):
     CL, model_file_name = closed_loop.get_NNorCL(**options)
     augedSys = closed_loop.PolyRNNCL(CL, model_file_name, taylor_approx=True)
     augedSys.set_features(max_deg)
@@ -142,22 +155,6 @@ def verify_closed_loop(max_deg=2):
                 augedSys.sym_x, V0, augedSys.verifi_f, verifierOptions)
 
 
-def verify_variety(system, variety, init_root_threads=1):
-    isVanishing = False
-    samples = sample_variety.sample_monomials(
-        system, variety, init_root_threads)
-    while not isVanishing:
-        V, rho, P = sample_variety.solve_SDP_on_samples(vdp, samples)
-        isVanishing, new_samples = sample_variety.check_vanishing(vdp, rho, P)
-        samples = [np.vstack(i) for i in zip(samples, new_samples)]
-    plot_funnel(V)
-
-V, Vdot, vdp = verifyVDP(method='SGD')
-# scatterSamples(sample_variety.sample_on_variety(Vdot,30))
-vdp.set_sample_variety_features(V)
-verify_variety(vdp, Vdot)
-
-
 def sim_RNN_stable_samples(**options):
     old_sampels = np.load('DIsamples.npy')
     model, model_file_name = closed_loop.get_NNorCL(NNorCL='NN', **options)
@@ -166,13 +163,17 @@ def sim_RNN_stable_samples(**options):
     np.save('DIsamples', np.vstack([old_sampels, samples]))
 
 
-# verify_closed_loop(max_deg=2)
-# train(**options)
+verify_via_variety('VanderPol')
+# pendubot = closed_loop.Pendubot()
+# samples = pendubot.SimStableSamples(30)
+# np.save('pendu', samples)
+
+# verify_RNN_CL(max_deg=2)
+# train_RNN_controller(**options)
 
 # closed_loop.originalSysInitialV(CL)
 # augedSys = closed_loop.PolyRNNCL(CL, model_file_name, taylor_approx=True)
 # augedSys.do_linearization(which_dynamics='nonlinear')
-
 
 
 ############

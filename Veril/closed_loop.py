@@ -1,6 +1,6 @@
 import os
 import itertools
-
+import six
 import sys
 sys.path.append(
     "/Users/shenshen/drake-build/install/lib/python3.7/site-packages")
