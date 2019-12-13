@@ -30,6 +30,10 @@ def max_negativity(y_true, y_pred):
     return K.max(y_pred)
 
 
+def hinge_plus_neg(y_true, y_pred):
+    return K.max(y_pred) + K.mean(K.maximum(1. - y_true * y_pred, 0.), axis=-1)
+
+
 def linear_model_for_V(sys_dim, A):
     x = Input(shape=(sys_dim,))  # (None, sys_dim)
     layers = [
@@ -77,8 +81,8 @@ def poly_model_for_V(sys_dim, max_deg):
     phi = Input(shape=(monomial_dim,))
     layers = [
         Dense(monomial_dim, use_bias=False),
-        Dense((monomial_dim*2), use_bias=False),
-        Dense(monomial_dim, use_bias=False),
+        # Dense((monomial_dim*2), use_bias=False),
+        # Dense(monomial_dim, use_bias=False),
     ]
     layers = layers + [TransLayer(i) for i in layers[::-1]]
     phiLL = Sequential(layers)(phi)  # (None, monomial_dim)

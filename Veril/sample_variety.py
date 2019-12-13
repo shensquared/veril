@@ -171,7 +171,7 @@ def check_vanishing(system, rho, P):
         candidate = psi[i].T@P@psi[i]
         ratio = levelset / candidate
         print('two polynomials evals ratio %s' % ratio)
-        if abs(ratio - 1) > 1e-2:
+        if abs(ratio - 1) > 5e-3:
             isVanishing = False
             idx += [i]
     return isVanishing, [V[idx], Vdot[idx], xxd[idx], psi[idx]]

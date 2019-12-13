@@ -17,7 +17,8 @@ from custom_layers import JanetController
 import sample_lyap
 import sample_variety
 from util.plots import *
-from util.samples import withinLevelSet
+# from util.plotly3d import *
+# from util.samples import withinLevelSet
 
 options = {
     'plant_name': 'DoubleIntegrator',
@@ -80,7 +81,7 @@ def train_RNN_controller(pre_trained=None, **kwargs):
     print("Saved model " + model_file_name + " to disk")
 
 
-def train_V(sys_name, max_deg=3, method='SGD'):
+def train_V(sys_name, max_deg=3, epochs=15, method='SGD'):
     sys = closed_loop.get(sys_name)
     sym_x = sys.sym_x
     model = None
@@ -97,11 +98,11 @@ def train_V(sys_name, max_deg=3, method='SGD'):
         [phi, dphidx, f] = sys.train_for_V_features(train_x)
 
     if method is 'SGD':
-        y = np.zeros(phi.shape)
+        y = - np.ones(phi.shape)
         if model is None:
             model = sample_lyap.poly_model_for_V(sys.num_states, max_deg)
-        history = model.fit([phi, dphidx, f], y, epochs=15)
-        assert (history.history['loss'][-1] <= 0)
+        history = model.fit([phi, dphidx, f], y, epochs=epochs)
+        # assert (history.history['loss'][-1] <= 0)
         P = sample_lyap.get_gram_for_V(model)
     else:
         P = verifier.solve_LP_for_V(phi, dphidx, f, num_samples=None)
@@ -114,12 +115,16 @@ def train_V(sys_name, max_deg=3, method='SGD'):
 
 def verify_via_equality(sys, V0):
     V = verifier.levelset_sos(sys, V0, do_balance=False)
-    plot_funnel(V, sys.name)
+    plot_funnel(V, sys.name, sys.slice)
 
 
-def verify_via_variety(sys_name, init_root_threads=1):
-    V, Vdot, sys = train_V(sys_name)
-    # scatterSamples(sample_variety.sample_on_variety(Vdot,30), sys_name)
+def verify_via_variety(sys_name, init_root_threads=1, epochs=15):
+    V, Vdot, sys = train_V(sys_name, epochs=epochs)
+    plot3d(V, sys_name, sys.slice)
+    # plotly_3d_surf(V, sys_name, sys.slice)
+    plot_funnel(V / 5, sys_name, sys.slice)
+    scatterSamples(sample_variety.sample_on_variety(Vdot, 30), sys_name,
+                   sys.slice)
     verify_via_equality(sys, V)
     sys.set_sample_variety_features(V)
 
@@ -129,7 +134,7 @@ def verify_via_variety(sys_name, init_root_threads=1):
         V, rho, P = sample_variety.solve_SDP_on_samples(sys, samples)
         isVanishing, new_samples = sample_variety.check_vanishing(sys, rho, P)
         samples = [np.vstack(i) for i in zip(samples, new_samples)]
-    plot_funnel(V, sys_name)
+    plot_funnel(V, sys_name, sys.slice)
 
 
 def verify_RNN_CL(max_deg=2):
@@ -161,9 +166,9 @@ def sim_RNN_stable_samples(**options):
     np.save('DIsamples', np.vstack([old_sampels, samples]))
 
 
-verify_via_variety('VanderPol')
+# verify_via_variety('Pendubot',init_root_threads=120,epochs = 30)
+verify_via_variety('VanderPol', init_root_threads=30, epochs=15)
 # Pendubot
-
 # verify_RNN_CL(max_deg=2)
 # train_RNN_controller(**options)
 
