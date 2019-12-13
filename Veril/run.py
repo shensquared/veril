@@ -19,6 +19,7 @@ import sample_variety
 from util.plots import *
 # from util.plotly3d import *
 # from util.samples import withinLevelSet
+import time
 
 options = {
     'plant_name': 'DoubleIntegrator',
@@ -120,14 +121,13 @@ def verify_via_equality(sys, V0):
 
 def verify_via_variety(sys_name, init_root_threads=1, epochs=15):
     V, Vdot, sys = train_V(sys_name, epochs=epochs)
-    plot3d(V, sys_name, sys.slice)
+    # plot3d(V, sys_name, sys.slice)
     # plotly_3d_surf(V, sys_name, sys.slice)
-    plot_funnel(V / 5, sys_name, sys.slice)
-    scatterSamples(sample_variety.sample_on_variety(Vdot, 30), sys_name,
-                   sys.slice)
+    # plot_funnel(V / 5, sys_name, sys.slice)
+    # scatterSamples(sample_variety.sample_on_variety(Vdot, 30), sys_name,
+    # sys.slice)
     verify_via_equality(sys, V)
     sys.set_sample_variety_features(V)
-
     isVanishing = False
     samples = sample_variety.sample_monomials(sys, Vdot, init_root_threads)
     while not isVanishing:
@@ -135,6 +135,21 @@ def verify_via_variety(sys_name, init_root_threads=1, epochs=15):
         isVanishing, new_samples = sample_variety.check_vanishing(sys, rho, P)
         samples = [np.vstack(i) for i in zip(samples, new_samples)]
     plot_funnel(V, sys_name, sys.slice)
+
+def verify_via_bilinear(sys_name, max_deg =3):
+    sys = closed_loop.get(sys_name)
+    sys.set_features(max_deg)
+    A, S = sys.do_linearization()
+    V0 = sys.sym_x.T@S@sys.sym_x
+
+    verifierOptions = verifier.opt(sys.num_states, sys.degf, do_balance=False,
+       degV=2 * max_deg, converged_tol=1e-2, max_iterations=20)
+    start = time.time()
+    V = verifier.bilinear(sys.sym_x, V0, sys.sym_f, S, A, verifierOptions)
+    end = time.time()
+    print(end - start)
+    plot_funnel(V, sys_name, sys.slice)
+    return sys, V
 
 
 def verify_RNN_CL(max_deg=2):
@@ -150,9 +165,6 @@ def verify_RNN_CL(max_deg=2):
     model = sample_lyap.poly_model_for_V(nx, max_deg)
     history = model.fit([phi, dphidx, f], y, epochs=100, shuffle=True)
     assert (history.history['loss'][-1] <= 0)
-    # verifierOptions = verifier.opt(nx, degf, do_balance=False, degV=2 *
-    # max_deg, converged_tol=1e-2,
-    # max_iterations=20)
     P = sample_lyap.get_gram_for_V(model)
     V0 = sys.sym_phi.T@P@sys.sym_phi
     return V0, sys
@@ -166,9 +178,10 @@ def sim_RNN_stable_samples(**options):
     np.save('DIsamples', np.vstack([old_sampels, samples]))
 
 
+# sys, V = verify_via_bilinear('VanderPol')
+# sys, V = verify_via_bilinear('Pendubot')
 # verify_via_variety('Pendubot',init_root_threads=120,epochs = 30)
-verify_via_variety('VanderPol', init_root_threads=30, epochs=15)
-# Pendubot
+# verify_via_variety('VanderPol', init_root_threads=30, epochs=40)
 # verify_RNN_CL(max_deg=2)
 # train_RNN_controller(**options)
 

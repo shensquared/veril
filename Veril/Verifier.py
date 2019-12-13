@@ -61,6 +61,7 @@ def bilinear(x, V0, f, S0, A, options):
         V = Vbal.Substitute(dict(zip(x, inv(T)@x)))
         if ((vol - last_vol) < options.converged_tol * last_vol):
             break
+    print('iteration is %s' %iter)
     # print('final rho is %s' % (rho))
     # env = dict(zip(x, np.array([1, 2.31])))
     # print('V is %s' % (V.Evaluate(env)))
@@ -76,7 +77,9 @@ def findL1(x, f, V, options):
     L1 = prog.NewFreePolynomial(Variables(x), options.degL1).ToExpression()
 
     # % construct Vdot
-    Vdot = clean(V.Jacobian(x) @ f)
+    Vdot = clean(V.Jacobian(x) @ f, x)
+    # Vdot = V.Jacobian(x) @ f
+
     # env = dict(zip(x, np.array([1, 2.31])))
     # print('f0 is %s' % (f[0].Evaluate(env)))
     # print('f1 is %s' % (f[1].Evaluate(env)))
