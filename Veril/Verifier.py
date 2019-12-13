@@ -11,6 +11,7 @@ from pydrake.all import (MathematicalProgram, Polynomial,
                          RealContinuousLyapunovEquation, Substitute,
                          MosekSolver, MonomialBasis)
 
+
 class opt:
 
     def __init__(self, nX, degf, degV=4, converged_tol=.01, max_iterations=10,
@@ -61,7 +62,7 @@ def bilinear(x, V0, f, S0, A, options):
         V = Vbal.Substitute(dict(zip(x, inv(T)@x)))
         if ((vol - last_vol) < options.converged_tol * last_vol):
             break
-    print('iteration is %s' %iter)
+    print('iteration is %s' % iter)
     # print('final rho is %s' % (rho))
     # env = dict(zip(x, np.array([1, 2.31])))
     # print('V is %s' % (V.Evaluate(env)))
@@ -69,7 +70,7 @@ def bilinear(x, V0, f, S0, A, options):
 
 
 def findL1(x, f, V, options):
-    # print('finding L1')
+    print('finding L1')
     prog = MathematicalProgram()
     prog.AddIndeterminates(x)
 
@@ -105,7 +106,7 @@ def findL1(x, f, V, options):
 
 
 def findL2(x, V, V0, rho, options):
-    # print('finding L2')
+    print('finding L2')
     prog = MathematicalProgram()
     prog.AddIndeterminates(x)
     # env = dict(zip(x, np.array([1, 2.31])))
@@ -122,7 +123,7 @@ def findL2(x, V, V0, rho, options):
     prog.AddCost(slack)
 
     solver = MosekSolver()
-    solver.set_stream_logging(False, "")
+    solver.set_stream_logging(True, "")
     result = solver.Solve(prog, None, None)
     # print(result.get_solution_result())
     assert result.is_success()
@@ -132,7 +133,7 @@ def findL2(x, V, V0, rho, options):
 
 
 def optimizeV(x, f, L1, L2, V0, sigma1, options):
-    # print('finding V')
+    print('finding V')
     prog = MathematicalProgram()
     prog.AddIndeterminates(x)
     # env = dict(zip(x, np.array([1, 2.31])))
@@ -153,7 +154,7 @@ def optimizeV(x, f, L1, L2, V0, sigma1, options):
     # % run SeDuMi/MOSEK and check output
     prog.AddCost(-rho)
     solver = MosekSolver()
-    solver.set_stream_logging(False, "")
+    solver.set_stream_logging(True, "")
     result = solver.Solve(prog, None, None)
     # print(result.get_solution_result())
     assert result.is_success()
@@ -184,7 +185,7 @@ def levelset_sos(sys, V0, do_balance=False):
     psi_deg = int(np.floor(max(2 * degxx + degV, degL1 + degVdot) / 2))
     f = lambda x: math.factorial(x)
     psi_dim = f(nX + psi_deg) // f(psi_deg) // f(nX)
-    print('equality-constrained SDP size is %s' %psi_dim)
+    print('equality-constrained SDP size is %s' % psi_dim)
 
     H = Jacobian(Vdot.Jacobian(x).T, x)
     env = dict(zip(x, np.zeros(x.shape)))
