@@ -1,6 +1,7 @@
 import sys
 sys.path.append(
     "/Users/shenshen/drake-build/install/lib/python3.7/site-packages")
+import math
 import pydrake
 import numpy as np
 from numpy.linalg import eig, inv
@@ -9,7 +10,6 @@ from pydrake.all import (MathematicalProgram, Polynomial,
                          Variables, Solve, Jacobian, Evaluate,
                          RealContinuousLyapunovEquation, Substitute,
                          MosekSolver, MonomialBasis)
-
 
 class opt:
 
@@ -171,30 +171,33 @@ def levelset_sos(sys, V0, do_balance=False):
         [T, V, f, _, _] = balance(x, V0, f, None, None)
     else:
         T, V, f = np.eye(nX), V0, f
+    Vdot = (V.Jacobian(x) @ f)
 
     degV = Polynomial(V, x).TotalDegree()
-    print(degV)
     degL1 = degV - 1 + sys.degf
-
-    Vdot = (V.Jacobian(x) @ f)
     degVdot = Polynomial(Vdot, x).TotalDegree()
+    degxx = int(np.floor((degL1 + degVdot - degV) / 2))
+
+    psi_deg = int(np.floor(max(2 * degxx + degV, degL1 + degVdot) / 2))
+    f = lambda x: math.factorial(x)
+    psi_dim = f(nX + psi_deg) // f(psi_deg) // f(nX)
+    print('equality-constrained SDP size is %s' %psi_dim)
 
     H = Jacobian(Vdot.Jacobian(x).T, x)
     env = dict(zip(x, np.zeros(x.shape)))
     H = .5 * np.array([[i.Evaluate(env) for i in j]for j in H])
     print('eig of Hessian of Vdot %s' % (eig(H)[0]))
-    assert (np.all(eig(H)[0] <= 0))
+    # assert (np.all(eig(H)[0] <= 0))
     # % construct slack var
     rho = prog.NewContinuousVariables(1, "r")[0]
     prog.AddConstraint(rho >= 0)
     L1 = prog.NewFreePolynomial(Variables(x), degL1).ToExpression()
 
-    deg = int(np.floor((degL1 + degVdot - degV) / 2))
-    prog.AddSosConstraint((x.T@x)**(deg) * (V - rho) + L1 * Vdot)
-    # levelsetPoly = Polynomial((x.T@x)**(deg) * (V - rho) + L1 * Vdot, x)
+    prog.AddSosConstraint((x.T@x)**(degxx) * (V - rho) + L1 * Vdot)
+    # levelsetPoly = Polynomial((x.T@x)**(degxx) * (V - rho) + L1 * Vdot, x)
     # prog.AddEqualityConstraintBetweenPolynomials(candidate, levelsetPoly)
-    prog.AddCost(-rho)
 
+    prog.AddCost(-rho)
     solver = MosekSolver()
     solver.set_stream_logging(True, "")
     result = solver.Solve(prog, None, None)
