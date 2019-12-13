@@ -89,10 +89,12 @@ def train_V(sys_name, max_deg=3, method='SGD'):
     # V = sys.knownROA()
     # train_x, train_y = withinLevelSet(V)
     sys.set_features(max_deg)
-    [phi, dphidx, f] = sys.train_for_V_features(train_x)
-    # [phi, dphidx, f] = [np.load(model_dir + '/stablephi.npy'),
-    #                     np.load(model_dir + '/stabledphidx.npy'),
-    #                     np.load(model_dir + '/stablef.npy')]
+    if max_deg == 3:
+        [phi, dphidx, f] = [np.load(model_dir + '/stablephi.npy'),
+                            np.load(model_dir + '/stabledphidx.npy'),
+                            np.load(model_dir + '/stablef.npy')]
+    else:
+        [phi, dphidx, f] = sys.train_for_V_features(train_x)
 
     if method is 'SGD':
         y = np.zeros(phi.shape)
