@@ -29,7 +29,7 @@ def withinLevelSet(V):
     return in_points, np.zeros(in_points.shape[0])
 
 
-def levelsetData(V, num_grid=100):
+def levelsetData(V, slice_idx, num_grid=100):
     # TODO  % move to origin
     # f=subss(f,x,x+options.x0);
     # TODO if degree 2, quadratic, use simpler stuff
@@ -61,7 +61,8 @@ def levelsetData(V, num_grid=100):
     #   % f(x) = fmin + (x-xmin)'*H*(x-xmin)
     #   %   => 1 = fmin + (y-xmin)'*H*(y-xmin)
     #   y = repmat(xmin,1,K) + (H/(1-fmin))^(-1/2)*X;
-    y, max_r, min_r = getRadii(np.linspace(-np.pi, np.pi, num_grid), V)
+    y, max_r, min_r = getRadii(
+        np.linspace(-np.pi, np.pi, num_grid), V, slice_idx)
     y = np.tile(np.zeros((2, 1)), (1, num_grid)) + y.T
     return y.T, max_r, min_r
 
@@ -69,26 +70,43 @@ def levelsetData(V, num_grid=100):
 # break things later.
 
 
-def getRadii(thetas, V):  # needs to be vectorized
+def getRadii(thetas, V, slice_idx):  # needs to be vectorized
     x = list(V.GetVariables())
     n = thetas.shape[0]
     rU = np.ones(thetas.shape)
     rL = np.zeros(thetas.shape)
     CS = np.vstack((np.cos(thetas), np.sin(thetas)))
+    # if slice_idx is None:
+    # evaluate = lambda r: np.array([V.Evaluate(dict(zip(x, (np.tile(r, (2, 1)) *
+    # CS)[:, i]))) for i in range(n)])
+    # else:
+    # sliced_evaluation(V,x,r, CS,slice_idx)
 
-    evaluate = lambda r: np.array([V.Evaluate(dict(zip(x, (np.tile(r, (2, 1)) *
-                                                           CS)[:, i]))) for i in range(n)])
-
-    msk = evaluate(rU) < 1
+    msk = evaluate(rU, CS, V, x, slice_idx) < 1
     while any(msk):
         rU[msk] = 2 * rU[msk]
-        msk = evaluate(rU) < 1
+        msk = evaluate(rU, CS, V, x, slice_idx) < 1
 
     while all((rU - rL) > 0.0001 * (rU + rL)):
         r = (rU + rL) / 2
-        msk = evaluate(r) < 1
+        msk = evaluate(r, CS, V, x, slice_idx) < 1
         rL[msk] = r[msk]
         rU[~msk] = r[~msk]
 
     y = (np.tile(r, (2, 1)) * CS).T
     return y, max(r), min(r)
+
+
+def evaluate(r, CS, V, x, slice_idx):
+    n = r.shape[0]
+    if slice_idx is None:
+        return np.array([V.Evaluate(dict(zip(x, (np.tile(r, (2, 1)) * CS)[:, i]))) for i in range(n)])
+    else:
+        d = dict(zip(x, np.zeros((len(x),))))
+        rcs = np.tile(r, (2, 1)) * CS
+        evals = []
+        for i in range(n):
+            d[x[slice_idx[0]]] = rcs[0, i]
+            d[x[slice_idx[1]]] = rcs[1, i]
+            evals.append(V.Evaluate(d))
+        return np.array(evals)
