@@ -29,9 +29,12 @@ If regularizing, use kernel_regularizer= regularizers.l2(0.))
 def max_negativity(y_true, y_pred):
     return K.max(y_pred)
 
+def mean_negativity(y_true, y_pred):
+    return K.mean(y_pred)
 
 def hinge_plus_neg(y_true, y_pred):
-    return K.max(y_pred) + K.mean(K.maximum(1. - y_true * y_pred, 0.), axis=-1)
+    return K.max(y_pred) + K.mean(K.maximum(1. - y_true * K.sign(y_pred), 0.),
+       axis=-1)
 
 
 def linear_model_for_V(sys_dim, A):
@@ -81,7 +84,7 @@ def poly_model_for_V(sys_dim, max_deg):
     phi = Input(shape=(monomial_dim,))
     layers = [
         Dense(monomial_dim, use_bias=False),
-        # Dense((monomial_dim*2), use_bias=False),
+        Dense((monomial_dim*2), use_bias=False),
         # Dense(monomial_dim, use_bias=False),
     ]
     layers = layers + [TransLayer(i) for i in layers[::-1]]
@@ -96,7 +99,7 @@ def poly_model_for_V(sys_dim, max_deg):
     Vdot = Dot(1)([phiLLdphidx, fx])  # (None, 1)
     rate = Divide()([Vdot, V])
     model = Model(inputs=[phi, dphidx, fx], outputs=rate)
-    model.compile(loss=max_negativity, optimizer='adam')
+    model.compile(loss=hinge_plus_neg, optimizer='adam')
     print(model.summary())
     return model
 
