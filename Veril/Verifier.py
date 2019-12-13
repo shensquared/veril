@@ -161,27 +161,35 @@ def optimizeV(x, f, L1, L2, V0, sigma1, options):
     return V, rho
 
 
-def levelset_sos(x, V0, f, options):
+def levelset_sos(sys, V0, do_balance=False):
+    x = sys.sym_x
+    f = sys.sym_f
+    nX = sys.num_states
     prog = MathematicalProgram()
     prog.AddIndeterminates(x)
-    if options.do_balance:
+    if do_balance:
         [T, V, f, _, _] = balance(x, V0, f, None, None)
     else:
-        T, V, f = np.eye(options.nX), V0, f
+        T, V, f = np.eye(nX), V0, f
+
+    degV = Polynomial(V, x).TotalDegree()
+    print(degV)
+    degL1 = degV - 1 + sys.degf
+
     Vdot = (V.Jacobian(x) @ f)
+    degVdot = Polynomial(Vdot, x).TotalDegree()
 
     H = Jacobian(Vdot.Jacobian(x).T, x)
     env = dict(zip(x, np.zeros(x.shape)))
     H = .5 * np.array([[i.Evaluate(env) for i in j]for j in H])
-    print('Hessian of Vdot %s' % (eig(H)[0]))
+    print('eig of Hessian of Vdot %s' % (eig(H)[0]))
     assert (np.all(eig(H)[0] <= 0))
     # % construct slack var
     rho = prog.NewContinuousVariables(1, "r")[0]
     prog.AddConstraint(rho >= 0)
-    L1 = prog.NewFreePolynomial(Variables(x), options.degL1).ToExpression()
+    L1 = prog.NewFreePolynomial(Variables(x), degL1).ToExpression()
 
-    deg = int(np.floor((options.degL1 + Polynomial(Vdot, x).TotalDegree() -
-                        options.degV) / 2))
+    deg = int(np.floor((degL1 + degVdot - degV) / 2))
     prog.AddSosConstraint((x.T@x)**(deg) * (V - rho) + L1 * Vdot)
     # levelsetPoly = Polynomial((x.T@x)**(deg) * (V - rho) + L1 * Vdot, x)
     # prog.AddEqualityConstraintBetweenPolynomials(candidate, levelsetPoly)

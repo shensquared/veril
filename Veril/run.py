@@ -89,74 +89,66 @@ def train_V(sys_name, max_deg=3, method='SGD'):
     # V = sys.knownROA()
     # train_x, train_y = withinLevelSet(V)
     sys.set_features(max_deg)
-    # [phi, dphidx, f] = sys.train_for_V_features(train_x)
-    [phi, dphidx, f] = [np.load(model_dir + '/stablephi.npy'),
-                        np.load(model_dir + '/stabledphidx.npy'),
-                        np.load(model_dir + '/stablef.npy')]
+    [phi, dphidx, f] = sys.train_for_V_features(train_x)
+    # [phi, dphidx, f] = [np.load(model_dir + '/stablephi.npy'),
+    #                     np.load(model_dir + '/stabledphidx.npy'),
+    #                     np.load(model_dir + '/stablef.npy')]
 
-    verifierOptions = verifier.opt(sys.num_states, sys.degf, do_balance=False,
-                                   degV=2 * max_deg, converged_tol=1e-2,
-                                   max_iterations=1)
-    for i in range(verifierOptions.max_iterations):
-        if method is 'SGD':
-            y = np.zeros(phi.shape)
-            if model is None:
-                model = sample_lyap.poly_model_for_V(sys.num_states, max_deg)
-            history = model.fit([phi, dphidx, f], y, epochs=15)
-            if history.history['loss'][-1] >= 0:
-                break
-            else:
-                P = sample_lyap.get_gram_for_V(model)
-        else:
-            P = verifier.solve_LP_for_V(phi, dphidx, f, num_samples=None)
-        V0 = sys.sym_phi.T@P@sys.sym_phi
-        Vdot = sys.sym_phi.T@P@sys.sym_dphidx@sys.sym_f
-        V = verifier.levelset_sos(sym_x, V0, sys.sym_f, verifierOptions)
+    if method is 'SGD':
+        y = np.zeros(phi.shape)
+        if model is None:
+            model = sample_lyap.poly_model_for_V(sys.num_states, max_deg)
+        history = model.fit([phi, dphidx, f], y, epochs=15)
+        assert (history.history['loss'][-1] <= 0)
+        P = sample_lyap.get_gram_for_V(model)
+    else:
+        P = verifier.solve_LP_for_V(phi, dphidx, f, num_samples=None)
 
-        plot_funnel(V, sys_name)
-    sys.set_levelset_features(V0, 8)
+    V0 = sys.sym_phi.T@P@sys.sym_phi
+    Vdot = sys.sym_phi.T@P@sys.sym_dphidx@sys.sym_f
+    # sys.levelset_features(V0, 8)
     return V0, Vdot, sys
 
 
+def verify_via_equality(sys, V0):
+    V = verifier.levelset_sos(sys, V0, do_balance=False)
+    plot_funnel(V, sys.name)
+
+
 def verify_via_variety(sys_name, init_root_threads=1):
-    V, Vdot, system = train_V(sys_name)
+    V, Vdot, sys = train_V(sys_name)
     # scatterSamples(sample_variety.sample_on_variety(Vdot,30), sys_name)
-    system.set_sample_variety_features(V)
+    verify_via_equality(sys, V)
+    sys.set_sample_variety_features(V)
 
     isVanishing = False
-    samples = sample_variety.sample_monomials(system, Vdot, init_root_threads)
+    samples = sample_variety.sample_monomials(sys, Vdot, init_root_threads)
     while not isVanishing:
-        V, rho, P = sample_variety.solve_SDP_on_samples(system, samples)
-        isVanishing, new_samples = sample_variety.check_vanishing(
-            system, rho, P)
+        V, rho, P = sample_variety.solve_SDP_on_samples(sys, samples)
+        isVanishing, new_samples = sample_variety.check_vanishing(sys, rho, P)
         samples = [np.vstack(i) for i in zip(samples, new_samples)]
     plot_funnel(V, sys_name)
 
 
 def verify_RNN_CL(max_deg=2):
     CL, model_file_name = closed_loop.get_NNorCL(**options)
-    augedSys = closed_loop.PolyRNNCL(CL, model_file_name, taylor_approx=True)
-    augedSys.set_features(max_deg)
-    samples = augedSys.sample_init_states_w_tanh(
-        30000, lb=-.01, ub=.01)
-    [phi, dphidx, f] = augedSys.train_for_V_features(samples)
+    sys = closed_loop.PolyRNNCL(CL, model_file_name, taylor_approx=True)
+    sys.set_features(max_deg)
+    samples = sys.sample_init_states_w_tanh(30000, lb=-.01, ub=.01)
+    [phi, dphidx, f] = sys.train_for_V_features(samples)
 
     y = np.zeros(phi.shape)
-    nx = augedSys.num_states
-    degf = augedSys.degf
+    nx = sys.num_states
+    degf = sys.degf
     model = sample_lyap.poly_model_for_V(nx, max_deg)
     history = model.fit([phi, dphidx, f], y, epochs=100, shuffle=True)
-    verifierOptions = verifier.opt(nx, degf, do_balance=False, degV=2 *
-                                   max_deg, converged_tol=1e-2,
-                                   max_iterations=20)
-    for i in range(verifierOptions.max_iterations):
-        if history.history['loss'][-1] >= 0:
-            break
-        else:
-            P = sample_lyap.get_gram_for_V(model)
-            V0 = augedSys.sym_phi.T@P@augedSys.sym_phi
-            V = verifier.levelset_sos(
-                augedSys.sym_x, V0, augedSys.verifi_f, verifierOptions)
+    assert (history.history['loss'][-1] <= 0)
+    # verifierOptions = verifier.opt(nx, degf, do_balance=False, degV=2 *
+    # max_deg, converged_tol=1e-2,
+    # max_iterations=20)
+    P = sample_lyap.get_gram_for_V(model)
+    V0 = sys.sym_phi.T@P@sys.sym_phi
+    return V0, sys
 
 
 def sim_RNN_stable_samples(**options):
@@ -168,9 +160,7 @@ def sim_RNN_stable_samples(**options):
 
 
 verify_via_variety('VanderPol')
-# pendubot = closed_loop.Pendubot()
-# samples = pendubot.SimStableSamples(30)
-# np.save('pendu', samples)
+# Pendubot
 
 # verify_RNN_CL(max_deg=2)
 # train_RNN_controller(**options)
@@ -181,6 +171,14 @@ verify_via_variety('VanderPol')
 
 
 ############
+# pendubot = closed_loop.Pendubot()
+# samples = pendubot.SimStableSamplesSlice(200)
+# np.save('pendu.npy',samples)
+
+# samples = np.load('../data/Pendubot/stableSamplesSlice.npy')
+# scatterSamples(samples, '')
+
+
 # def SGDLevelSetGramCandidate(V, vdp, max_deg=3):
 #     sym_x = vdp.sym_x
 #     train_x = vdp.get_x(d=10).T
@@ -188,7 +186,7 @@ verify_via_variety('VanderPol')
 #     vdp.set_features(max_deg)
 #     sigma_deg = 8
 #     psi_deg = 8
-#     vdp.set_levelset_features(V, sigma_deg)
+#     vdp.levelset_features(V, sigma_deg)
 #     [V, Vdot, xxd, psi, sigma] = vdp.get_levelset_features(train_x)
 #     verifyModel = sample_lyap.gram_decomp_model_for_levelsetpoly(
 #         vdp.num_states, sigma_deg, psi_deg)

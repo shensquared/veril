@@ -58,7 +58,7 @@ def sample_monomials(system, variety, root_threads, do_transform=False):
     while not enough_samples:
         new_samples = sample_on_variety(variety, 1)
         samples = np.vstack([samples, new_samples])
-        [V, Vdot, xxd, psi, _] = system.get_levelset_features(samples)
+        [V, Vdot, xxd, psi] = system.get_sample_variety_features(samples)
         if do_transform:
             psi, T, n = coordinate_ring_transform(psi)
         enough_samples = check_genericity(psi)
@@ -160,7 +160,7 @@ def solve_SDP_on_samples(system, sampled_quantities):
 
 def check_vanishing(system, rho, P):
     test_samples = sample_on_variety(system.sym_Vdot, 3)
-    [V, Vdot, xxd, psi, sigma] = system.get_levelset_features(test_samples)
+    [V, Vdot, xxd, psi] = system.get_sample_variety_features(test_samples)
     idx = []
     isVanishing = True
     for i in range(test_samples.shape[0]):

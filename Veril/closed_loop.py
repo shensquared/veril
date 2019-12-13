@@ -176,41 +176,73 @@ class ClosedLoopSys(object):
         #          'samples', phi=phi, dphidx=dphidx, f=f)
         return [phi, dphidx, f]
 
-    def set_levelset_features(self, V, sigma_deg):
+    # def levelset_features(self, V, sigma_deg):
+    #     self.sym_V = V
+    #     self.sym_Vdot = self.sym_V.Jacobian(self.sym_x) @ self.sym_f
+    #     self.degVdot = Polynomial(self.sym_Vdot, self.sym_x).TotalDegree()
+    #     deg = int(np.floor((sigma_deg + self.degVdot - self.degV) / 2))
+    #     self.sym_xxd = (self.sym_x.T@self.sym_x)**(deg)
+    #     self.sym_sigma = get_monomials(self.sym_x, sigma_deg)
+    #     psi_deg = int(np.floor(max(2 * deg + self.degV, sigma_deg +
+    #                                self.degVdot) / 2))
+    #     self.sym_psi = get_monomials(self.sym_x, psi_deg, remove_one=False)
+
+    # def get_levelset_features(self, x):
+    #     # x: (num_samples, sys_dim)
+    #     n_samples = x.shape[0]
+    #     V = np.zeros((n_samples, 1))
+    #     Vdot = np.zeros((n_samples, 1))
+    #     xxd = np.zeros((n_samples, 1))
+    #     psi = np.zeros((n_samples, self.sym_psi.shape[0]))
+    #     sigma = np.zeros((n_samples, self.sym_sigma.shape[0]))
+    #     for i in range(n_samples):
+    #         env = dict(zip(self.sym_x, x[i, :]))
+    #         V[i, :] = self.sym_V.Evaluate(env)
+    #         Vdot[i, :] = self.sym_Vdot.Evaluate(env)
+    #         xxd[i, :] = self.sym_xxd.Evaluate(env)
+    #         psi[i, :] = [i.Evaluate(env) for i in self.sym_psi]
+    #         sigma[i, :] = [i.Evaluate(env) for i in self.sym_sigma]
+    #     return [V, Vdot, xxd, psi, sigma]
+
+    def set_sample_variety_features(self, V):
+        # this requires far lower degreed multiplier xxd and consequentially
+        # lower degree psi, re-write both
         self.sym_V = V
         self.sym_Vdot = self.sym_V.Jacobian(self.sym_x) @ self.sym_f
         self.degVdot = Polynomial(self.sym_Vdot, self.sym_x).TotalDegree()
-        deg = int(np.floor((sigma_deg + self.degVdot - self.degV) / 2))
+        deg = int(np.ceil((self.degVdot - self.degV) / 2))
         self.sym_xxd = (self.sym_x.T@self.sym_x)**(deg)
-        self.sym_sigma = get_monomials(self.sym_x, sigma_deg)
-        psi_deg = int(np.floor(max(2 * deg + self.degV, sigma_deg +
-                                   self.degVdot) / 2))
+        psi_deg = int(((2 * deg + self.degV) / 2))
         self.sym_psi = get_monomials(self.sym_x, psi_deg, remove_one=False)
 
-    def get_levelset_features(self, x):
+    def get_sample_variety_features(self, x):
         # x: (num_samples, sys_dim)
         n_samples = x.shape[0]
         V = np.zeros((n_samples, 1))
         Vdot = np.zeros((n_samples, 1))
         xxd = np.zeros((n_samples, 1))
         psi = np.zeros((n_samples, self.sym_psi.shape[0]))
-        sigma = np.zeros((n_samples, self.sym_sigma.shape[0]))
         for i in range(n_samples):
             env = dict(zip(self.sym_x, x[i, :]))
             V[i, :] = self.sym_V.Evaluate(env)
             Vdot[i, :] = self.sym_Vdot.Evaluate(env)
             xxd[i, :] = self.sym_xxd.Evaluate(env)
             psi[i, :] = [i.Evaluate(env) for i in self.sym_psi]
-            sigma[i, :] = [i.Evaluate(env) for i in self.sym_sigma]
-        return [V, Vdot, xxd, psi, sigma]
+        return [V, Vdot, xxd, psi]
 
-    def set_sample_variety_features(self, V):
-        # this requires far lower degreed multiplier xxd and consequentially
-        # lower degree psi, re-write both
-        deg = int(np.ceil((self.degVdot - self.degV) / 2))
-        self.sym_xxd = (self.sym_x.T@self.sym_x)**(deg)
-        psi_deg = int(((2 * deg + self.degV) / 2))
-        self.sym_psi = get_monomials(self.sym_x, psi_deg, remove_one=False)
+    def do_linearization(self):
+        x = self.sym_x
+        f = self.polynomial_dynamics()
+        J = Jacobian(f, x)
+        env = dict(zip(x, np.zeros(x.shape)))
+
+        A = np.array([[i.Evaluate(env) for i in j]for j in J])
+        print('A  %s' % A)
+        print('eig of the linearized A matrix %s' % (eig(A)[0]))
+        S = solve_lyapunov(A.T, -np.eye(x.shape[0]))
+        print('S %s' %S)
+        print('eig of S %s' % (eig(S)[0]))
+        return A, S
 
 
 class VanderPol(ClosedLoopSys):
