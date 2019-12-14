@@ -121,8 +121,7 @@ def verify_via_equality(sys, V0):
 
 def verify_via_variety(sys_name, init_root_threads=1, epochs=15):
     V, Vdot, sys = train_V(sys_name, epochs=epochs)
-    # plot3d(V, sys_name, sys.slice)
-    # plotly_3d_surf(V, sys_name, sys.slice)
+    plot3d(V, sys_name, sys.slice)
     # plot_funnel(V / 5, sys_name, sys.slice)
     # scatterSamples(sample_variety.sample_on_variety(Vdot, 30), sys_name,
     # sys.slice)
@@ -136,14 +135,15 @@ def verify_via_variety(sys_name, init_root_threads=1, epochs=15):
         samples = [np.vstack(i) for i in zip(samples, new_samples)]
     plot_funnel(V, sys_name, sys.slice)
 
-def verify_via_bilinear(sys_name, max_deg =3):
+
+def verify_via_bilinear(sys_name, max_deg=3):
     sys = closed_loop.get(sys_name)
     sys.set_features(max_deg)
     A, S = sys.do_linearization()
     V0 = sys.sym_x.T@S@sys.sym_x
 
     verifierOptions = verifier.opt(sys.num_states, sys.degf, do_balance=False,
-       degV=2 * max_deg, converged_tol=1e-2, max_iterations=20)
+                                   degV=2 * max_deg, converged_tol=1e-2, max_iterations=20)
     start = time.time()
     V = verifier.bilinear(sys.sym_x, V0, sys.sym_f, S, A, verifierOptions)
     end = time.time()

@@ -250,7 +250,7 @@ class VanderPol(ClosedLoopSys):
     def __init__(self):
         self.name = 'VanderPol'
         self.num_states = 2
-        self.slice = None
+        self.slice = [0,1]
         # self.num_inputs = 0
         # self.num_outputs = 0
         self.trueROA = True

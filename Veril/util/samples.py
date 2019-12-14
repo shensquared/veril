@@ -76,11 +76,6 @@ def getRadii(thetas, V, slice_idx):  # needs to be vectorized
     rU = np.ones(thetas.shape)
     rL = np.zeros(thetas.shape)
     CS = np.vstack((np.cos(thetas), np.sin(thetas)))
-    # if slice_idx is None:
-    # evaluate = lambda r: np.array([V.Evaluate(dict(zip(x, (np.tile(r, (2, 1)) *
-    # CS)[:, i]))) for i in range(n)])
-    # else:
-    # sliced_evaluation(V,x,r, CS,slice_idx)
 
     msk = evaluate(rU, CS, V, x, slice_idx) < 1
     while any(msk):
@@ -99,14 +94,15 @@ def getRadii(thetas, V, slice_idx):  # needs to be vectorized
 
 def evaluate(r, CS, V, x, slice_idx):
     n = r.shape[0]
-    if slice_idx is None:
-        return np.array([V.Evaluate(dict(zip(x, (np.tile(r, (2, 1)) * CS)[:, i]))) for i in range(n)])
-    else:
-        d = dict(zip(x, np.zeros((len(x),))))
-        rcs = np.tile(r, (2, 1)) * CS
-        evals = []
-        for i in range(n):
-            d[x[slice_idx[0]]] = rcs[0, i]
-            d[x[slice_idx[1]]] = rcs[1, i]
-            evals.append(V.Evaluate(d))
-        return np.array(evals)
+    # if slice_idx is None:
+    # return np.array([V.Evaluate(dict(zip(x, (np.tile(r, (2, 1)) * CS)[:,
+    # i]))) for i in range(n)])
+
+    d = dict(zip(x, np.zeros((len(x),))))
+    rcs = np.tile(r, (2, 1)) * CS
+    evals = []
+    for i in range(n):
+        d[x[slice_idx[0]]] = rcs[0, i]
+        d[x[slice_idx[1]]] = rcs[1, i]
+        evals.append(V.Evaluate(d))
+    return np.array(evals)

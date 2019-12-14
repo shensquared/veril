@@ -5,7 +5,7 @@ from util import samples
 from mpl_toolkits.mplot3d import Axes3D
 
 
-def plot_funnel(V, sys_name, slice_idx=None):
+def plot_funnel(V, sys_name, slice_idx):
     file_dir = '../data/' + sys_name
     x = samples.levelsetData(V, slice_idx)[0]
     if sys_name is 'VanderPol':
@@ -19,12 +19,9 @@ def plot_funnel(V, sys_name, slice_idx=None):
     plt.show()
 
 
-def scatterSamples(samples, sys_name, slice_idx=None):
+def scatterSamples(samples, sys_name, slice_idx):
     file_dir = '../data/' + sys_name
-    if slice_idx is None:
-        plt.scatter(samples[:, 0], samples[:, 1])
-    else:
-        plt.scatter(samples[:, slice_idx[0]], samples[:, slice_idx[1]])
+    plt.scatter(samples[:, slice_idx[0]], samples[:, slice_idx[1]])
     if sys_name is 'VanderPol':
         xlim = np.load(file_dir + '/VanderPol_limitCycle.npy')
         bdry = plt.plot(xlim[0, :], xlim[1, :],
@@ -32,7 +29,7 @@ def scatterSamples(samples, sys_name, slice_idx=None):
     plt.show()
 
 
-def plot3d(V, sys_name, slice_idx=None, r_max=2):
+def plot3d(V, sys_name, slice_idx, r_max=2):
     thetas = np.linspace(-np.pi, np.pi, 100)
     sym_x = list(V.GetVariables())
     n = thetas.shape[0]
@@ -53,14 +50,15 @@ def plot3d(V, sys_name, slice_idx=None, r_max=2):
     ax = fig.gca(projection='3d')
     X, Y, Z = x[1:], y[1:], z[1:]
     ax.plot_trisurf(X, Y, Z, linewidth=0.2, antialiased=True)
+    xlab = 'X'+str(slice_idx[0]+1)
+    ylab = 'X'+str(slice_idx[1]+1)
 
-    ax.set_xlabel('X')
-    # ax.set_xlim(-r_max, r_max)
-    ax.set_ylabel('Y')
+    ax.set_xlabel(xlab)
+    ax.set_ylabel(ylab)
     # ax.set_ylim(-r_max, r_max)
     ax.set_zlabel('Z')
 
-    levels = np.linspace(z0 + .01, np.max(Z), 10)
+    levels = np.linspace(z0+.01, np.max(np.abs(Z)), 10)
     for i in levels:
         xx = samples.levelsetData(V / i, slice_idx)[0]
         ax.plot(xx[:, 0], xx[:, 1], zs=0, zdir='z', label='levels')
