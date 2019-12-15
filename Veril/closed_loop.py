@@ -219,16 +219,14 @@ class ClosedLoopSys(object):
         # x: (num_samples, sys_dim)
         n_samples = x.shape[0]
         V = np.zeros((n_samples, 1))
-        Vdot = np.zeros((n_samples, 1))
         xxd = np.zeros((n_samples, 1))
         psi = np.zeros((n_samples, self.sym_psi.shape[0]))
         for i in range(n_samples):
             env = dict(zip(self.sym_x, x[i, :]))
             V[i, :] = self.sym_V.Evaluate(env)
-            Vdot[i, :] = self.sym_Vdot.Evaluate(env)
             xxd[i, :] = self.sym_xxd.Evaluate(env)
             psi[i, :] = [i.Evaluate(env) for i in self.sym_psi]
-        return [V, Vdot, xxd, psi]
+        return [V, xxd, psi]
 
     def do_linearization(self):
         x = self.sym_x
@@ -243,6 +241,14 @@ class ClosedLoopSys(object):
         print('S %s' %S)
         print('eig of S %s' % (eig(S)[0]))
         return A, S
+
+    def rescale_V(self, P, samples):
+        V0 = self.sym_phi.T@P@self.sym_phi
+        V_evals= [V0.Evaluate(dict(zip(self.sym_x,i))) for i in samples]
+        m = np.percentile(V_evals, 75)
+        V=V0/m
+        Vdot = V.Jacobian(self.sym_x)@self.sym_f
+        return V, Vdot
 
 
 class VanderPol(ClosedLoopSys):

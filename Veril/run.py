@@ -102,16 +102,13 @@ def train_V(sys_name, max_deg=3, epochs=15, method='SGD'):
         y = - np.ones(phi.shape)
         if model is None:
             model = sample_lyap.poly_model_for_V(sys.num_states, max_deg)
-        history = model.fit([phi, dphidx, f], y, epochs=epochs)
+        history = model.fit([phi, dphidx, f], y, epochs=epochs, verbose=False)
         # assert (history.history['loss'][-1] <= 0)
         P = sample_lyap.get_gram_for_V(model)
     else:
         P = verifier.solve_LP_for_V(phi, dphidx, f, num_samples=None)
-
-    V0 = sys.sym_phi.T@P@sys.sym_phi
-    Vdot = sys.sym_phi.T@P@sys.sym_dphidx@sys.sym_f
-    # sys.levelset_features(V0, 8)
-    return V0, Vdot, sys
+    V, Vdot = sys.rescale_V(P, train_x)
+    return V, Vdot, sys
 
 
 def verify_via_equality(sys, V0):
@@ -121,19 +118,23 @@ def verify_via_equality(sys, V0):
 
 def verify_via_variety(sys_name, init_root_threads=1, epochs=15):
     V, Vdot, sys = train_V(sys_name, epochs=epochs)
-    plot3d(V, sys_name, sys.slice)
-    # plot_funnel(V / 5, sys_name, sys.slice)
+    # plot3d(V, sys_name, sys.slice)
     # scatterSamples(sample_variety.sample_on_variety(Vdot, 30), sys_name,
     # sys.slice)
-    verify_via_equality(sys, V)
+    # verify_via_equality(sys, V)
     sys.set_sample_variety_features(V)
-    isVanishing = False
-    samples = sample_variety.sample_monomials(sys, Vdot, init_root_threads)
-    while not isVanishing:
-        V, rho, P = sample_variety.solve_SDP_on_samples(sys, samples)
-        isVanishing, new_samples = sample_variety.check_vanishing(sys, rho, P)
-        samples = [np.vstack(i) for i in zip(samples, new_samples)]
-    plot_funnel(V, sys_name, sys.slice)
+    is_vanishing = False
+    samples = sample_variety.sample_on_variety(Vdot, init_root_threads)
+
+    while not is_vanishing:
+        samples_monomial, Tinv = sample_variety.sample_monomials(sys, samples, Vdot)
+        V, rho, P = sample_variety.solve_SDP_on_samples(sys, samples_monomial)
+        is_vanishing, new_samples = sample_variety.check_vanishing(sys, rho, P, Tinv)
+        # samples = [np.vstack(i) for i in zip(samples, new_samples)]
+        # samples = np.vstack((samples, sample_variety.sample_on_variety(Vdot, 1)))
+        samples = np.vstack((samples, new_samples))
+    return rho
+    # plot_funnel(V, sys_name, sys.slice)
 
 
 def verify_via_bilinear(sys_name, max_deg=3):
@@ -179,9 +180,17 @@ def sim_RNN_stable_samples(**options):
 
 
 # sys, V = verify_via_bilinear('VanderPol')
-# sys, V = verify_via_bilinear('Pendubot')
+# sys, V = verify_via_bilinear('Pendubot',max_deg = 3)
 # verify_via_variety('Pendubot',init_root_threads=120,epochs = 30)
-# verify_via_variety('VanderPol', init_root_threads=30, epochs=40)
+all_rho=0
+for i in range(30):
+    rho = verify_via_variety('VanderPol', init_root_threads=30, epochs=10)
+    all_rho = np.append(all_rho, rho)
+print(all_rho)
+#     V, Vdot, sys = train_V('VanderPol', epochs=40)
+#     verify_via_equality(sys, V)
+
+
 # verify_RNN_CL(max_deg=2)
 # train_RNN_controller(**options)
 

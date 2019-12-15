@@ -100,7 +100,7 @@ def poly_model_for_V(sys_dim, max_deg):
     rate = Divide()([Vdot, V])
     model = Model(inputs=[phi, dphidx, fx], outputs=rate)
     model.compile(loss=hinge_plus_neg, optimizer='adam')
-    print(model.summary())
+    # print(model.summary())
     return model
 
 
