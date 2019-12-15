@@ -15,7 +15,11 @@ def plot_funnel(V, sys_name, slice_idx):
     else:
         stable_samples = np.load(file_dir + '/stableSamplesSlice.npy')
         plt.scatter(stable_samples[:, 0], stable_samples[:, 1], color='red')
-    plt.fill(x[:, 0], x[:, 1])
+    plt.plot(x[:, 0], x[:, 1])
+    xlab = 'X' + str(slice_idx[0] + 1)
+    ylab = 'X' + str(slice_idx[1] + 1)
+    plt.xlabel(xlab)
+    plt.ylabel(ylab)
     plt.show()
 
 
@@ -26,6 +30,10 @@ def scatterSamples(samples, sys_name, slice_idx):
         xlim = np.load(file_dir + '/VanderPol_limitCycle.npy')
         bdry = plt.plot(xlim[0, :], xlim[1, :],
                         color='red', label='ROA boundary')
+    xlab = 'X' + str(slice_idx[0] + 1)
+    ylab = 'X' + str(slice_idx[1] + 1)
+    plt.xlabel(xlab)
+    plt.ylabel(ylab)
     plt.show()
 
 
@@ -50,15 +58,15 @@ def plot3d(V, sys_name, slice_idx, r_max=2):
     ax = fig.gca(projection='3d')
     X, Y, Z = x[1:], y[1:], z[1:]
     ax.plot_trisurf(X, Y, Z, linewidth=0.2, antialiased=True)
-    xlab = 'X'+str(slice_idx[0]+1)
-    ylab = 'X'+str(slice_idx[1]+1)
+    xlab = 'X' + str(slice_idx[0] + 1)
+    ylab = 'X' + str(slice_idx[1] + 1)
 
     ax.set_xlabel(xlab)
     ax.set_ylabel(ylab)
     # ax.set_ylim(-r_max, r_max)
     ax.set_zlabel('Z')
 
-    levels = np.linspace(z0+.01, np.max(np.abs(Z)), 10)
+    levels = np.linspace(1, np.max(np.abs(Z)), 5)
     for i in levels:
         xx = samples.levelsetData(V / i, slice_idx)[0]
         ax.plot(xx[:, 0], xx[:, 1], zs=0, zdir='z', label='levels')
