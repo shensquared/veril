@@ -11,21 +11,25 @@ def plot_funnel(V, sys_name, slice_idx):
     if sys_name is 'VanderPol':
         xlim = np.load(file_dir + '/VanderPol_limitCycle.npy')
         bdry = plt.plot(xlim[0, :], xlim[1, :],
-                        color='red', label='ROAboundary')
+                        color='red', label='Known ROA Boundary')
     else:
         stable_samples = np.load(file_dir + '/stableSamplesSlice.npy')
-        plt.scatter(stable_samples[:, 0], stable_samples[:, 1], color='red')
-    plt.plot(x[:, 0], x[:, 1])
+        plt.scatter(stable_samples[:, 0], stable_samples[:, 1], color='red',
+            label = 'Simulated Stable Samples')
+    plt.plot(x[:, 0], x[:, 1], label = 'Verified ROA Boundary')
     xlab = 'X' + str(slice_idx[0] + 1)
     ylab = 'X' + str(slice_idx[1] + 1)
     plt.xlabel(xlab)
     plt.ylabel(ylab)
+    leg = plt.legend()
+    plt.title(sys_name)
     plt.show()
 
 
 def scatterSamples(samples, sys_name, slice_idx):
     file_dir = '../data/' + sys_name
-    plt.scatter(samples[:, slice_idx[0]], samples[:, slice_idx[1]])
+    plt.scatter(samples[:, slice_idx[0]], samples[:, slice_idx[1]], label =
+        'Samples')
     if sys_name is 'VanderPol':
         xlim = np.load(file_dir + '/VanderPol_limitCycle.npy')
         bdry = plt.plot(xlim[0, :], xlim[1, :],
@@ -34,6 +38,8 @@ def scatterSamples(samples, sys_name, slice_idx):
     ylab = 'X' + str(slice_idx[1] + 1)
     plt.xlabel(xlab)
     plt.ylabel(ylab)
+    plt.legend()
+    plt.title(sys_name)
     plt.show()
 
 
@@ -57,14 +63,15 @@ def plot3d(V, sys_name, slice_idx, r_max=2):
     fig = plt.figure()
     ax = fig.gca(projection='3d')
     X, Y, Z = x[1:], y[1:], z[1:]
-    ax.plot_trisurf(X, Y, Z, linewidth=0.2, antialiased=True)
+    ax.plot_trisurf(X, Y, Z, linewidth=0.2,
+        cmap=plt.cm.Spectral, antialiased=True)
     xlab = 'X' + str(slice_idx[0] + 1)
     ylab = 'X' + str(slice_idx[1] + 1)
 
     ax.set_xlabel(xlab)
     ax.set_ylabel(ylab)
     # ax.set_ylim(-r_max, r_max)
-    ax.set_zlabel('Z')
+    ax.set_zlabel('V')
 
     levels = np.linspace(1, np.max(np.abs(Z)), 5)
     for i in levels:
