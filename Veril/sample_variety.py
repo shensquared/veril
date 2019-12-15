@@ -46,10 +46,6 @@ def sample_on_variety(variety, root_threads):
         # need only the real roots
         root_t = root_t[~np.iscomplex(root_t)].real
         root_x = np.array([alphas * i + betas for i in root_t])
-        n_root_x = root_x.shape[0]
-        root_x_norm = np.array([np.linalg.norm(i) for i in root_x])
-        root_x = np.array([root_x[i] for i in range(n_root_x) if root_x_norm
-        [i]>1e-4])
 
         varitey_x = np.array([variety.Evaluate(dict(zip(x, i))) for i in
             root_x])
@@ -61,27 +57,31 @@ def sample_on_variety(variety, root_threads):
             root_x = root_x[close]
             samples = np.vstack([samples, root_x])
             num_roots = samples.shape[0] - 1
+
+        # samples_norm = np.array([np.linalg.norm(i) for i in samples])
+        # root_x = root_x[root_x_norm>1e-4]
     # print(samples)
-    return samples[1:, :]
+    return samples[1:]
 
 
 def sample_monomials(system, samples, variety,  do_transform=True):
     enough_samples = False
     while not enough_samples:
         new_samples = sample_on_variety(
-            variety, int(np.ceil(samples.shape[0] * .01)))
+            variety, min(int(np.ceil(samples.shape[0] * .01)),1))
         samples = np.vstack([samples, new_samples])
-        [V, xxd, psi] = system.get_sample_variety_features(samples)
-        balanced = max(V)[0]/min(V)[0]<1e3
+        V = system.get_v_values(samples)
+        balanced = max(V)/min(V)<1e3
         while not balanced:
             print('not balanced')
-            print(V)
+            # print(V)
             idx = [np.argmax(V), np.argmin(V)]
             samples=np.delete(samples,idx,axis=0)
             V=np.delete(V,idx,axis=0)
-            xxd=np.delete(xxd,idx,axis=0)
-            psi=np.delete(psi,idx,axis=0)
-            balanced = max(V)[0]/min(V)[0]<1e3
+            # xxd=np.delete(xxd,idx,axis=0)
+            # psi=np.delete(psi,idx,axis=0)
+            balanced = max(V)/min(V)<1e3
+        [xxd, psi] = system.get_sample_variety_features(samples)
         if do_transform:
             trans_psi, Tinv = coordinate_ring_transform(psi)
         else:
@@ -172,7 +172,7 @@ def solve_SDP_on_samples(system, sampled_quantities):
     [V, xxd, psi] = sampled_quantities
     print('SDP V %s' %V)
     dim_psi = psi.shape[1]
-    print('SDP size is %s' % dim_psi)
+    # print('SDP size is %s' % dim_psi)
     # print('num SDP is %s' % psi.shape[0])
     P = prog.NewSymmetricContinuousVariables(dim_psi, "P")
     prog.AddPositiveSemidefiniteConstraint(P)
@@ -183,24 +183,25 @@ def solve_SDP_on_samples(system, sampled_quantities):
 
     prog.AddCost(-rho)
     solver = MosekSolver()
-    solver.set_stream_logging(False, "")
+    solver.set_stream_logging(True, "")
     result = solver.Solve(prog, None, None)
     # print(result.get_solution_result())
     assert result.is_success()
     P = result.GetSolution(P)
     rho = result.GetSolution(rho)
-    # print(rho)
+    print(rho)
     V = system.sym_V / rho
     return V, rho, P
 
 
 def check_vanishing(system, rho, P, Tinv):
-    test_samples = sample_on_variety(system.sym_Vdot, 2)
-    [V, xxd, psi] = system.get_sample_variety_features(test_samples)
+    test_samples = sample_on_variety(system.sym_Vdot, 4)
+    V = system.get_v_values(test_samples)
+    [xxd, psi] = system.get_sample_variety_features(test_samples)
     idx = []
     isVanishing = True
+    print('vanishing V %s' %V)
     for i in range(test_samples.shape[0]):
-        print('vanishing V %s' %V)
         levelset = (xxd[i] * (V[i] - rho))[0]
         this_psi = Tinv@psi[i]
         candidate = this_psi.T@P@this_psi

@@ -215,18 +215,23 @@ class ClosedLoopSys(object):
         psi_deg = int(((2 * deg + self.degV) / 2))
         self.sym_psi = get_monomials(self.sym_x, psi_deg, remove_one=False)
 
-    def get_sample_variety_features(self, x):
-        # x: (num_samples, sys_dim)
-        n_samples = x.shape[0]
-        V = np.zeros((n_samples, 1))
+    def get_sample_variety_features(self, samples):
+        # samples: (num_samples, sys_dim)
+        n_samples = samples.shape[0]
+        # V = np.zeros((n_samples, 1))
         xxd = np.zeros((n_samples, 1))
         psi = np.zeros((n_samples, self.sym_psi.shape[0]))
         for i in range(n_samples):
-            env = dict(zip(self.sym_x, x[i, :]))
-            V[i, :] = self.sym_V.Evaluate(env)
+            env = dict(zip(self.sym_x, samples[i, :]))
+            # V[i, :] = self.sym_V.Evaluate(env)
             xxd[i, :] = self.sym_xxd.Evaluate(env)
             psi[i, :] = [i.Evaluate(env) for i in self.sym_psi]
-        return [V, xxd, psi]
+        return [xxd, psi]
+
+    def get_v_values(self, samples, V=None):
+        if V is None:
+            V = self.sym_V
+        return np.array([V.Evaluate(dict(zip(self.sym_x, i))) for i in samples])
 
     def do_linearization(self):
         x = self.sym_x
@@ -238,15 +243,15 @@ class ClosedLoopSys(object):
         print('A  %s' % A)
         print('eig of the linearized A matrix %s' % (eig(A)[0]))
         S = solve_lyapunov(A.T, -np.eye(x.shape[0]))
-        print('S %s' %S)
+        print('S %s' % S)
         print('eig of S %s' % (eig(S)[0]))
         return A, S
 
     def rescale_V(self, P, samples):
         V0 = self.sym_phi.T@P@self.sym_phi
-        V_evals= [V0.Evaluate(dict(zip(self.sym_x,i))) for i in samples]
+        V_evals = self.get_v_values(samples, V=V0)
         m = np.percentile(V_evals, 75)
-        V=V0/m
+        V = V0 / m
         Vdot = V.Jacobian(self.sym_x)@self.sym_f
         return V, Vdot
 
@@ -256,7 +261,7 @@ class VanderPol(ClosedLoopSys):
     def __init__(self):
         self.name = 'VanderPol'
         self.num_states = 2
-        self.slice = [0,1]
+        self.slice = [0, 1]
         # self.num_inputs = 0
         # self.num_outputs = 0
         self.trueROA = True
@@ -353,7 +358,7 @@ class Pendubot(ClosedLoopSys):
     def __init__(self):
         self.name = 'Pendubot'
         self.num_states = 4
-        self.slice = [0,2]
+        self.slice = [0, 2]
         # self.num_inputs = 0
         # self.num_outputs = 0
         # self.trueROA = True
@@ -433,7 +438,7 @@ class Pendubot(ClosedLoopSys):
             if sol.status == 0 and (np.linalg.norm(sol.y[:, -1])) <= 1e-2:
                 stableSamples = np.vstack((stableSamples, x[:, i]))
         stableSamples = stableSamples.T
-        stable_slice = np.array([stableSamples[0,:],stableSamples[2,:]])
+        stable_slice = np.array([stableSamples[0, :], stableSamples[2, :]])
         return stable_slice.T
 
 
