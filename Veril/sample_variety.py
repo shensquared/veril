@@ -51,12 +51,11 @@ def sample_on_variety(variety, root_threads):
             samples = np.vstack([samples, root_x])
             num_roots = samples.shape[0] - 1
     # print(samples)
-    return samples[1:1 + root_threads, :]
+    return samples[1:, :]
 
 
 def sample_monomials(system, variety, root_threads, do_transform=False):
     enough_samples = False
-    diff_m = 0
     samples = sample_on_variety(variety, root_threads)
     while not enough_samples:
         new_samples = sample_on_variety(variety, 1)
@@ -81,7 +80,8 @@ def coordinate_ring_transform(monomial_samples):
         U= T@U_transformed, where
         T:(monomial_dim, n),
         U_transformed:(n,num_samples)
-
+        for testing, standard_monomial = T * reduced_basis, or
+        pinv(T)@standard_monomial = reduced_basis
     Returns:
         U_transformed.T (num_samples, reduced_monomials)
     """
@@ -94,6 +94,7 @@ def coordinate_ring_transform(monomial_samples):
     U_transformed = v[:n, :]
     T = u@s[:, :n]
     return U_transformed.T, T, n
+# U=np.array([[1,1,1,0,0,0],[-0.6, -1.2, -0.75, 0.8,0.4,0.25],[-1.2,-.6,-.75,-.4,-.8,-.25],[1.2,0.6,.75,.4,.8,.25],[-.6,-1.2,-.75,.8,.4,.25]])
 
 
 def check_genericity(all_samples):
