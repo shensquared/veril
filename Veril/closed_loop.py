@@ -209,7 +209,8 @@ class ClosedLoopSys(object):
         # lower degree psi, re-write both
         self.sym_V = V
         self.sym_Vdot = self.sym_V.Jacobian(self.sym_x) @ self.sym_f
-        self.degVdot = Polynomial(self.sym_Vdot, self.sym_x).TotalDegree()
+        # self.sym_Vdot = Polynomial(self.sym_Vdot, self.sym_x)
+        self.degVdot = self.degV - 1 + self.degf
         deg = int(np.ceil((self.degVdot - self.degV) / 2))
         self.sym_xxd = (self.sym_x.T@self.sym_x)**(deg)
         psi_deg = int(((2 * deg + self.degV) / 2))
@@ -262,8 +263,6 @@ class VanderPol(ClosedLoopSys):
         self.name = 'VanderPol'
         self.num_states = 2
         self.slice = [0, 1]
-        # self.num_inputs = 0
-        # self.num_outputs = 0
         self.trueROA = True
         prog = MathematicalProgram()
         self.sym_x = prog.NewIndeterminates(self.num_states, "x")
@@ -317,7 +316,7 @@ class VanderPol(ClosedLoopSys):
                 stableSamples = np.vstack((stableSamples, x[:, i]))
         return stableSamples.T
 
-    def _phase_portrait(self, ax, ax_max):
+    def phase_portrait(self, ax, ax_max):
         num = 60
         u = np.linspace(-ax_max, ax_max, num=num)
         v = np.linspace(-ax_max, ax_max, num=num)
@@ -359,38 +358,33 @@ class Pendubot(ClosedLoopSys):
         self.name = 'Pendubot'
         self.num_states = 4
         self.slice = [0, 2]
-        # self.num_inputs = 0
-        # self.num_outputs = 0
-        # self.trueROA = True
+        self.all_slices = list(itertools.combinations(range(self.num_states),2))
         prog = MathematicalProgram()
         self.sym_x = prog.NewIndeterminates(self.num_states, "x")
 
-    def get_x(self, d=2, num_grid=100):
+    def get_x(self, d=2, num_grid=100, slice_idx=None):
         x1 = np.linspace(-d, d, num_grid)
         x2 = np.linspace(-d, d, num_grid)
-        x3 = np.linspace(-d, d, num_grid)
-        x4 = np.linspace(-d, d, num_grid)
         x1 = x1[np.nonzero(x1)]
         x2 = x2[np.nonzero(x2)]
-        x3 = x3[np.nonzero(x3)]
-        x4 = x4[np.nonzero(x4)]
-        x1, x2, x3, x4 = np.meshgrid(x1, x2, x3, x4)
-        x1, x2, x3, x4 = x1.ravel(), x2.ravel(), x3.ravel(), x4.ravel()
-        return np.array([x1, x2, x3, x4])  # (4, num_grid**4)
-
-    def get_slice_x(self, d=2, num_grid=200):
-        x1 = np.linspace(-d, d, num_grid)
-        x3 = np.linspace(-d, d, num_grid)
-        x1 = x1[np.nonzero(x1)]
-        x3 = x3[np.nonzero(x3)]
-        x1, x3 = np.meshgrid(x1, x3)
-        x1, x3 = x1.ravel(), x3.ravel()
-        x2, x4 = np.zeros(x1.shape), np.zeros(x3.shape)
-        return np.array([x1, x2, x3, x4])  # (2, num_grid**2)
+        if slice_idx is None:
+            x3 = np.linspace(-d, d, num_grid)
+            x4 = np.linspace(-d, d, num_grid)
+            x3 = x3[np.nonzero(x3)]
+            x4 = x4[np.nonzero(x4)]
+            x1, x2, x3, x4 = np.meshgrid(x1, x2, x3, x4)
+            x1, x2, x3, x4 = x1.ravel(), x2.ravel(), x3.ravel(), x4.ravel()
+            return np.array([x1, x2, x3, x4])  # (4, num_grid**4)
+        else:
+            x1, x2 = np.meshgrid(x1, x2)
+            x1, x2 = x1.ravel(), x2.ravel()
+            x3 = np.zeros(x1.shape)
+            all_states = np.array([x3, x3, x3, x3])  # (4, num_grid**4)
+            all_states[slice_idx, :] = np.array([x1, x2])
+            return np.array(all_states)
 
     def polynomial_dynamics(self, sample_states=None):
         if sample_states is None:
-            # [x1, x2, x3, x4] = self.sym_x
             return self.fx(None, self.sym_x)
         else:
             x = sample_states.T
@@ -399,13 +393,6 @@ class Pendubot(ClosedLoopSys):
             x3 = x[2, :]
             x4 = x[3, :]
             return self.fx(None, [x1, x2, x3, x4]).T
-        # f = np.array([x2, 782 * x1 + 135 * x2 + 689 * x3 + 90 * x4, x4,
-            # 279 * x1 * x3**2 − 1425 * x1 − 257 * x2 + 273 * x3**3 − \
-            # 1249 * x3 − 171 * x4])
-        # if sample_states is None:
-            # return f
-        # else:
-            # return f.T
 
     def fx(self, t, y):
         [x1, x2, x3, x4] = y
@@ -413,10 +400,10 @@ class Pendubot(ClosedLoopSys):
                          279 * x1 * x3**2 - 1425 * x1 - 257 * x2 + 273 *
                          x3**3 - 1249 * x3 - 171 * x4])
 
-    def SimStableSamples(self, num_grid):
+    def SimStableSamples(self, d, num_grid, slice_idx=None):
         event = lambda t, x: np.linalg.norm(x) - 15
         event.terminal = True
-        x = self.get_x(d=1.2, num_grid=num_grid)
+        x = self.get_x(d=d, num_grid=num_grid, slice_idx=slice_idx)
         stableSamples = np.zeros((self.num_states,))
         for i in range(x.shape[-1]):
             sol = integrate.solve_ivp(self.fx, [0, 15], x[:, i], events=event)
@@ -424,22 +411,10 @@ class Pendubot(ClosedLoopSys):
             # print('event stopping')
             if sol.status == 0 and (np.linalg.norm(sol.y[:, -1])) <= 1e-2:
                 stableSamples = np.vstack((stableSamples, x[:, i]))
-        return stableSamples.T
-
-    def SimStableSamplesSlice(self, num_grid):
-        event = lambda t, x: np.linalg.norm(x) - 15
-        event.terminal = True
-        x = self.get_slice_x(d=2, num_grid=num_grid)
-        stableSamples = np.zeros((4,))
-        for i in range(x.shape[-1]):
-            sol = integrate.solve_ivp(self.fx, [0, 15], x[:, i], events=event)
-            # if sol.status == 1:
-            # print('event stopping')
-            if sol.status == 0 and (np.linalg.norm(sol.y[:, -1])) <= 1e-2:
-                stableSamples = np.vstack((stableSamples, x[:, i]))
-        stableSamples = stableSamples.T
-        stable_slice = np.array([stableSamples[0, :], stableSamples[2, :]])
-        return stable_slice.T
+        if slice_idx is None:
+            return stableSamples
+        else:
+            return stableSamples[1:,slice_idx]
 
 
 class PolyRNNCL(ClosedLoopSys):
