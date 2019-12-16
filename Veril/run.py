@@ -92,8 +92,8 @@ def train_V(sys_name, max_deg=3, epochs=15, method='SGD'):
     # train_x, train_y = withinLevelSet(V)
     sys.set_features(max_deg)
     if max_deg == 3:
-        loaded = np.load(model_dir+'/train_for_v_features.npz')
-        [phi, dphidx, f] = [loaded['phi'], loaded['dphidx'],loaded['f']]
+        loaded = np.load(model_dir + '/train_for_v_features.npz')
+        [phi, dphidx, f] = [loaded['phi'], loaded['dphidx'], loaded['f']]
     else:
         [phi, dphidx, f] = sys.train_for_V_features(train_x)
 
@@ -116,11 +116,11 @@ def verify_via_equality(sys, V0):
 
 
 def verify_via_variety(sys_name, init_root_threads=1, epochs=15):
-    sys = closed_loop.get(sys_name)
-    [scatterSamples(np.zeros((1, sys.num_states)), sys_name, i) for i in
-     sys.all_slices]
+    # sys = closed_loop.get(sys_name)
+    # [scatterSamples(np.zeros((1, sys.num_states)), sys_name, i) for i in
+    #  sys.all_slices]
     V, Vdot, sys = train_V(sys_name, epochs=epochs)
-    [plot3d(V, sys_name, i) for i in sys.all_slices]
+    # [plot3d(V, sys_name, i) for i in sys.all_slices]
     # verify_via_equality(sys, V)
     sys.set_sample_variety_features(V)
     Vdot = sys.sym_Vdot
@@ -161,24 +161,6 @@ def verify_via_bilinear(sys_name, max_deg=3):
     return sys, V
 
 
-def verify_RNN_CL(max_deg=2):
-    CL, model_file_name = closed_loop.get_NNorCL(**options)
-    sys = closed_loop.PolyRNNCL(CL, model_file_name, taylor_approx=True)
-    sys.set_features(max_deg)
-    samples = sys.sample_init_states_w_tanh(30000, lb=-.01, ub=.01)
-    [phi, dphidx, f] = sys.train_for_V_features(samples)
-
-    y = np.zeros(phi.shape)
-    nx = sys.num_states
-    degf = sys.degf
-    model = sample_lyap.poly_model_for_V(nx, max_deg)
-    history = model.fit([phi, dphidx, f], y, epochs=100, shuffle=True)
-    assert (history.history['loss'][-1] <= 0)
-    P = sample_lyap.get_gram_for_V(model)
-    V0 = sys.sym_phi.T@P@sys.sym_phi
-    return V0, sys
-
-
 def sim_RNN_stable_samples(**options):
     old_sampels = np.load('DIsamples.npy')
     model, model_file_name = closed_loop.get_NNorCL(NNorCL='NN', **options)
@@ -189,9 +171,9 @@ def sim_RNN_stable_samples(**options):
 
 # sys, V = verify_via_bilinear('VanderPol')
 # sys, V = verify_via_bilinear('Pendubot',max_deg = 3)
-# verify_via_variety('Pendubot',init_root_threads=150,epochs = 30)
-for i in range(30):
-    rho = verify_via_variety('VanderPol', init_root_threads=30, epochs=10)
+verify_via_variety('Pendubot', init_root_threads=1, epochs=1)
+# for i in range(30):
+#     rho = verify_via_variety('VanderPol', init_root_threads=1, epochs=10)
 #     V, Vdot, sys = train_V('VanderPol', epochs=40)
 #     verify_via_equality(sys, V)
 
@@ -205,6 +187,23 @@ for i in range(30):
 
 
 ############
+# def verify_RNN_CL(max_deg=2):
+#     CL, model_file_name = closed_loop.get_NNorCL(**options)
+#     sys = closed_loop.PolyRNNCL(CL, model_file_name, taylor_approx=True)
+#     sys.set_features(max_deg)
+#     samples = sys.sample_init_states_w_tanh(30000, lb=-.01, ub=.01)
+#     [phi, dphidx, f] = sys.train_for_V_features(samples)
+
+#     y = np.zeros(phi.shape)
+#     nx = sys.num_states
+#     degf = sys.degf
+#     model = sample_lyap.poly_model_for_V(nx, max_deg)
+#     history = model.fit([phi, dphidx, f], y, epochs=100, shuffle=True)
+#     assert (history.history['loss'][-1] <= 0)
+#     P = sample_lyap.get_gram_for_V(model)
+#     V0 = sys.sym_phi.T@P@sys.sym_phi
+#     return V0, sys
+
 # def SGDLevelSetGramCandidate(V, vdp, max_deg=3):
 #     sym_x = vdp.sym_x
 #     train_x = vdp.get_x(d=10).T

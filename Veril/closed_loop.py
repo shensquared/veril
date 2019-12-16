@@ -153,8 +153,8 @@ class ClosedLoopSys(object):
     def set_features(self, VFeatureDeg):
         self.degV = 2 * VFeatureDeg
         self.sym_f = self.polynomial_dynamics()
-        self.degf = max([Polynomial(i, self.sym_x).TotalDegree() for i in
-                         self.sym_f])
+        # self.degf = max([Polynomial(i, self.sym_x).TotalDegree() for i in
+        #                  self.sym_f])
         if VFeatureDeg == 1:
             sym_x_expression = np.array([Expression(i) for i in self.sym_x])
             self.sym_phi = np.append(pow(self.sym_x[0], 0), sym_x_expression)
@@ -289,6 +289,7 @@ class VanderPol(ClosedLoopSys):
         self.slice = [0, 1]
         self.all_slices = [[0, 1]]
         self.trueROA = True
+        self.degf = 3
         prog = MathematicalProgram()
         self.sym_x = prog.NewIndeterminates(self.num_states, "x")
 
@@ -371,6 +372,7 @@ class Pendubot(ClosedLoopSys):
         self.slice = [0, 2]
         self.all_slices = list(
             itertools.combinations(range(self.num_states), 2))
+        self.degf = 3
         prog = MathematicalProgram()
         self.sym_x = prog.NewIndeterminates(self.num_states, "x")
 
