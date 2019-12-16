@@ -92,9 +92,8 @@ def train_V(sys_name, max_deg=3, epochs=15, method='SGD'):
     # train_x, train_y = withinLevelSet(V)
     sys.set_features(max_deg)
     if max_deg == 3:
-        [phi, dphidx, f] = [np.load(model_dir + '/stablephi.npy'),
-                            np.load(model_dir + '/stabledphidx.npy'),
-                            np.load(model_dir + '/stablef.npy')]
+        loaded = np.load(model_dir+'/train_for_v_features.npz')
+        [phi, dphidx, f] = [loaded['phi'], loaded['dphidx'],loaded['f']]
     else:
         [phi, dphidx, f] = sys.train_for_V_features(train_x)
 
