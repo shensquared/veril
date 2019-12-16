@@ -118,7 +118,7 @@ def verify_via_equality(sys, V0):
 
 def verify_via_variety(sys_name, init_root_threads=1, epochs=15):
     sys = closed_loop.get(sys_name)
-    [scatterSamples(np.zeros((1,sys.num_states)), sys_name, i) for i in
+    [scatterSamples(np.zeros((1, sys.num_states)), sys_name, i) for i in
      sys.all_slices]
     V, Vdot, sys = train_V(sys_name, epochs=epochs)
     [plot3d(V, sys_name, i) for i in sys.all_slices]
@@ -206,14 +206,6 @@ for i in range(30):
 
 
 ############
-# pendubot = closed_loop.Pendubot()
-# samples = pendubot.SimStableSamplesSlice(200)
-# np.save('pendu.npy',samples)
-
-# samples = np.load('../data/Pendubot/stableSamplesSlice.npy')
-# scatterSamples(samples, '')
-
-
 # def SGDLevelSetGramCandidate(V, vdp, max_deg=3):
 #     sym_x = vdp.sym_x
 #     train_x = vdp.get_x(d=10).T

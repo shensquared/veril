@@ -23,6 +23,7 @@ from keras.models import load_model
 from Veril import plants
 from Veril.custom_layers import JanetController
 import itertools
+# from sympy import symbols, Matrix, Transpose, MatrixSymbol
 
 
 def get(system_name):
@@ -256,6 +257,29 @@ class ClosedLoopSys(object):
         Vdot = V.Jacobian(self.sym_x)@self.sym_f
         return V, Vdot
 
+    def sim_stable_samples(self, d, num_grid, slice_idx=None):
+        def event(t, x): return np.linalg.norm(x) - 15
+        event.terminal = True
+        x = self.get_x(d=d, num_grid=num_grid, slice_idx=slice_idx)
+        stableSamples = np.zeros((self.num_states,))
+        for i in range(x.shape[-1]):
+            sol = integrate.solve_ivp(self.fx, [0, 15], x[:, i], events=event)
+            # if sol.status == 1:
+            # print('event stopping')
+            if sol.status == 0 and (np.linalg.norm(sol.y[:, -1])) <= 1e-2:
+                stableSamples = np.vstack((stableSamples, x[:, i]))
+        if slice_idx is None:
+            return stableSamples
+        else:
+            return stableSamples[1:, slice_idx]
+
+    def sim_stable_samples_for_all_slices(self, d, num_grid):
+        for i in self.all_slices:
+            samples = self.sim_stable_samples(d, num_grid, slice_idx=i)
+            name = '../data/' + self.name + '/stableSamplesSlice' + \
+                str(i[0] + 1) + str(i[1] + 1) + '.npy'
+            np.save(name, samples)
+
 
 class VanderPol(ClosedLoopSys):
 
@@ -263,12 +287,12 @@ class VanderPol(ClosedLoopSys):
         self.name = 'VanderPol'
         self.num_states = 2
         self.slice = [0, 1]
-        self.all_slices = [[0,1]]
+        self.all_slices = [[0, 1]]
         self.trueROA = True
         prog = MathematicalProgram()
         self.sym_x = prog.NewIndeterminates(self.num_states, "x")
 
-    def get_x(self, d=2, num_grid=200):
+    def get_x(self, d=2, num_grid=200, slice_idx=None):
         x1 = np.linspace(-d, d, num_grid)
         x2 = np.linspace(-d, d, num_grid)
         x1 = x1[np.nonzero(x1)]
@@ -302,20 +326,6 @@ class VanderPol(ClosedLoopSys):
 
     def outward_vdp(self, t, y):
         return - self.fx(t, y)
-
-    def SimStableSamples(self, num_samples):
-        event = lambda t, x: np.linalg.norm(x) - 15
-        event.terminal = True
-        x = self.get_x(d=3, num_grid=num_samples)
-        stableSamples = np.zeros((2,))
-        for i in range(x.shape[-1]):
-            sol = integrate.solve_ivp(self.fx, [0, 15], x[:, i],
-                                      events=event)
-            # if sol.status == 1:
-            # print('event stopping')
-            if sol.status == 0 and (np.linalg.norm(sol.y[:, -1])) <= 1e-2:
-                stableSamples = np.vstack((stableSamples, x[:, i]))
-        return stableSamples.T
 
     def phase_portrait(self, ax, ax_max):
         num = 60
@@ -359,7 +369,8 @@ class Pendubot(ClosedLoopSys):
         self.name = 'Pendubot'
         self.num_states = 4
         self.slice = [0, 2]
-        self.all_slices = list(itertools.combinations(range(self.num_states),2))
+        self.all_slices = list(
+            itertools.combinations(range(self.num_states), 2))
         prog = MathematicalProgram()
         self.sym_x = prog.NewIndeterminates(self.num_states, "x")
 
@@ -400,22 +411,6 @@ class Pendubot(ClosedLoopSys):
         return np.array([x2, 782 * x1 + 135 * x2 + 689 * x3 + 90 * x4, x4,
                          279 * x1 * x3**2 - 1425 * x1 - 257 * x2 + 273 *
                          x3**3 - 1249 * x3 - 171 * x4])
-
-    def SimStableSamples(self, d, num_grid, slice_idx=None):
-        event = lambda t, x: np.linalg.norm(x) - 15
-        event.terminal = True
-        x = self.get_x(d=d, num_grid=num_grid, slice_idx=slice_idx)
-        stableSamples = np.zeros((self.num_states,))
-        for i in range(x.shape[-1]):
-            sol = integrate.solve_ivp(self.fx, [0, 15], x[:, i], events=event)
-            # if sol.status == 1:
-            # print('event stopping')
-            if sol.status == 0 and (np.linalg.norm(sol.y[:, -1])) <= 1e-2:
-                stableSamples = np.vstack((stableSamples, x[:, i]))
-        if slice_idx is None:
-            return stableSamples
-        else:
-            return stableSamples[1:,slice_idx]
 
 
 class PolyRNNCL(ClosedLoopSys):
