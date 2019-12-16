@@ -102,7 +102,7 @@ def train_V(sys_name, max_deg=3, epochs=15, method='SGD'):
         y = - np.ones(phi.shape)
         if model is None:
             model = sample_lyap.poly_model_for_V(sys.num_states, max_deg)
-        history = model.fit([phi, dphidx, f], y, epochs=epochs, verbose=False)
+        history = model.fit([phi, dphidx, f], y, epochs=epochs, verbose=True)
         # assert (history.history['loss'][-1] <= 0)
         P = sample_lyap.get_gram_for_V(model)
     else:
@@ -119,11 +119,14 @@ def verify_via_equality(sys, V0):
 def verify_via_variety(sys_name, init_root_threads=1, epochs=15):
     V, Vdot, sys = train_V(sys_name, epochs=epochs)
     # plot3d(V, sys_name, sys.slice)
-    # scatterSamples(sample_variety.sample_on_variety(Vdot, 30), sys_name,
-    # sys.slice)
     # verify_via_equality(sys, V)
     sys.set_sample_variety_features(V)
+    Vdot = sys.sym_Vdot
+    scatterSamples(sample_variety.sample_on_variety(Vdot, 30), sys_name,
+       sys.slice)
+
     is_vanishing = False
+
     samples = sample_variety.sample_on_variety(Vdot, init_root_threads)
 
     while not is_vanishing:
@@ -133,8 +136,9 @@ def verify_via_variety(sys_name, init_root_threads=1, epochs=15):
         # samples = [np.vstack(i) for i in zip(samples, new_samples)]
         # samples = np.vstack((samples, sample_variety.sample_on_variety(Vdot, 1)))
         samples = np.vstack((samples, new_samples))
+    print(rho)
+    plot_funnel(V, sys_name, sys.slice)
     return rho
-    # plot_funnel(V, sys_name, sys.slice)
 
 
 def verify_via_bilinear(sys_name, max_deg=3):
@@ -181,12 +185,9 @@ def sim_RNN_stable_samples(**options):
 
 # sys, V = verify_via_bilinear('VanderPol')
 # sys, V = verify_via_bilinear('Pendubot',max_deg = 3)
-# verify_via_variety('Pendubot',init_root_threads=120,epochs = 30)
-all_rho=0
+# verify_via_variety('Pendubot',init_root_threads=150,epochs = 30)
 for i in range(30):
     rho = verify_via_variety('VanderPol', init_root_threads=30, epochs=10)
-    all_rho = np.append(all_rho, rho)
-print(all_rho)
 #     V, Vdot, sys = train_V('VanderPol', epochs=40)
 #     verify_via_equality(sys, V)
 

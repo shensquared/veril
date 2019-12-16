@@ -117,6 +117,7 @@ def coordinate_ring_transform(monomial_samples):
         print('no transforming')
         return U.T, np.eye(original_monomial_dim)
     else:
+        print('w/ transforming')
         s = np.zeros(U.shape)
         np.fill_diagonal(s, diag_s)
         U_transformed = v[:n, :]
@@ -172,7 +173,7 @@ def solve_SDP_on_samples(system, sampled_quantities):
     [V, xxd, psi] = sampled_quantities
     print('SDP V %s' %V)
     dim_psi = psi.shape[1]
-    # print('SDP size is %s' % dim_psi)
+    print('SDP size is %s' % dim_psi)
     # print('num SDP is %s' % psi.shape[0])
     P = prog.NewSymmetricContinuousVariables(dim_psi, "P")
     prog.AddPositiveSemidefiniteConstraint(P)
