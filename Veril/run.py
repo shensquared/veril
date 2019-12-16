@@ -117,22 +117,27 @@ def verify_via_equality(sys, V0):
 
 
 def verify_via_variety(sys_name, init_root_threads=1, epochs=15):
+    sys = closed_loop.get(sys_name)
+    [scatterSamples(np.zeros((1,sys.num_states)), sys_name, i) for i in
+     sys.all_slices]
     V, Vdot, sys = train_V(sys_name, epochs=epochs)
-    # plot3d(V, sys_name, sys.slice)
+    [plot3d(V, sys_name, i) for i in sys.all_slices]
     # verify_via_equality(sys, V)
     sys.set_sample_variety_features(V)
     Vdot = sys.sym_Vdot
     scatterSamples(sample_variety.sample_on_variety(Vdot, 30), sys_name,
-       sys.slice)
+                   sys.slice)
 
     is_vanishing = False
 
     samples = sample_variety.sample_on_variety(Vdot, init_root_threads)
 
     while not is_vanishing:
-        samples_monomial, Tinv = sample_variety.sample_monomials(sys, samples, Vdot)
+        samples_monomial, Tinv = sample_variety.sample_monomials(
+            sys, samples, Vdot)
         V, rho, P = sample_variety.solve_SDP_on_samples(sys, samples_monomial)
-        is_vanishing, new_samples = sample_variety.check_vanishing(sys, rho, P, Tinv)
+        is_vanishing, new_samples = sample_variety.check_vanishing(
+            sys, rho, P, Tinv)
         # samples = [np.vstack(i) for i in zip(samples, new_samples)]
         # samples = np.vstack((samples, sample_variety.sample_on_variety(Vdot, 1)))
         samples = np.vstack((samples, new_samples))

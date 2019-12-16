@@ -22,7 +22,7 @@ from keras.models import load_model
 
 from Veril import plants
 from Veril.custom_layers import JanetController
-# import itertools
+import itertools
 
 
 def get(system_name):
@@ -263,6 +263,7 @@ class VanderPol(ClosedLoopSys):
         self.name = 'VanderPol'
         self.num_states = 2
         self.slice = [0, 1]
+        self.all_slices = [[0,1]]
         self.trueROA = True
         prog = MathematicalProgram()
         self.sym_x = prog.NewIndeterminates(self.num_states, "x")

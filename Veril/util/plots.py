@@ -15,8 +15,8 @@ def plot_funnel(V, sys_name, slice_idx):
     else:
         stable_samples = np.load(file_dir + '/stableSamplesSlice.npy')
         plt.scatter(stable_samples[:, 0], stable_samples[:, 1], color='red',
-            label = 'Simulated Stable Samples')
-    plt.plot(x[:, 0], x[:, 1], label = 'Verified ROA Boundary')
+                    label='Simulated Stable Samples')
+    plt.plot(x[:, 0], x[:, 1], label='Verified ROA Boundary')
     xlab = 'X' + str(slice_idx[0] + 1)
     ylab = 'X' + str(slice_idx[1] + 1)
     plt.xlabel(xlab)
@@ -28,12 +28,18 @@ def plot_funnel(V, sys_name, slice_idx):
 
 def scatterSamples(samples, sys_name, slice_idx):
     file_dir = '../data/' + sys_name
-    plt.scatter(samples[:, slice_idx[0]], samples[:, slice_idx[1]], label =
-        'Samples')
+    plt.scatter(samples[:, slice_idx[0]], samples[:, slice_idx[1]],
+                label='Samples')
     if sys_name is 'VanderPol':
         xlim = np.load(file_dir + '/VanderPol_limitCycle.npy')
         bdry = plt.plot(xlim[0, :], xlim[1, :],
                         color='red', label='ROA boundary')
+    else:
+        stable_samples = np.load(file_dir + '/stableSamplesSlice' +
+                                 str(slice_idx[0] + 1) + str(slice_idx[1] + 1)
+                                 + '.npy')
+        plt.scatter(stable_samples[:, 0], stable_samples[
+                    :, 1], color='red', label='Simulated Stable Samples')
     xlab = 'X' + str(slice_idx[0] + 1)
     ylab = 'X' + str(slice_idx[1] + 1)
     plt.xlabel(xlab)
@@ -64,7 +70,7 @@ def plot3d(V, sys_name, slice_idx, r_max=2):
     ax = fig.gca(projection='3d')
     X, Y, Z = x[1:], y[1:], z[1:]
     ax.plot_trisurf(X, Y, Z, linewidth=0.2,
-        cmap=plt.cm.Spectral, antialiased=True)
+                    cmap=plt.cm.Spectral, antialiased=True)
     xlab = 'X' + str(slice_idx[0] + 1)
     ylab = 'X' + str(slice_idx[1] + 1)
 
