@@ -1,0 +1,60 @@
+
+File opened at Tue Dec 17 17:26:37 2019 by MOSEK version 9.0.96.
+Problem
+  Name                   :                 
+  Objective sense        : min             
+  Type                   : CONIC (conic optimization problem)
+  Constraints            : 31              
+  Cones                  : 0               
+  Scalar variables       : 1               
+  Matrix variables       : 1               
+  Integer variables      : 0               
+
+Optimizer started.
+Presolve started.
+Linear dependency checker started.
+Linear dependency checker terminated.
+Eliminator started.
+Freed constraints in eliminator : 0
+Eliminator terminated.
+Eliminator - tries                  : 1                 time                   : 0.00            
+Lin. dep.  - tries                  : 1                 time                   : 0.00            
+Lin. dep.  - number                 : 0               
+Presolve terminated. Time: 0.00    
+Problem
+  Name                   :                 
+  Objective sense        : min             
+  Type                   : CONIC (conic optimization problem)
+  Constraints            : 31              
+  Cones                  : 0               
+  Scalar variables       : 1               
+  Matrix variables       : 1               
+  Integer variables      : 0               
+
+Optimizer  - threads                : 8               
+Optimizer  - solved problem         : the primal      
+Optimizer  - Constraints            : 31
+Optimizer  - Cones                  : 0
+Optimizer  - Scalar variables       : 1                 conic                  : 0               
+Optimizer  - Semi-definite variables: 1                 scalarized             : 120             
+Factor     - setup time             : 0.00              dense det. time        : 0.00            
+Factor     - ML order time          : 0.00              GP order time          : 0.00            
+Factor     - nonzeros before factor : 496               after factor           : 496             
+Factor     - dense dim.             : 0                 flops                  : 4.52e+05        
+ITE PFEAS    DFEAS    GFEAS    PRSTATUS   POBJ              DOBJ              MU       TIME  
+0   4.8e+00  1.0e+00  1.0e+00  0.00e+00   0.000000000e+00   0.000000000e+00   1.0e+00  0.00  
+1   8.9e-01  1.9e-01  1.9e-01  -1.91e-01  -1.291879311e+00  -6.978950139e-01  1.9e-01  0.00  
+2   2.0e-01  4.2e-02  2.1e-02  4.82e-01   -1.428073474e+00  -1.290924805e+00  4.2e-02  0.00  
+3   4.1e-02  8.5e-03  2.1e-03  7.72e-01   -1.567409503e+00  -1.529968441e+00  8.5e-03  0.00  
+4   9.1e-03  1.9e-03  2.5e-04  8.88e-01   -1.511811391e+00  -1.500875816e+00  1.9e-03  0.00  
+5   2.1e-03  4.5e-04  2.6e-05  9.20e-01   -1.451642047e+00  -1.449748333e+00  4.5e-04  0.00  
+6   3.8e-04  8.1e-05  2.0e-06  9.82e-01   -1.446362519e+00  -1.445995887e+00  8.1e-05  0.01  
+7   6.9e-05  1.5e-05  1.6e-07  9.25e-01   -1.444093965e+00  -1.444022269e+00  1.5e-05  0.01  
+8   1.3e-05  2.7e-06  1.4e-08  9.05e-01   -1.443649702e+00  -1.443633017e+00  2.7e-06  0.01  
+9   8.1e-07  1.7e-07  2.4e-10  9.42e-01   -1.443531459e+00  -1.443530136e+00  1.7e-07  0.01  
+10  4.3e-09  4.1e-10  2.9e-14  9.91e-01   -1.443519666e+00  -1.443519663e+00  4.4e-10  0.01  
+Optimizer terminated. Time: 0.01    
+
+
+File closed: Tue Dec 17 17:26:37 2019
+

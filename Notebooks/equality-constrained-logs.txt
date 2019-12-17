@@ -1,0 +1,68 @@
+
+File opened at Tue Dec 17 17:36:17 2019 by MOSEK version 9.0.96.
+Problem
+  Name                   :                 
+  Objective sense        : min             
+  Type                   : CONIC (conic optimization problem)
+  Constraints            : 152             
+  Cones                  : 0               
+  Scalar variables       : 46              
+  Matrix variables       : 1               
+  Integer variables      : 0               
+
+Optimizer started.
+Presolve started.
+Linear dependency checker started.
+Linear dependency checker terminated.
+Eliminator started.
+Freed constraints in eliminator : 0
+Eliminator terminated.
+Eliminator started.
+Freed constraints in eliminator : 0
+Eliminator terminated.
+Eliminator - tries                  : 2                 time                   : 0.00            
+Lin. dep.  - tries                  : 1                 time                   : 0.00            
+Lin. dep.  - number                 : 0               
+Presolve terminated. Time: 0.00    
+Problem
+  Name                   :                 
+  Objective sense        : min             
+  Type                   : CONIC (conic optimization problem)
+  Constraints            : 152             
+  Cones                  : 0               
+  Scalar variables       : 46              
+  Matrix variables       : 1               
+  Integer variables      : 0               
+
+Optimizer  - threads                : 8               
+Optimizer  - solved problem         : the primal      
+Optimizer  - Constraints            : 150
+Optimizer  - Cones                  : 1
+Optimizer  - Scalar variables       : 46                conic                  : 45              
+Optimizer  - Semi-definite variables: 1                 scalarized             : 990             
+Factor     - setup time             : 0.00              dense det. time        : 0.00            
+Factor     - ML order time          : 0.00              GP order time          : 0.00            
+Factor     - nonzeros before factor : 1.13e+04          after factor           : 1.13e+04        
+Factor     - dense dim.             : 0                 flops                  : 3.33e+06        
+ITE PFEAS    DFEAS    GFEAS    PRSTATUS   POBJ              DOBJ              MU       TIME  
+0   2.7e+00  1.0e+00  1.0e+00  0.00e+00   0.000000000e+00   0.000000000e+00   1.0e+00  0.00  
+1   5.7e-01  2.1e-01  1.2e-01  1.69e-01   -4.260506663e-02  -6.704579656e-03  2.1e-01  0.00  
+2   2.1e-01  7.7e-02  2.0e-02  1.70e+00   -1.182728559e-01  -1.236052097e-01  7.7e-02  0.01  
+3   6.3e-02  2.3e-02  3.7e-03  1.20e+00   -1.727262228e-01  -1.687807871e-01  2.3e-02  0.01  
+4   3.0e-02  1.1e-02  1.8e-03  5.11e-01   -2.451123004e-01  -2.354135182e-01  1.1e-02  0.01  
+5   1.0e-02  3.8e-03  7.7e-04  -5.80e-02  -5.146966292e-01  -4.852834116e-01  3.8e-03  0.01  
+6   2.2e-03  8.3e-04  1.9e-04  -1.15e-01  -1.085874356e+00  -1.039186819e+00  8.3e-04  0.01  
+7   7.5e-04  2.8e-04  4.5e-05  1.93e-01   -1.412009935e+00  -1.387974992e+00  2.8e-04  0.01  
+8   3.1e-04  1.2e-04  1.0e-05  9.65e-01   -1.382203865e+00  -1.375527951e+00  1.2e-04  0.02  
+9   7.1e-05  2.6e-05  1.1e-06  9.26e-01   -1.423484958e+00  -1.421883690e+00  2.6e-05  0.02  
+10  1.6e-05  6.1e-06  1.4e-07  8.70e-01   -1.432331194e+00  -1.431877017e+00  6.1e-06  0.02  
+11  3.6e-06  1.3e-06  1.5e-08  9.40e-01   -1.434445498e+00  -1.434339097e+00  1.3e-06  0.02  
+12  2.3e-07  8.5e-08  2.4e-10  9.80e-01   -1.434956826e+00  -1.434949686e+00  8.5e-08  0.02  
+13  1.8e-08  6.7e-09  5.4e-12  9.97e-01   -1.434956009e+00  -1.434955437e+00  6.7e-09  0.03  
+14  3.0e-09  1.1e-09  3.8e-13  9.70e-01   -1.434955853e+00  -1.434955748e+00  1.1e-09  0.03  
+15  4.2e-10  3.4e-10  2.1e-14  9.31e-01   -1.434955832e+00  -1.434955816e+00  1.6e-10  0.03  
+Optimizer terminated. Time: 0.03    
+
+
+File closed: Tue Dec 17 17:36:17 2019
+
