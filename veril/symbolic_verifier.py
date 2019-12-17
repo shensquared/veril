@@ -52,7 +52,7 @@ def bilinear(x, V0, f, S0, A, options):
 
 
 def findL1(x, f, V, options):
-    print('finding L1')
+    # print('finding L1')
     prog = MathematicalProgram()
     prog.AddIndeterminates(x)
 
@@ -88,7 +88,7 @@ def findL1(x, f, V, options):
 
 
 def findL2(x, V, V0, rho, options):
-    print('finding L2')
+    # print('finding L2')
     prog = MathematicalProgram()
     prog.AddIndeterminates(x)
     # env = dict(zip(x, np.array([1, 2.31])))
@@ -115,7 +115,7 @@ def findL2(x, V, V0, rho, options):
 
 
 def optimizeV(x, f, L1, L2, V0, sigma1, options):
-    print('finding V')
+    # print('finding V')
     prog = MathematicalProgram()
     prog.AddIndeterminates(x)
     # env = dict(zip(x, np.array([1, 2.31])))

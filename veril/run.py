@@ -10,19 +10,13 @@ from keras.callbacks import ModelCheckpoint
 import h5py
 import numpy as np
 
-from veril import plants, verifier, closed_loop, sample_lyap, sample_variety
-# import plants
-# import verifier
-# import closed_loop
+from veril import plants, symbolic_verifier, closed_loop, sample_lyap, sample_variety
 from veril.custom_layers import JanetController
 from veril.util.plots import *
 
-# from util.plotly3d import *
 # from util.samples import withinLevelSet
 import time
 
-# from util import context
-# root_dir = context.get_project_root()
 
 options = {
     'plant_name': 'DoubleIntegrator',
@@ -113,13 +107,13 @@ def train_V(sys_name, max_deg=3, epochs=15, method='SGD'):
         # assert (history.history['loss'][-1] <= 0)
         P = sample_lyap.get_gram_for_V(model)
     else:
-        P = verifier.solve_LP_for_V(phi, dphidx, f, num_samples=None)
+        P = symbolic_verifier.solve_LP_for_V(phi, dphidx, f, num_samples=None)
     V, Vdot = system.rescale_V(P, train_x)
     return V, Vdot, system
 
 
 def verify_via_equality(system, V0):
-    V = verifier.levelset_sos(system, V0, do_balance=False)
+    V = symbolic_verifier.levelset_sos(system, V0, do_balance=False)
     plot_funnel(V, system.name, system.slice, add_title='')
 
 
@@ -159,12 +153,12 @@ def verify_via_bilinear(sys_name, max_deg=3):
     A, S = system.do_linearization()
     V0 = system.sym_x.T@S@system.sym_x
 
-    verifierOptions = verifier.opt(system.num_states, system.degf, do_balance=False,
+    verifierOptions = symbolic_verifier.opt(system.num_states, system.degf, do_balance=False,
                                    degV=2 * max_deg, converged_tol=1e-2, max_iterations=20)
     start = time.time()
-    V = verifier.bilinear(system.sym_x, V0, system.sym_f, S, A, verifierOptions)
+    V = symbolic_verifier.bilinear(system.sym_x, V0, system.sym_f, S, A, verifierOptions)
     end = time.time()
-    print(end - start)
+    print('bilinear time %s' %(end - start))
     plot_funnel(V, sys_name, system.slice)
     return system, V
 
