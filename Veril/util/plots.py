@@ -28,8 +28,6 @@ def plot_funnel(V, sys_name, slice_idx):
 
 def scatterSamples(samples, sys_name, slice_idx):
     file_dir = '../data/' + sys_name
-    plt.scatter(samples[:, slice_idx[0]], samples[:, slice_idx[1]],
-                label='Samples')
     if sys_name is 'VanderPol':
         xlim = np.load(file_dir + '/VanderPol_limitCycle.npy')
         bdry = plt.plot(xlim[0, :], xlim[1, :],
@@ -40,6 +38,8 @@ def scatterSamples(samples, sys_name, slice_idx):
                                  + '.npy')
         plt.scatter(stable_samples[:, 0], stable_samples[
                     :, 1], color='red', label='Simulated Stable Samples')
+    plt.scatter(samples[:, slice_idx[0]], samples[:, slice_idx[1]],
+                label='Samples')
     xlab = 'X' + str(slice_idx[0] + 1)
     ylab = 'X' + str(slice_idx[1] + 1)
     plt.xlabel(xlab)
