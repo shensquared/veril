@@ -124,22 +124,24 @@ def verify_via_variety(sys_name, init_root_threads=1, epochs=15):
     # verify_via_equality(sys, V)
     sys.set_sample_variety_features(V)
     Vdot = sys.sym_Vdot
-    scatterSamples(sample_variety.sample_on_variety(Vdot, 30), sys_name,
+    variety = sample_variety.multi_to_univariate(Vdot)
+    scatterSamples(sample_variety.sample_on_variety(variety, 30), sys_name,
                    sys.slice)
 
     is_vanishing = False
 
-    samples = sample_variety.sample_on_variety(Vdot, init_root_threads)
+    samples = sample_variety.sample_on_variety(variety, init_root_threads)
 
     while not is_vanishing:
         samples_monomial, Tinv = sample_variety.sample_monomials(
-            sys, samples, Vdot)
+            sys, samples, variety)
         V, rho, P = sample_variety.solve_SDP_on_samples(sys, samples_monomial)
-        is_vanishing, new_samples = sample_variety.check_vanishing(
-            sys, rho, P, Tinv)
-        # samples = [np.vstack(i) for i in zip(samples, new_samples)]
-        # samples = np.vstack((samples, sample_variety.sample_on_variety(Vdot, 1)))
-        samples = np.vstack((samples, new_samples))
+        is_vanishing, new_sample = sample_variety.check_vanishing(
+            sys, variety, rho, P, Tinv)
+        # samples = [np.vstack(i) for i in zip(samples, new_sample)]
+        # samples = np.vstack((samples, sample_variety.sample_on_variety
+        # (variety, 1)))
+        samples = np.vstack((samples, new_sample))
     print(rho)
     plot_funnel(V, sys_name, sys.slice)
     return rho

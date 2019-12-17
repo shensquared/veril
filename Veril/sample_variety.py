@@ -6,6 +6,40 @@ import numpy as np
 from numpy.linalg import eig, inv
 from pydrake.all import (Polynomial, Variable, Variables, Evaluate, Substitute,
                          MathematicalProgram, MosekSolver)
+# import itertools
+import time
+
+
+def multi_to_univariate(variety):
+    """helper function, turn a multivariate polynomial in x into univariate
+    poly by x = a*t+b transformation. For now, a,b are both variables, but will
+    be substituded w/ random numbers for roots finidng.
+
+    this is faster than doing Polynomial coefficient mapping under the current
+    pydrake class and API design
+
+    Args:
+        variety (TYPE): pdrake scalar Expression
+
+    Returns:
+        TYPE: Description
+    """
+    x = np.array(list(variety.GetVariables()))
+    nx = x.shape[0]
+    t = Variable('t')
+    prog = MathematicalProgram()
+    a = prog.NewIndeterminates(nx, "a")
+    b = prog.NewIndeterminates(nx, "b")
+    variety_poly = Polynomial(variety, x)
+    x_in_t = a * t + b
+
+    key_val_map = variety_poly.monomial_to_coefficient_map()
+    key_in_x = [i.ToExpression() for i in list(key_val_map.keys())]
+    coeffs_in_x = [i.Evaluate({t: 0}) for i in list(key_val_map.values())]
+
+    key_in_t = [i.Substitute(dict(zip(x, x_in_t))) for i in key_in_x]
+    basis_in_t = [Polynomial(i) for i in key_in_t]
+    return [variety_poly, basis_in_t, coeffs_in_x, a, b, t, x, nx]
 
 
 def sample_on_variety(variety, root_threads):
@@ -25,62 +59,56 @@ def sample_on_variety(variety, root_threads):
         univarite polynomial coming from the root_threads attemps of
         transformation
     """
-    x = np.array(list(variety.GetVariables()))
-    nx = x.shape[0]
-    t = Variable('t')
+    [variety_poly, basis_in_t, coeffs_in_x, a, b, t, x, nx] = variety
     samples = np.zeros((nx,))
     num_roots = 0
+
     while num_roots < root_threads:
+        # start = time.time()
         # alphas = np.random.uniform(-2, 2, nx)
         # betas = np.random.uniform(-2, 2, nx)
         alphas = np.random.randn(nx)
         betas = np.random.randn(nx)
-
-        parameterization = alphas * t + betas
-        env = dict(zip(x, parameterization))
-        Vt = variety.Substitute(env)
-        Vt = Polynomial(Vt, [t])
+        env = dict(zip(a, alphas))
+        env.update(dict(zip(b, betas)))
+        this_basis = np.array([i.EvaluatePartial(env) for i in basis_in_t])
+        Vt = this_basis@coeffs_in_x
         coeffs = [i.Evaluate({t: 0}) for i in list(
             Vt.monomial_to_coefficient_map().values())]
         root_t = np.polynomial.polynomial.polyroots(coeffs)
-        # need only the real roots
+        # take only the real roots
         root_t = root_t[~np.iscomplex(root_t)].real
+        # end = time.time()
+        # print(end - start)
         root_x = np.array([alphas * i + betas for i in root_t])
 
-        varitey_x = np.array([variety.Evaluate(dict(zip(x, i))) for i in
-            root_x])
-        V_x = np.array([variety.Evaluate(dict(zip(x, i)))
-                              for i in root_x])
+        varitey_x = [variety_poly.Evaluate(dict(zip(x, i))) for i in
+                     root_x]
         close = np.isclose(varitey_x, 0, atol=4e-12)
 
         if np.any(close):
             root_x = root_x[close]
             samples = np.vstack([samples, root_x])
             num_roots = samples.shape[0] - 1
-
-        # samples_norm = np.array([np.linalg.norm(i) for i in samples])
-        # root_x = root_x[root_x_norm>1e-4]
-    # print(samples)
     return samples[1:]
 
 
-def sample_monomials(system, samples, variety,  do_transform=True):
+def sample_monomials(system, samples, variety, do_transform=True):
     enough_samples = False
     while not enough_samples:
-        new_samples = sample_on_variety(
-            variety, min(int(np.ceil(samples.shape[0] * .01)),1))
+        new_samples = sample_on_variety(variety, 2)
         samples = np.vstack([samples, new_samples])
         V = system.get_v_values(samples)
-        balanced = max(V)/min(V)<1e3
+        balanced = max(V) / min(V) < 1e3
         while not balanced:
             print('not balanced')
             # print(V)
             idx = [np.argmax(V), np.argmin(V)]
-            samples=np.delete(samples,idx,axis=0)
-            V=np.delete(V,idx,axis=0)
+            samples = np.delete(samples, idx, axis=0)
+            V = np.delete(V, idx, axis=0)
             # xxd=np.delete(xxd,idx,axis=0)
             # psi=np.delete(psi,idx,axis=0)
-            balanced = max(V)/min(V)<1e3
+            balanced = max(V) / min(V) < 1e3
         [xxd, psi] = system.get_sample_variety_features(samples)
         if do_transform:
             trans_psi, Tinv = coordinate_ring_transform(psi)
@@ -113,7 +141,7 @@ def coordinate_ring_transform(monomial_samples):
     tol = max(U.shape) * diag_s[0] * 1e-16
     original_monomial_dim = U.shape[0]
     n = sum(diag_s > tol)
-    if n/original_monomial_dim >= .95:
+    if n / original_monomial_dim >= .95:
         print('no transforming')
         return U.T, np.eye(original_monomial_dim)
     else:
@@ -171,7 +199,7 @@ def solve_SDP_on_samples(system, sampled_quantities):
     prog.AddConstraint(rho >= 0)
 
     [V, xxd, psi] = sampled_quantities
-    print('SDP V %s' %V)
+    print('SDP V %s' % V)
     dim_psi = psi.shape[1]
     print('SDP size is %s' % dim_psi)
     # print('num SDP is %s' % psi.shape[0])
@@ -195,13 +223,13 @@ def solve_SDP_on_samples(system, sampled_quantities):
     return V, rho, P
 
 
-def check_vanishing(system, rho, P, Tinv):
-    test_samples = sample_on_variety(system.sym_Vdot, 4)
+def check_vanishing(system, variety, rho, P, Tinv):
+    test_samples = sample_on_variety(variety, 4)
     V = system.get_v_values(test_samples)
     [xxd, psi] = system.get_sample_variety_features(test_samples)
     idx = []
     isVanishing = True
-    print('vanishing V %s' %V)
+    print('vanishing V %s' % V)
     for i in range(test_samples.shape[0]):
         levelset = (xxd[i] * (V[i] - rho))[0]
         this_psi = Tinv@psi[i]
@@ -210,7 +238,7 @@ def check_vanishing(system, rho, P, Tinv):
         # print(order)
         ratio = levelset / candidate
         print('two polynomials evals ratio %s' % ratio)
-        if ratio <.97 or ratio > 1.1:
+        if ratio < .97 or ratio > 1.1:
             isVanishing = False
             idx += [i]
     return isVanishing, test_samples[idx]
