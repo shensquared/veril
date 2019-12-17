@@ -114,7 +114,7 @@ def sample_monomials(system, samples, variety, do_transform=False):
         new_samples = sample_on_variety(variety, 2)
         samples = np.vstack([samples, new_samples])
         V = system.get_v_values(samples)
-        balanced = max(V) / min(V) < 1e3
+        # balanced = max(V) / min(V) < 1e3
         test_samples = []
         while not balanced:
             print('not balanced')
@@ -129,9 +129,11 @@ def sample_monomials(system, samples, variety, do_transform=False):
         [xxd, psi] = system.get_sample_variety_features(samples)
         if do_transform:
             trans_psi, Tinv = coordinate_ring_transform(psi)
+            enough_samples = check_genericity(trans_psi)
         else:
+            trans_psi = psi
             Tinv = np.eye(psi.shape[1])
-        enough_samples = check_genericity(trans_psi)
+            enough_samples = check_genericity(psi)
     return [V, xxd, trans_psi], Tinv, test_samples
 
 
