@@ -30,19 +30,25 @@ def multi_to_univariate(variety):
     prog = MathematicalProgram()
     a = prog.NewIndeterminates(nx, "a")
     b = prog.NewIndeterminates(nx, "b")
-    variety_poly = Polynomial(variety, x)
     x_in_t = a * t + b
 
+    # start = time.time()
+    variety_poly = Polynomial(variety, x)
     key_val_map = variety_poly.monomial_to_coefficient_map()
     key_in_x = [i.ToExpression() for i in list(key_val_map.keys())]
     coeffs_in_x = [i.Evaluate({t: 0}) for i in list(key_val_map.values())]
-
     key_in_t = [i.Substitute(dict(zip(x, x_in_t))) for i in key_in_x]
     basis_in_t = [Polynomial(i) for i in key_in_t]
+    end = time.time()
+    # print(end-start)
+    # start = time.time()
+    # v_in_tab = Polynomial(variety.Substitute(dict(zip(x,x_in_t))))
+    # end = time.time()
+    # print(end-start)
     return [variety_poly, basis_in_t, coeffs_in_x, a, b, t, x, nx]
 
 
-def sample_on_variety(variety, root_threads):
+def sample_on_variety(variety, root_threads, slice_idx=None):
     """returns the pure 'x' samples on one given variety. i.e. return the roots
     to the given multi-variate polynomial. Note that, due to the numerical
     accuracy of numpy's polyroots, only returning all the real roots.
@@ -67,8 +73,17 @@ def sample_on_variety(variety, root_threads):
         # start = time.time()
         # alphas = np.random.uniform(-2, 2, nx)
         # betas = np.random.uniform(-2, 2, nx)
-        alphas = np.random.randn(nx)
-        betas = np.random.randn(nx)
+        if slice_idx is None:
+            alphas = np.random.randn(nx)
+            betas = np.random.randn(nx)
+        else:
+            alphas = np.zeros((nx,))
+            betas = np.zeros((nx,))
+            alphas[slice_idx[0]] = np.random.randn(1)
+            alphas[slice_idx[1]] = np.random.randn(1)
+            betas[slice_idx[0]] = np.random.randn(1)
+            betas[slice_idx[1]] = np.random.randn(1)
+
         env = dict(zip(a, alphas))
         env.update(dict(zip(b, betas)))
         this_basis = np.array([i.EvaluatePartial(env) for i in basis_in_t])
@@ -93,17 +108,19 @@ def sample_on_variety(variety, root_threads):
     return samples[1:]
 
 
-def sample_monomials(system, samples, variety, do_transform=True):
+def sample_monomials(system, samples, variety, do_transform=False):
     enough_samples = False
     while not enough_samples:
         new_samples = sample_on_variety(variety, 2)
         samples = np.vstack([samples, new_samples])
         V = system.get_v_values(samples)
         balanced = max(V) / min(V) < 1e3
+        test_samples = []
         while not balanced:
             print('not balanced')
-            # print(V)
+            print(V)
             idx = [np.argmax(V), np.argmin(V)]
+            test_samples.append(samples[idx])
             samples = np.delete(samples, idx, axis=0)
             V = np.delete(V, idx, axis=0)
             # xxd=np.delete(xxd,idx,axis=0)
@@ -115,7 +132,7 @@ def sample_monomials(system, samples, variety, do_transform=True):
         else:
             Tinv = np.eye(psi.shape[1])
         enough_samples = check_genericity(trans_psi)
-    return [V, xxd, trans_psi], Tinv
+    return [V, xxd, trans_psi], Tinv, test_samples
 
 
 def coordinate_ring_transform(monomial_samples):
@@ -169,7 +186,6 @@ def check_genericity(all_samples):
         enough_samples (Bool): if the current sample set is generic enough
         m0 (int): current samples rank, gives good indicator of whether to
         augment or truncate the current sample set
-        diff_m (int): m-m0
     """
     enough_samples = True
     m, n = all_samples.shape
@@ -182,14 +198,10 @@ def check_genericity(all_samples):
     tol = max(c.shape) * np.spacing(max(s)) * 1e3
     sample_rank = sum(s > tol)
     if sample_rank == m0 and sample_rank < n2:
-        # meaning m<n2 and sample full rank, use huristic and return an
-        # increase of 30%
+        # meaning m<n2 and sample full rank
         # print('Insufficient samples!!')
         enough_samples = False
-        # diff_m >0, increase subsequent sampling
-        # diff_m = np.ceil((n2 - m) / 2)
-    # sample_rank by construction less than m0, so unless the previous if is
-    # true, diff_m < 0, can do subsequent down-sample
+    # sample_rank by construction less than
     return enough_samples
 
 
@@ -223,8 +235,9 @@ def solve_SDP_on_samples(system, sampled_quantities):
     return V, rho, P
 
 
-def check_vanishing(system, variety, rho, P, Tinv):
-    test_samples = sample_on_variety(variety, 4)
+def check_vanishing(system, variety, rho, P, Tinv, test_samples):
+    if len(test_samples)==0:
+        test_samples = sample_on_variety(variety, 4)
     V = system.get_v_values(test_samples)
     [xxd, psi] = system.get_sample_variety_features(test_samples)
     idx = []
@@ -234,8 +247,6 @@ def check_vanishing(system, variety, rho, P, Tinv):
         levelset = (xxd[i] * (V[i] - rho))[0]
         this_psi = Tinv@psi[i]
         candidate = this_psi.T@P@this_psi
-        # order = np.ceil(np.log(candidate))
-        # print(order)
         ratio = levelset / candidate
         print('two polynomials evals ratio %s' % ratio)
         if ratio < .97 or ratio > 1.1:

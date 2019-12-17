@@ -255,6 +255,10 @@ class ClosedLoopSys(object):
         m = np.percentile(V_evals, 75)
         V = V0 / m
         Vdot = V.Jacobian(self.sym_x)@self.sym_f
+        H = Jacobian(Vdot.Jacobian(self.sym_x).T, self.sym_x)
+        env = dict(zip(self.sym_x, np.zeros(self.num_states)))
+        H = .5 * np.array([[i.Evaluate(env) for i in j]for j in H])
+        print('eig of Hessian of Vdot %s' % (eig(H)[0]))
         return V, Vdot
 
     def sim_stable_samples(self, d, num_grid, slice_idx=None):

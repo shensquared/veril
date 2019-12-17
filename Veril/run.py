@@ -125,19 +125,19 @@ def verify_via_variety(sys_name, init_root_threads=1, epochs=15):
     sys.set_sample_variety_features(V)
     Vdot = sys.sym_Vdot
     variety = sample_variety.multi_to_univariate(Vdot)
-    scatterSamples(sample_variety.sample_on_variety(variety, 30), sys_name,
-                   sys.slice)
+    [scatterSamples(sample_variety.sample_on_variety(variety, 30, slice_idx
+       =i), sys_name, i) for i in sys.all_slices]
 
     is_vanishing = False
 
     samples = sample_variety.sample_on_variety(variety, init_root_threads)
 
     while not is_vanishing:
-        samples_monomial, Tinv = sample_variety.sample_monomials(
+        samples_monomial, Tinv, test_samples = sample_variety.sample_monomials(
             sys, samples, variety)
         V, rho, P = sample_variety.solve_SDP_on_samples(sys, samples_monomial)
         is_vanishing, new_sample = sample_variety.check_vanishing(
-            sys, variety, rho, P, Tinv)
+            sys, variety, rho, P, Tinv, test_samples)
         # samples = [np.vstack(i) for i in zip(samples, new_sample)]
         # samples = np.vstack((samples, sample_variety.sample_on_variety
         # (variety, 1)))
@@ -173,9 +173,9 @@ def sim_RNN_stable_samples(**options):
 
 # sys, V = verify_via_bilinear('VanderPol')
 # sys, V = verify_via_bilinear('Pendubot',max_deg = 3)
-verify_via_variety('Pendubot', init_root_threads=1, epochs=1)
+verify_via_variety('Pendubot', init_root_threads=1, epochs=25)
 # for i in range(30):
-#     rho = verify_via_variety('VanderPol', init_root_threads=1, epochs=10)
+#     rho = verify_via_variety('VanderPol', init_root_threads=30, epochs=10)
 #     V, Vdot, sys = train_V('VanderPol', epochs=40)
 #     verify_via_equality(sys, V)
 
