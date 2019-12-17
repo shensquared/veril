@@ -1,10 +1,10 @@
 from setuptools import setup, find_packages
 
 setup(
-    name = "Veril",
+    name = "veril",
     version = "0.0.1",
     author = "Shen Shen",
-    url = "http://github.com/shensquared/Veril",
+    url = "http://github.com/shensquared/veril",
     author_email = "shenshen@mit.edu",
     packages = find_packages(),
     install_requires=[
