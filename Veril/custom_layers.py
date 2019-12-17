@@ -15,7 +15,7 @@ from keras.layers.recurrent import RNN
 from keras.layers.merge import _Merge
 
 import numpy as np
-from Veril import plants
+from veril import plants
 from tensorflow.python.ops.parallel_for.gradients import jacobian, batch_jacobian
 # import itertools
 # import math

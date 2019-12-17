@@ -19,7 +19,7 @@ def multi_to_univariate(variety):
     pydrake class and API design
 
     Args:
-        variety (TYPE): pdrake scalar Expression
+        variety (TYPE): pydrake scalar Expression
 
     Returns:
         TYPE: Description
@@ -41,6 +41,7 @@ def multi_to_univariate(variety):
     basis_in_t = [Polynomial(i) for i in key_in_t]
     end = time.time()
     # print(end-start)
+
     # start = time.time()
     # v_in_tab = Polynomial(variety.Substitute(dict(zip(x,x_in_t))))
     # end = time.time()
@@ -53,8 +54,7 @@ def sample_on_variety(variety, root_threads, slice_idx=None):
     to the given multi-variate polynomial. Note that, due to the numerical
     accuracy of numpy's polyroots, only returning all the real roots.
     Args:
-        variety (Pydrake expression or polynomial): the variety-defining
-        polynomial
+        variety (list):
         root_threads (int): number of 'attempts' of turning the multi-variate
         into univarite, i.e., the final num_roots != root_threads. (since
         there're d complex roots for a univariate polynomial of degree d, and
@@ -91,7 +91,7 @@ def sample_on_variety(variety, root_threads, slice_idx=None):
         coeffs = [i.Evaluate({t: 0}) for i in list(
             Vt.monomial_to_coefficient_map().values())]
         root_t = np.polynomial.polynomial.polyroots(coeffs)
-        # take only the real roots
+        # choose to take only the real roots
         root_t = root_t[~np.iscomplex(root_t)].real
         # end = time.time()
         # print(end - start)
@@ -114,13 +114,14 @@ def sample_monomials(system, samples, variety, do_transform=False):
         new_samples = sample_on_variety(variety, 2)
         samples = np.vstack([samples, new_samples])
         V = system.get_v_values(samples)
-        # balanced = max(V) / min(V) < 1e3
-        test_samples = []
+        balanced = max(V) / min(V) < 1e3
+        # balanced = True
+        # test_samples = np.zeros((system.num_states,))
         while not balanced:
-            print('not balanced')
-            print(V)
+            # print('not balanced')
+            # print(V)
             idx = [np.argmax(V), np.argmin(V)]
-            test_samples.append(samples[idx])
+            # test_samples = np.vstack([test_samples, samples[idx]])
             samples = np.delete(samples, idx, axis=0)
             V = np.delete(V, idx, axis=0)
             # xxd=np.delete(xxd,idx,axis=0)
@@ -134,13 +135,13 @@ def sample_monomials(system, samples, variety, do_transform=False):
             trans_psi = psi
             Tinv = np.eye(psi.shape[1])
             enough_samples = check_genericity(psi)
-    return [V, xxd, trans_psi], Tinv, test_samples
+    return [V, xxd, trans_psi], Tinv
 
 
 def coordinate_ring_transform(monomial_samples):
     """reduce the dimensionality of the sampled-monimials by taking advantage
     of the coordiate ring structure (similar to Gaussian elimination used in
-    Grobner basis)
+    finding Grobner basis)
 
     Args:
         monomial_samples: (num_samples, monomial_dim)
@@ -172,7 +173,11 @@ def coordinate_ring_transform(monomial_samples):
         Tinv = np.linalg.pinv(T)
         return U_transformed.T, Tinv
 
-# U=np.array([[1,1,1,0,0,0],[-0.6, -1.2, -0.75, 0.8,0.4,0.25],[-1.2,-.6,-.75,-.4,-.8,-.25],[1.2,0.6,.75,.4,.8,.25],[-.6,-1.2,-.75,.8,.4,.25]])
+# U=np.array([[1,1,1,0,0,0],
+# [-0.6, -1.2, -0.75, 0.8,0.4,0.25],
+# [-1.2,-.6,-.75,-.4,-.8,-.25],
+# [1.2,0.6,.75,.4,.8,.25],
+# [-.6,-1.2,-.75,.8,.4,.25]])
 # coordinate_ring_transform(U.T)
 
 
@@ -213,10 +218,8 @@ def solve_SDP_on_samples(system, sampled_quantities):
     prog.AddConstraint(rho >= 0)
 
     [V, xxd, psi] = sampled_quantities
-    print('SDP V %s' % V)
+    # print('SDP V %s' % V)
     dim_psi = psi.shape[1]
-    print('SDP size is %s' % dim_psi)
-    # print('num SDP is %s' % psi.shape[0])
     P = prog.NewSymmetricContinuousVariables(dim_psi, "P")
     prog.AddPositiveSemidefiniteConstraint(P)
 
@@ -226,31 +229,29 @@ def solve_SDP_on_samples(system, sampled_quantities):
 
     prog.AddCost(-rho)
     solver = MosekSolver()
-    solver.set_stream_logging(True, "")
+    solver.set_stream_logging(True, "sampling-aided-logs.txt")
     result = solver.Solve(prog, None, None)
     # print(result.get_solution_result())
     assert result.is_success()
     P = result.GetSolution(P)
     rho = result.GetSolution(rho)
-    print(rho)
     V = system.sym_V / rho
     return V, rho, P
 
 
-def check_vanishing(system, variety, rho, P, Tinv, test_samples):
-    if len(test_samples)==0:
-        test_samples = sample_on_variety(variety, 4)
+def check_vanishing(system, variety, rho, P, Tinv):
+    test_samples = sample_on_variety(variety, 2)
     V = system.get_v_values(test_samples)
     [xxd, psi] = system.get_sample_variety_features(test_samples)
     idx = []
     isVanishing = True
-    print('vanishing V %s' % V)
+    # print('vanishing V %s' % V)
     for i in range(test_samples.shape[0]):
         levelset = (xxd[i] * (V[i] - rho))[0]
         this_psi = Tinv@psi[i]
         candidate = this_psi.T@P@this_psi
         ratio = levelset / candidate
-        print('two polynomials evals ratio %s' % ratio)
+        # print('two polynomials evals ratio %s' % ratio)
         if ratio < .97 or ratio > 1.1:
             isVanishing = False
             idx += [i]

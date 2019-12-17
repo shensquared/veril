@@ -11,25 +11,7 @@ from pydrake.all import (MathematicalProgram, Polynomial,
                          RealContinuousLyapunovEquation, Substitute,
                          MosekSolver, MonomialBasis)
 
-
-class opt:
-
-    def __init__(self, nX, degf, degV=4, converged_tol=.01, max_iterations=10,
-                 degL1=None, degL2=None, do_balance=False):
-        self.nX = nX
-        self.degf = degf
-        self.degV = degV
-        self.converged_tol = converged_tol
-        self.max_iterations = max_iterations
-        if degL1 is None:
-            degL1 = degV - 1 + degf
-        self.degL1 = degL1
-        if degL2 is None:
-            degL2 = degL1
-        self.degL2 = degL2
-        self.do_balance = do_balance
-
-
+# tradiotnal SOS-based ROA verification methods
 def bilinear(x, V0, f, S0, A, options):
     # x = np.array(list(V0.GetVariables()))
     V = V0
@@ -185,13 +167,13 @@ def levelset_sos(sys, V0, do_balance=False):
     psi_deg = int(np.floor(max(2 * degxx + degV, degL1 + degVdot) / 2))
     f = lambda x: math.factorial(x)
     psi_dim = f(nX + psi_deg) // f(psi_deg) // f(nX)
-    print('equality-constrained SDP size is %s' % psi_dim)
+    # print('equality-constrained SDP size is %s' % psi_dim)
 
     H = Jacobian(Vdot.Jacobian(x).T, x)
     env = dict(zip(x, np.zeros(x.shape)))
     H = .5 * np.array([[i.Evaluate(env) for i in j]for j in H])
-    print('eig of Hessian of Vdot %s' % (eig(H)[0]))
-    # assert (np.all(eig(H)[0] <= 0))
+    # print('eig of Hessian of Vdot %s' % (eig(H)[0]))
+    assert (np.all(eig(H)[0] <= 0))
     # % construct slack var
     rho = prog.NewContinuousVariables(1, "r")[0]
     prog.AddConstraint(rho >= 0)
@@ -203,9 +185,9 @@ def levelset_sos(sys, V0, do_balance=False):
 
     prog.AddCost(-rho)
     solver = MosekSolver()
-    solver.set_stream_logging(True, "")
+    solver.set_stream_logging(True, "equality-constrained-logs.txt")
     result = solver.Solve(prog, None, None)
-    print(result.get_solution_result())
+    # print(result.get_solution_result())
     # print('w/ solver %s' % (result.get_solver_id().name()))
     assert result.is_success()
     L1 = result.GetSolution(L1)
@@ -270,6 +252,24 @@ def clean(poly, x, tol=1e-9):
     if isinstance(poly, Expression):
         poly = Polynomial(poly, x)
     return poly.RemoveTermsWithSmallCoefficients(tol).ToExpression()
+
+
+class opt:
+
+    def __init__(self, nX, degf, degV=4, converged_tol=.01, max_iterations=10,
+                 degL1=None, degL2=None, do_balance=False):
+        self.nX = nX
+        self.degf = degf
+        self.degV = degV
+        self.converged_tol = converged_tol
+        self.max_iterations = max_iterations
+        if degL1 is None:
+            degL1 = degV - 1 + degf
+        self.degL1 = degL1
+        if degL2 is None:
+            degL2 = degL1
+        self.degL2 = degL2
+        self.do_balance = do_balance
 
 
 ################

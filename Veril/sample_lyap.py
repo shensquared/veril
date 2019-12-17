@@ -6,7 +6,7 @@ from keras import regularizers, initializers
 from keras.utils import CustomObjectScope
 
 import math
-from custom_layers import DotKernel, Divide, TransLayer
+from veril.custom_layers import DotKernel, Divide, TransLayer
 import numpy as np
 '''
 A note about the DOT layer: if input is 1: (None, a) and 2: (None, a) then no
@@ -19,7 +19,7 @@ If debug, use kernel_initializer= initializers.Ones()
 If regularizing, use kernel_regularizer= regularizers.l2(0.))
 
     # if write_log:
-    #     logs_dir = "/Users/shenshen/Veril/data/lyapunov"
+    #     logs_dir = "/Users/shenshen/veril/data/"
     #     tensorboard = TensorBoard(log_dir=logs_dir, histogram_freq=0,
     #                               write_graph=True, write_images=True)
     #     callbacks.append(tensorboard)
@@ -76,10 +76,10 @@ def linear_model_for_V(sys_dim, A):
 #     print("Saved model" + model_file_name + " to disk")
 #     return P
 
-# TODO lambda f (two args in)
+
 def poly_model_for_V(sys_dim, max_deg):
     f = lambda x: math.factorial(x)
-    # -1 since V doesn't have a constant monomial
+    # -1 if V doesn't have a constant monomial
     monomial_dim = f(sys_dim + max_deg) // f(max_deg) // f(sys_dim)
     phi = Input(shape=(monomial_dim,))
     layers = [
@@ -100,7 +100,7 @@ def poly_model_for_V(sys_dim, max_deg):
     rate = Divide()([Vdot, V])
     model = Model(inputs=[phi, dphidx, fx], outputs=rate)
     model.compile(loss=max_negativity, optimizer='adam')
-    # print(model.summary())
+    print(model.summary())
     return model
 
 
@@ -126,7 +126,7 @@ def get_gram_for_V(model):
 
 def gram_decomp_model_for_levelsetpoly(sys_dim, sigma_deg, psi_deg):
     f = lambda x: math.factorial(x)
-    # -1 since V doesn't have a constant monomial
+    # -1 if V doesn't have a constant monomial
     psi_dim = f(sys_dim + psi_deg) // f(psi_deg) // f(sys_dim)
     psi = Input(shape=(psi_dim,), name='psi')
     layers = [

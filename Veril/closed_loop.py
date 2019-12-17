@@ -20,8 +20,8 @@ from keras import backend as K
 from keras.utils import CustomObjectScope
 from keras.models import load_model
 
-from Veril import plants
-from Veril.custom_layers import JanetController
+from veril import plants
+from veril.custom_layers import JanetController
 import itertools
 # from sympy import symbols, Matrix, Transpose, MatrixSymbol
 
@@ -41,8 +41,9 @@ def get_NNorCL(NNorCL='CL', **kwargs):
     tag = kwargs['tag']
     plant_name = kwargs['plant_name']
 
-    # dirname = os.path.dirname(__file__)
-    dirname = os.path.join('/users/shenshen/Veril/data/')
+    dirname = os.path.dirname(__file__)
+    # dirname = os.path.join('/users/shenshen/veril/data/')
+    dirname = dirname + '../data/'
     model_file_name = dirname + plant_name + '/' + \
         'unit' + str(num_units) + 'step' + str(timesteps) + tag
 

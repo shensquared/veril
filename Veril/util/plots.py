@@ -1,11 +1,11 @@
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
-from util import samples
+from . import samples
 from mpl_toolkits.mplot3d import Axes3D
 
 
-def plot_funnel(V, sys_name, slice_idx):
+def plot_funnel(V, sys_name, slice_idx, add_title=''):
     file_dir = '../data/' + sys_name
     x = samples.levelsetData(V, slice_idx)[0]
     if sys_name is 'VanderPol':
@@ -22,11 +22,11 @@ def plot_funnel(V, sys_name, slice_idx):
     plt.xlabel(xlab)
     plt.ylabel(ylab)
     leg = plt.legend()
-    plt.title(sys_name)
+    plt.title(sys_name + add_title)
     plt.show()
 
 
-def scatterSamples(samples, sys_name, slice_idx):
+def scatterSamples(samples, sys_name, slice_idx, add_title=''):
     file_dir = '../data/' + sys_name
     stable_samples = np.load(file_dir + '/stableSamplesSlice' +
                              str(slice_idx[0] + 1) + str(slice_idx[1] + 1) +
@@ -46,11 +46,11 @@ def scatterSamples(samples, sys_name, slice_idx):
     plt.xlabel(xlab)
     plt.ylabel(ylab)
     plt.legend()
-    plt.title(sys_name)
+    plt.title(sys_name + ' ' + add_title)
     plt.show()
 
 
-def plot3d(V, sys_name, slice_idx, r_max=2):
+def plot3d(V, sys_name, slice_idx, r_max=2, add_title=''):
     thetas = np.linspace(-np.pi, np.pi, 100)
     sym_x = list(V.GetVariables())
     n = thetas.shape[0]
