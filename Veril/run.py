@@ -87,12 +87,13 @@ def train_V(sys_name, max_deg=3, epochs=15, method='SGD'):
     sym_x = sys.sym_x
     model = None
     model_dir = '../data/' + sys_name
-    train_x = np.load(model_dir + '/stableSamples.npy')
     # V = sys.knownROA()
-    # train_x, train_y = withinLevelSet(V)
+    train_x = np.load(model_dir + '/stableSamples.npy')
     sys.set_features(max_deg)
-    if max_deg == 3:
-        loaded = np.load(model_dir + '/train_for_v_features.npz')
+
+    file_path = model_dir + '/train_for_v_features'+str(max_deg)+'.npz'
+    if os.path.exists(file_path):
+        loaded = np.load(file_path)
         [phi, dphidx, f] = [loaded['phi'], loaded['dphidx'], loaded['f']]
     else:
         [phi, dphidx, f] = sys.train_for_V_features(train_x)
