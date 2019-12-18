@@ -12,6 +12,8 @@ from pydrake.all import (MathematicalProgram, Polynomial,
                          MosekSolver, MonomialBasis)
 
 # tradiotnal SOS-based ROA verification methods
+
+
 def bilinear(x, V0, f, S0, A, options):
     # x = np.array(list(V0.GetVariables()))
     V = V0
@@ -200,6 +202,41 @@ def levelset_sos(sys, V0, do_balance=False):
     return V
 
 
+def convexly_search_for_V_on_samples(sampled_quantities, PSD_constrained=True):
+    phi, dphidx, f = sampled_quantities
+    monomial_dim = phi.shape[-1]
+    prog = MathematicalProgram()
+    P = prog.NewSymmetricContinuousVariables(monomial_dim, "P")
+    one_vec = np.ones(monomial_dim)
+
+    slack = prog.NewContinuousVariables(1, "s")[0]
+    num_samples = phi.shape[0]
+
+    if PSD_constrained:
+        prog.AddPositiveSemidefiniteConstraint(P)
+
+    for i in range(num_samples):
+        if not PSD_constrained:
+            # reduces to an LP
+            this_v = phi[i, :].T@P@phi[i, :]
+            prog.AddConstraint(this_v >= 0)
+        this_vdot = phi[i, :].T@P@dphidx[i, :, :]@f[i, :]
+        prog.AddConstraint(this_vdot <= slack)
+
+    prog.AddConstraint(phi[1, :].T@P@phi[1, :] == 1)
+    prog.AddCost(slack)
+    solver = MosekSolver()
+    solver.set_stream_logging(True, "")
+    result = solver.Solve(prog, None, None)
+    print(result.get_solution_result())
+    assert result.is_success()
+    P = result.GetSolution(P)
+    slack = result.GetSolution(slack)
+    print('eig of orignal P  %s' % (eig(P)[0]))
+    print('slack value %s' % slack)
+    return P
+
+
 def balance_quad_form(S, P):
     # copied from the old drake, with only syntax swap
     #  Quadratic Form "Balancing"
@@ -379,36 +416,6 @@ def IQC_tanh(x, y):
                       (y - ((x) + x_off)) * (y + y_cross),
                       (y - ((x) - x_off)) * (y - y_cross),
                       (y - x) * y))
-
-
-# def solve_LP_for_V(phi, dphidx, f, num_samples=None):
-#     if num_samples is None:
-#         num_samples = phi.shape[0]
-#     monomial_dim = phi.shape[-1]
-#     prog = MathematicalProgram()
-#     P = prog.NewSymmetricContinuousVariables(monomial_dim, "P")
-#     allv = 0
-#     allvdot = 0
-#     for i in range(num_samples):
-#         this_v = phi[i, :].T@P@phi[i, :]
-#         prog.AddConstraint(this_v >= 0)
-#         this_vdot = phi[i, :].T@P@dphidx[i, :, :]@f[i, :]
-#         prog.AddConstraint(this_vdot <= 0)
-#         allv = allv + this_v
-#         allvdot = allvdot + this_vdot
-#     prog.AddConstraint(phi[1, :].T@P@phi[1, :] == 1)
-#     # prog.AddCost(allvdot-allv)
-#     # prog.AddCost(allvdot)
-#     prog.AddCost(0)
-#     solver = MosekSolver()
-#     solver.set_stream_logging(False, "")
-#     result = solver.Solve(prog, None, None)
-#     print(result.get_solution_result())
-#     assert result.is_success()
-#     P = result.GetSolution(P)
-#     print('eig of orignal A  %s' % (eig(P)[0]))
-#     # print('eig of orignal SA+A\'S  %s' % (eig(A0.T@S0 + S0@A0)[0]))
-#     return P
 
 
 # def levelsetLP(system, gram):

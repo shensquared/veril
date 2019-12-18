@@ -35,7 +35,6 @@ options = {
 }
 
 
-
 def train_RNN_controller(pre_trained=None, **kwargs):
     num_samples = kwargs.pop('num_samples')
     num_units = kwargs.pop(
@@ -92,7 +91,7 @@ def train_V(sys_name, max_deg=3, epochs=15, method='SGD'):
     train_x = np.load(model_dir + '/stableSamples.npy')
     system.set_features(max_deg)
 
-    file_path = model_dir + '/train_for_v_features'+str(max_deg)+'.npz'
+    file_path = model_dir + '/train_for_v_features' + str(max_deg) + '.npz'
     if os.path.exists(file_path):
         loaded = np.load(file_path)
         [phi, dphidx, f] = [loaded['phi'], loaded['dphidx'], loaded['f']]
@@ -107,7 +106,7 @@ def train_V(sys_name, max_deg=3, epochs=15, method='SGD'):
         # assert (history.history['loss'][-1] <= 0)
         P = sample_lyap.get_gram_for_V(model)
     else:
-        P = symbolic_verifier.solve_LP_for_V(phi, dphidx, f, num_samples=None)
+        P = symbolic_verifier.convexly_search_for_V_on_samples(phi, dphidx, f)
     V, Vdot = system.rescale_V(P, train_x)
     return V, Vdot, system
 
@@ -121,7 +120,7 @@ def verify_via_variety(sys_name, init_root_threads=1, epochs=15):
     # system = closed_loop.get(sys_name)
     # [scatterSamples(np.zeros((1, system.num_states)), sys_name, i) for i in
     #  system.all_slices]
-    V, Vdot, system = train_V(sys_name, epochs=epochs, max_deg = 3)
+    V, Vdot, system = train_V(sys_name, epochs=epochs, max_deg=3)
     # [plot3d(V, sys_name, i, level_sets=True) for i in system.all_slices]
     # verify_via_equality(system, V)
     system.set_sample_variety_features(V)
@@ -135,9 +134,12 @@ def verify_via_variety(sys_name, init_root_threads=1, epochs=15):
     samples = sample_variety.sample_on_variety(variety, init_root_threads)
 
     while not is_vanishing:
-        samples_monomial, Tinv = sample_variety.sample_monomials(system, samples, variety)
-        V, rho, P = sample_variety.solve_SDP_on_samples(system, samples_monomial)
-        is_vanishing, new_sample = sample_variety.check_vanishing(system, variety, rho, P, Tinv)
+        samples_monomial, Tinv = sample_variety.sample_monomials(
+            system, samples, variety)
+        V, rho, P = sample_variety.solve_SDP_on_samples(
+            system, samples_monomial)
+        is_vanishing, new_sample = sample_variety.check_vanishing(
+            system, variety, rho, P, Tinv)
         # samples = [np.vstack(i) for i in zip(samples, new_sample)]
         # samples = np.vstack((samples, sample_variety.sample_on_variety
         # (variety, 1)))
@@ -154,11 +156,12 @@ def verify_via_bilinear(sys_name, max_deg=3):
     V0 = system.sym_x.T@S@system.sym_x
 
     verifierOptions = symbolic_verifier.opt(system.num_states, system.degf, do_balance=False,
-                                   degV=2 * max_deg, converged_tol=1e-2, max_iterations=20)
+                                            degV=2 * max_deg, converged_tol=1e-2, max_iterations=20)
     start = time.time()
-    V = symbolic_verifier.bilinear(system.sym_x, V0, system.sym_f, S, A, verifierOptions)
+    V = symbolic_verifier.bilinear(
+        system.sym_x, V0, system.sym_f, S, A, verifierOptions)
     end = time.time()
-    print('bilinear time %s' %(end - start))
+    print('bilinear time %s' % (end - start))
     plot_funnel(V, sys_name, system.slice)
     return system, V
 
