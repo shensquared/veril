@@ -50,7 +50,7 @@ def scatterSamples(samples, sys_name, slice_idx, add_title=''):
     plt.show()
 
 
-def plot3d(V, sys_name, slice_idx, r_max=2, add_title=''):
+def plot3d(V, sys_name, slice_idx, r_max=2, add_title='', level_sets=False):
     thetas = np.linspace(-np.pi, np.pi, 100)
     sym_x = list(V.GetVariables())
     n = thetas.shape[0]
@@ -79,10 +79,9 @@ def plot3d(V, sys_name, slice_idx, r_max=2, add_title=''):
     ax.set_ylabel(ylab)
     # ax.set_ylim(-r_max, r_max)
     ax.set_zlabel('V')
-
-    levels = np.linspace(1, np.max(np.abs(Z)), 5)
-    for i in levels:
-        xx = samples.levelsetData(V / i, slice_idx)[0]
-        ax.plot(xx[:, 0], xx[:, 1], zs=0, zdir='z', label='levels')
-
+    if level_sets:
+        levels = np.linspace(1, np.max(np.abs(Z)), 5)
+        for i in levels:
+            xx = samples.levelsetData(V / i, slice_idx)[0]
+            ax.plot(xx[:, 0], xx[:, 1], zs=0, zdir='z', label='levels')
     plt.show()

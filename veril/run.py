@@ -122,7 +122,7 @@ def verify_via_variety(sys_name, init_root_threads=1, epochs=15):
     # [scatterSamples(np.zeros((1, system.num_states)), sys_name, i) for i in
     #  system.all_slices]
     V, Vdot, system = train_V(sys_name, epochs=epochs, max_deg = 3)
-    # [plot3d(V, sys_name, i) for i in system.all_slices]
+    # [plot3d(V, sys_name, i, level_sets=True) for i in system.all_slices]
     # verify_via_equality(system, V)
     system.set_sample_variety_features(V)
     Vdot = system.sym_Vdot
