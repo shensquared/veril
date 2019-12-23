@@ -212,7 +212,7 @@ def check_genericity(all_samples):
     return enough_samples
 
 
-def solve_SDP_on_samples(system, sampled_quantities):
+def solve_SDP_on_samples(system, sampled_quantities, write_to_file=False):
     prog = MathematicalProgram()
     rho = prog.NewContinuousVariables(1, "r")[0]
     prog.AddConstraint(rho >= 0)
@@ -229,7 +229,11 @@ def solve_SDP_on_samples(system, sampled_quantities):
 
     prog.AddCost(-rho)
     solver = MosekSolver()
-    solver.set_stream_logging(True, "sampling-aided-logs.txt")
+    if write_to_file:
+        log_file = "sampling_variety_SDP.text"
+    else:
+        log_file = ""
+    solver.set_stream_logging(True, log_file)
     result = solver.Solve(prog, None, None)
     # print(result.get_solution_result())
     assert result.is_success()

@@ -149,7 +149,7 @@ def optimizeV(x, f, L1, L2, V0, sigma1, options):
     return V, rho
 
 
-def levelset_sos(sys, V0, do_balance=False):
+def levelset_sos(sys, V0, do_balance=False,):
     x = sys.sym_x
     f = sys.sym_f
     nX = sys.num_states
@@ -187,7 +187,13 @@ def levelset_sos(sys, V0, do_balance=False):
 
     prog.AddCost(-rho)
     solver = MosekSolver()
-    solver.set_stream_logging(True, "equality-constrained-logs.txt")
+
+    if write_to_file:
+        log_file = "equality-constrained-logs.txt"
+    else:
+        log_file = ""
+
+    solver.set_stream_logging(True, log_file)
     result = solver.Solve(prog, None, None)
     # print(result.get_solution_result())
     # print('w/ solver %s' % (result.get_solver_id().name()))
@@ -203,7 +209,8 @@ def levelset_sos(sys, V0, do_balance=False):
 
 
 def convexly_search_for_V_on_samples(sampled_quantities, use_cvx=True,
-                                     PSD_constrained=True):
+                                     PSD_constrained=True,
+                                     write_to_file=False):
     phi, dphidx, f = sampled_quantities
     monomial_dim = phi.shape[-1]
     num_samples = phi.shape[0]
@@ -242,7 +249,11 @@ def convexly_search_for_V_on_samples(sampled_quantities, use_cvx=True,
         prog.AddConstraint(one_vec.T@P@one_vec == 1)
         prog.AddCost(slack)
         solver = MosekSolver()
-        solver.set_stream_logging(True, "")
+        if write_to_file:
+            log_file = "convexly_search_for_V_on_samples.txt"
+        else:
+            log_file = ""
+        solver.set_stream_logging(True, log_file)
         result = solver.Solve(prog, None, None)
         print(result.get_solution_result())
         assert result.is_success()
