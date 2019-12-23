@@ -10,7 +10,7 @@ from pydrake.all import (MathematicalProgram, Polynomial,
                          Variables, Solve, Jacobian, Evaluate,
                          RealContinuousLyapunovEquation, Substitute,
                          MosekSolver, MonomialBasis)
-
+import cvxpy
 # tradiotnal SOS-based ROA verification methods
 
 
@@ -202,36 +202,53 @@ def levelset_sos(sys, V0, do_balance=False):
     return V
 
 
-def convexly_search_for_V_on_samples(sampled_quantities, PSD_constrained=True):
+def convexly_search_for_V_on_samples(sampled_quantities, use_cvx=True,
+                                     PSD_constrained=True):
     phi, dphidx, f = sampled_quantities
     monomial_dim = phi.shape[-1]
-    prog = MathematicalProgram()
-    P = prog.NewSymmetricContinuousVariables(monomial_dim, "P")
-    one_vec = np.ones(monomial_dim)
-
-    slack = prog.NewContinuousVariables(1, "s")[0]
     num_samples = phi.shape[0]
+    one_vec = np.ones(monomial_dim)
+    constraints = []
+    if use_cvx:
+        P = cp.Variable((monomial_dim, monomial_dim), symmetric=True)
+        slack = cp.Variable(1)
+        if PSD_constrained:
+            constraints += [P >> 0]
+        constraints += [one_vec.T@P@one_vec == 1]
 
-    if PSD_constrained:
-        prog.AddPositiveSemidefiniteConstraint(P)
+        for i in range(num_samples):
+            this_vdot = phi[i, :].T@P@dphidx[i, :, :]@f[i, :]
+            constraints += [this_vdot <= slack]
 
-    for i in range(num_samples):
-        if not PSD_constrained:
-            # reduces to an LP
-            this_v = phi[i, :].T@P@phi[i, :]
-            prog.AddConstraint(this_v >= 0)
-        this_vdot = phi[i, :].T@P@dphidx[i, :, :]@f[i, :]
-        prog.AddConstraint(this_vdot <= slack)
+        prob = cp.Problem(cp.Minimize(slack), constraints)
+        prob.solve(solver=cp.MOSEK, verbose=True)
+        P = P.value
+        slack = slack.value
 
-    prog.AddConstraint(phi[1, :].T@P@phi[1, :] == 1)
-    prog.AddCost(slack)
-    solver = MosekSolver()
-    solver.set_stream_logging(True, "")
-    result = solver.Solve(prog, None, None)
-    print(result.get_solution_result())
-    assert result.is_success()
-    P = result.GetSolution(P)
-    slack = result.GetSolution(slack)
+    else:
+        prog = MathematicalProgram()
+        P = prog.NewSymmetricContinuousVariables(monomial_dim, "P")
+        slack = prog.NewContinuousVariables(1, "s")[0]
+        if PSD_constrained:
+            prog.AddPositiveSemidefiniteConstraint(P)
+        for i in range(num_samples):
+            if not PSD_constrained:
+                # reduces to an LP
+                this_v = phi[i, :].T@P@phi[i, :]
+                prog.AddConstraint(this_v >= 0)
+            this_vdot = phi[i, :].T@P@dphidx[i, :, :]@f[i, :]
+            prog.AddConstraint(this_vdot <= slack)
+
+        prog.AddConstraint(one_vec.T@P@one_vec == 1)
+        prog.AddCost(slack)
+        solver = MosekSolver()
+        solver.set_stream_logging(True, "")
+        result = solver.Solve(prog, None, None)
+        print(result.get_solution_result())
+        assert result.is_success()
+        P = result.GetSolution(P)
+        slack = result.GetSolution(slack)
+
     print('eig of orignal P  %s' % (eig(P)[0]))
     print('slack value %s' % slack)
     return P
