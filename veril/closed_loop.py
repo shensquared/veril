@@ -121,7 +121,7 @@ class ClosedLoopSys(object):
             V = self.sym_V
         return np.array([V.Evaluate(dict(zip(self.sym_x, i))) for i in samples])
 
-    def do_linearization(self):
+    def linearized_A_and_P(self):
         x = self.sym_x
         f = self.polynomial_dynamics()
         J = Jacobian(f, x)
@@ -130,22 +130,25 @@ class ClosedLoopSys(object):
         A = np.array([[i.Evaluate(env) for i in j]for j in J])
         print('A  %s' % A)
         print('eig of the linearized A matrix %s' % (eig(A)[0]))
-        S = solve_lyapunov(A.T, -np.eye(x.shape[0]))
-        print('S %s' % S)
-        print('eig of S %s' % (eig(S)[0]))
-        return A, S
+        P = solve_lyapunov(A.T, -np.eye(x.shape[0]))
+        # print('P %s' % P)
+        print('eig of P %s' % (eig(P)[0]))
+        return A, P
 
     def rescale_V(self, P, samples):
         V0 = self.sym_phi.T@P@self.sym_phi
         V_evals = self.get_v_values(samples, V=V0)
         m = np.percentile(V_evals, 75)
         V = V0 / m
-        Vdot = V.Jacobian(self.sym_x)@self.sym_f
+        Vdot = self.set_Vdot(V)
         H = Jacobian(Vdot.Jacobian(self.sym_x).T, self.sym_x)
         env = dict(zip(self.sym_x, np.zeros(self.num_states)))
         H = .5 * np.array([[i.Evaluate(env) for i in j]for j in H])
         print('eig of Hessian of Vdot %s' % (eig(H)[0]))
         return V, Vdot
+
+    def set_Vdot(self, V):
+        return V.Jacobian(self.sym_x)@self.sym_f
 
     def sim_stable_samples(self, d, num_grid, slice_idx=None):
         def event(t, x): return np.linalg.norm(x) - 15

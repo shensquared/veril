@@ -236,7 +236,7 @@ class PolyRNNCL(ClosedLoopSys):
             s = np.hstack((x, c, tanh_f, tanh_c))
         return s
 
-    def do_linearization(self, which_dynamics='nonlinear'):
+    def linearized_A_and_P(self, which_dynamics='nonlinear'):
         """
         linearize f, which is the augmented (via the change of variable recasting)
         w.r.t. the states x.
