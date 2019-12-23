@@ -6,6 +6,8 @@ from mpl_toolkits.mplot3d import Axes3D
 
 
 def plot_funnel(V, sys_name, slice_idx, add_title=''):
+    id1 = str(slice_idx[0] + 1)
+    id2 = str(slice_idx[1] + 1)
     file_dir = '../data/' + sys_name
     x = samples.levelsetData(V, slice_idx)[0]
     if sys_name is 'VanderPol':
@@ -13,12 +15,12 @@ def plot_funnel(V, sys_name, slice_idx, add_title=''):
         bdry = plt.plot(xlim[0, :], xlim[1, :],
                         color='red', label='Known ROA Boundary')
     else:
-        stable_samples = np.load(file_dir + '/stableSamplesSlice.npy')
+        stable_samples = np.load(file_dir + '/stableSamplesSlice' + id1 + id2 +
+                                 '.npy')
         plt.scatter(stable_samples[:, 0], stable_samples[:, 1], color='red',
                     label='Simulated Stable Samples')
     plt.plot(x[:, 0], x[:, 1], label='Verified ROA Boundary')
-    xlab = 'X' + str(slice_idx[0] + 1)
-    ylab = 'X' + str(slice_idx[1] + 1)
+    xlab, ylab = 'X' + id1, 'X' + id2
     plt.xlabel(xlab)
     plt.ylabel(ylab)
     leg = plt.legend()
@@ -27,10 +29,12 @@ def plot_funnel(V, sys_name, slice_idx, add_title=''):
 
 
 def scatterSamples(samples, sys_name, slice_idx, add_title=''):
+    id1 = str(slice_idx[0] + 1)
+    id2 = str(slice_idx[1] + 1)
+
     file_dir = '../data/' + sys_name
-    stable_samples = np.load(file_dir + '/stableSamplesSlice' +
-                             str(slice_idx[0] + 1) + str(slice_idx[1] + 1) +
-                             '.npy')
+    stable_samples = np.load(file_dir + '/stableSamplesSlice' + id1 + id2 +
+       '.npy')
 
     if sys_name is 'VanderPol':
         xlim = np.load(file_dir + '/VanderPol_limitCycle.npy')
@@ -41,8 +45,7 @@ def scatterSamples(samples, sys_name, slice_idx, add_title=''):
         :, 1], color='red', label='Simulated Stable Samples')
     plt.scatter(samples[:, slice_idx[0]], samples[:, slice_idx[1]],
                 label='Samples')
-    xlab = 'X' + str(slice_idx[0] + 1)
-    ylab = 'X' + str(slice_idx[1] + 1)
+    xlab, ylab = 'X' + id1, 'X' + id2
     plt.xlabel(xlab)
     plt.ylabel(ylab)
     plt.legend()
