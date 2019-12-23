@@ -152,7 +152,7 @@ def verify_via_variety(sys_name, init_root_threads=1, epochs=15):
 def verify_via_bilinear(sys_name, max_deg=3):
     system = closed_loop.get(sys_name)
     system.set_features(max_deg)
-    A, S = system.do_linearization()
+    A, S = system.linearized_A_and_P()
     V0 = system.sym_x.T@S@system.sym_x
 
     verifierOptions = symbolic_verifier.opt(system.num_states, system.degf, do_balance=False,
@@ -188,7 +188,7 @@ def sim_RNN_stable_samples(**options):
 
 # closed_loop.originalSysInitialV(CL)
 # augedSys = closed_loop.PolyRNNCL(CL, model_file_name, taylor_approx=True)
-# augedSys.do_linearization(which_dynamics='nonlinear')
+# augedSys.linearized_A_and_P(which_dynamics='nonlinear')
 
 
 ############
