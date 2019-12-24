@@ -12,7 +12,6 @@ import cvxpy
 
 
 def bilinear(x, V0, f, S0, A, options):
-    # x = np.array(list(V0.GetVariables()))
     V = V0
     if options.do_balance:
         [T, V0bal, fbal, S0, A] = balance(x, V0, f, S0, A)
@@ -146,7 +145,7 @@ def optimizeV(x, f, L1, L2, V0, sigma1, options):
     return V, rho
 
 
-def levelset_sos(sys, V0, do_balance=False,):
+def levelset_sos(sys, V0, do_balance=False, write_to_file=False):
     x = sys.sym_x
     f = sys.sym_f
     nX = sys.num_states

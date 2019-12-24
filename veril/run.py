@@ -104,38 +104,12 @@ def verify_via_bilinear(sys_name, max_deg=3):
 # system, V = verify_via_bilinear('Pendubot',max_deg = 3)
 # verify_via_variety('Pendubot', init_root_threads=120, epochs=12)
 for i in range(30):
-    verify_via_variety('VanderPol', init_root_threads=30, epochs=100)
-# V, Vdot, system = train_V('VanderPol', epochs=40)
+    # verify_via_variety('VanderPol', init_root_threads=30, epochs=100)
+    V, Vdot, system = train_V('VanderPol', epochs=40, max_deg=3)
 #     verify_via_equality(system, V)
-
-
-# verify_RNN_CL(max_deg=2)
-# train_RNN_controller(**options)
-
-# closed_loop.originalSysInitialV(CL)
-# augedSys = closed_loop.PolyRNNCL(CL, model_file_name, taylor_approx=True)
-# augedSys.linearized_A_and_P(which_dynamics='nonlinear')
-
 
 ############
 # Dirty code below, but may be useful for refrence
-# def verify_RNN_CL(max_deg=2):
-#     CL, model_file_name = closed_loop.get_NNorCL(**options)
-#     system = closed_loop.PolyRNNCL(CL, model_file_name, taylor_approx=True)
-#     system.set_features(max_deg)
-#     samples = system.sample_init_states_w_tanh(30000, lb=-.01, ub=.01)
-#     [phi, dphidx, f] = system.train_for_V_features(samples)
-
-#     y = np.zeros(phi.shape)
-#     nx = system.num_states
-#     degf = system.degf
-#     model = sample_lyap.poly_model_for_V(nx, max_deg)
-#     history = model.fit([phi, dphidx, f], y, epochs=100, shuffle=True)
-#     assert (history.history['loss'][-1] <= 0)
-#     P = sample_lyap.get_gram_for_V(model)
-#     V0 = system.sym_phi.T@P@system.sym_phi
-#     return V0, system
-
 # def SGDLevelSetGramCandidate(V, vdp, max_deg=3):
 #     sym_x = vdp.sym_x
 #     train_x = vdp.get_x(d=10).T

@@ -372,3 +372,32 @@ def originalSysInitialV(CL):
     print('eig of orignal A  %s' % (eig(A0)[0]))
     print('eig of orignal SA+A\'S  %s' % (eig(A0.T@S0 + S0@A0)[0]))
     return x.T@S0@x
+
+
+
+# verify_RNN_CL(max_deg=2)
+# train_RNN_controller(**options)
+
+# closed_loop.originalSysInitialV(CL)
+# augedSys = closed_loop.PolyRNNCL(CL, model_file_name, taylor_approx=True)
+# augedSys.linearized_A_and_P(which_dynamics='nonlinear')
+
+
+############
+# Dirty code below, but may be useful for refrence
+# def verify_RNN_CL(max_deg=2):
+#     CL, model_file_name = closed_loop.get_NNorCL(**options)
+#     system = closed_loop.PolyRNNCL(CL, model_file_name, taylor_approx=True)
+#     system.set_features(max_deg)
+#     samples = system.sample_init_states_w_tanh(30000, lb=-.01, ub=.01)
+#     [phi, dphidx, f] = system.train_for_V_features(samples)
+
+#     y = np.zeros(phi.shape)
+#     nx = system.num_states
+#     degf = system.degf
+#     model = sample_lyap.poly_model_for_V(nx, max_deg)
+#     history = model.fit([phi, dphidx, f], y, epochs=100, shuffle=True)
+#     assert (history.history['loss'][-1] <= 0)
+#     P = sample_lyap.get_gram_for_V(model)
+#     V0 = system.sym_phi.T@P@system.sym_phi
+#     return V0, system

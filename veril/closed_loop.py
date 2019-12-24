@@ -52,8 +52,6 @@ class ClosedLoopSys(object):
             phi[i, :] = [i.Evaluate(env) for i in self.sym_phi]
             dphidx[i, :, :] = [[i.Evaluate(env) for i in j]for j in
                                self.sym_dphidx]
-        # np.savez(self.model_file_name + '-' + str(n_samples) +
-        #          'samples', phi=phi, dphidx=dphidx, f=f)
         return [phi, dphidx, f]
 
     # def levelset_features(self, V, sigma_deg):
@@ -104,7 +102,6 @@ class ClosedLoopSys(object):
         psi = np.zeros((n_samples, self.sym_psi.shape[0]))
         for i in range(n_samples):
             env = dict(zip(self.sym_x, samples[i, :]))
-            # V[i, :] = self.sym_V.Evaluate(env)
             xxd[i, :] = self.sym_xxd.Evaluate(env)
             psi[i, :] = [i.Evaluate(env) for i in self.sym_psi]
         return [xxd, psi]
