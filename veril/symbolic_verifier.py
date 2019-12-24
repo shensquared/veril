@@ -5,13 +5,10 @@ import math
 import pydrake
 import numpy as np
 from numpy.linalg import eig, inv
-from pydrake.all import (MathematicalProgram, Polynomial,
-                         Expression, SolutionResult,
-                         Variables, Solve, Jacobian, Evaluate,
-                         RealContinuousLyapunovEquation, Substitute,
-                         MosekSolver, MonomialBasis)
+from pydrake.all import (MathematicalProgram, Polynomial, Expression,
+                         SolutionResult, Variables, Solve, Jacobian, Evaluate,
+                         Substitute, MosekSolver, MonomialBasis)
 import cvxpy
-# tradiotnal SOS-based ROA verification methods
 
 
 def bilinear(x, V0, f, S0, A, options):

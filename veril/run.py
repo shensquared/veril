@@ -1,18 +1,16 @@
 import os
-import argparse
+import time
+import numpy as np
+# import argparse
 
 from keras.models import Model, load_model
 from keras.layers import Input
 from keras.callbacks import ModelCheckpoint, EarlyStopping
-# from keras import regularizers
-
 import h5py
-import numpy as np
 
 from veril import symbolic_verifier, closed_loop, sample_lyap, sample_variety
 from veril.util.plots import *
 # from util.samples import withinLevelSet
-import time
 
 
 def train_V(sys_name, max_deg=3, epochs=15, method='SGD'):

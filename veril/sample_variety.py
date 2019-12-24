@@ -4,9 +4,8 @@ sys.path.append(
 import pydrake
 import numpy as np
 from numpy.linalg import eig, inv
-from pydrake.all import (Polynomial, Variable, Variables, Evaluate, Substitute,
+from pydrake.all import (Polynomial, Variable, Evaluate, Substitute,
                          MathematicalProgram, MosekSolver)
-# import itertools
 import time
 
 

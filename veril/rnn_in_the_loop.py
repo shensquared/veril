@@ -4,6 +4,7 @@ from keras.models import load_model
 
 from veril import plants
 from veril.custom_layers import JanetController
+from veril.closed_loop import ClosedLoopSys
 
 
 options = {

@@ -1,15 +1,14 @@
-import os
-import itertools
-import six
 import sys
 sys.path.append(
     "/Users/shenshen/drake-build/install/lib/python3.7/site-packages")
 import pydrake
-from pydrake.all import (MathematicalProgram, Polynomial,
-                         Expression, SolutionResult, MonomialBasis,
-                         Variables, Solve, Jacobian, Evaluate,
-                         RealContinuousLyapunovEquation, Substitute,
-                         MosekSolver, tanh, pow)
+from pydrake.all import (MathematicalProgram, Polynomial, Expression,
+                         SolutionResult, MonomialBasis, Variables, Solve,
+                         Jacobian, Evaluate, Substitute, MosekSolver)
+
+import os
+import itertools
+import six
 
 import numpy as np
 from numpy.linalg import eig, inv
@@ -39,21 +38,15 @@ class ClosedLoopSys(object):
     def set_features(self, VFeatureDeg):
         self.degV = 2 * VFeatureDeg
         self.sym_f = self.polynomial_dynamics()
-        # self.degf = max([Polynomial(i, self.sym_x).TotalDegree() for i in
-        #                  self.sym_f])
-        if VFeatureDeg == 1:
-            sym_x_expression = np.array([Expression(i) for i in self.sym_x])
-            self.sym_phi = np.append(pow(self.sym_x[0], 0), sym_x_expression)
-        else:
-            self.sym_phi = get_monomials(self.sym_x, VFeatureDeg)
+        self.sym_phi = get_monomials(self.sym_x, VFeatureDeg)
         self.sym_dphidx = Jacobian(self.sym_phi, self.sym_x)
 
-    def train_for_V_features(self, x):
-        # x: (num_samples, sys_dim)
+    def train_for_V_features(self, x):  # x: (num_samples, sys_dim)
         f = self.polynomial_dynamics(sample_states=x)
         n_samples = x.shape[0]
-        phi = np.zeros((n_samples, self.sym_phi.shape[0]))
-        dphidx = np.zeros((n_samples, self.sym_phi.shape[0], self.num_states))
+        phi_dim = self.sym_phi.shape[0]
+        phi = np.zeros((n_samples, phi_dim))
+        dphidx = np.zeros((n_samples, phi_dim, self.num_states))
         for i in range(n_samples):
             env = dict(zip(self.sym_x, x[i, :]))
             phi[i, :] = [i.Evaluate(env) for i in self.sym_phi]
