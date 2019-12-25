@@ -15,6 +15,8 @@ from numpy.linalg import eig, inv
 from scipy.linalg import solve_lyapunov, solve_discrete_lyapunov
 from scipy import integrate
 
+from veril.util.plots import *
+
 
 def get(system_name):
     if isinstance(system_name, six.string_types):
@@ -162,6 +164,12 @@ class ClosedLoopSys(object):
             name = '../data/' + self.name + '/stableSamplesSlice' + \
                 str(i[0] + 1) + str(i[1] + 1) + '.npy'
             np.save(name, samples)
+
+    def scatter_stable_samples(self, slice_idx=None):
+        if slice_idx is None:
+            [scatterSamples(np.zeros((1, self.num_states)), self.name, i) for i in self.all_slices]
+        else:
+            scatterSamples(np.zeros((1, self.num_states)), self.name, slice_idx)
 
 
 class VanderPol(ClosedLoopSys):
