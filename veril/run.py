@@ -45,18 +45,12 @@ def train_V(sys_name, max_deg=3, epochs=15, method='SGD'):
     return V, Vdot, system
 
 
-def verify_via_equality(system, V0):
-    V = symbolic_verifier.levelset_sos(system, V0, do_balance=False)
+def verify_via_equality(system, V):
+    V = symbolic_verifier.levelset_sos(system, V, do_balance=False)
     plot_funnel(V, system.name, system.slice, add_title='')
 
 
-def verify_via_variety(sys_name, init_root_threads=1, epochs=15):
-    # system = closed_loop.get(sys_name)
-    # [scatterSamples(np.zeros((1, system.num_states)), sys_name, i) for i in
-    #  system.all_slices]
-    V, Vdot, system = train_V(sys_name, epochs=epochs, max_deg=3)
-    # [plot3d(V, sys_name, i, level_sets=True) for i in system.all_slices]
-    # verify_via_equality(system, V)
+def verify_via_variety(system, V, init_root_threads=1):
     system.set_sample_variety_features(V)
     Vdot = system.sym_Vdot
     variety = sample_variety.multi_to_univariate(Vdot)
@@ -87,26 +81,38 @@ def verify_via_bilinear(sys_name, max_deg=3):
     system = closed_loop.get(sys_name)
     system.set_features(max_deg)
     A, S = system.linearized_A_and_P()
-    V0 = system.sym_x.T@S@system.sym_x
+    V = system.sym_x.T@S@system.sym_x
 
-    verifierOptions = symbolic_verifier.opt(system.num_states, system.degf, do_balance=False,
-                                            degV=2 * max_deg, converged_tol=1e-2, max_iterations=20)
+    verifierOptions = symbolic_verifier.opt(system.num_states, system.degf,
+                                            do_balance=False, degV=2 * max_deg,
+                                            converged_tol=1e-2,
+                                            max_iterations=20)
     start = time.time()
     V = symbolic_verifier.bilinear(
-        system.sym_x, V0, system.sym_f, S, A, verifierOptions)
+        system.sym_x, V, system.sym_f, S, A, verifierOptions)
     end = time.time()
     print('bilinear time %s' % (end - start))
     plot_funnel(V, sys_name, system.slice)
     return system, V
 
 
-# system, V = verify_via_bilinear('VanderPol')
-# system, V = verify_via_bilinear('Pendubot',max_deg = 3)
-# verify_via_variety('Pendubot', init_root_threads=120, epochs=12)
-for i in range(30):
-    # verify_via_variety('VanderPol', init_root_threads=30, epochs=100)
-    V, Vdot, system = train_V('VanderPol', epochs=40, max_deg=3)
-#     verify_via_equality(system, V)
+sys_name = 'VanderPol'
+# sys_name = 'Pendubot'
+
+
+system = closed_loop.get(sys_name)
+# system.scatter_stable_samples()
+epochs = 15
+max_deg = 3
+init_root_threads = 40
+
+V, Vdot, system = train_V(sys_name, epochs=epochs, max_deg=max_deg)
+[plot3d(V, sys_name, i, level_sets=True) for i in system.all_slices]
+
+verify_via_variety(system, V, init_root_threads=init_root_threads)
+
+# system, V = verify_via_bilinear(sys_name)
+
 
 ############
 # Dirty code below, but may be useful for refrence
