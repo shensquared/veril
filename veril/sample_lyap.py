@@ -1,3 +1,4 @@
+import os
 from keras.models import Sequential, Model, load_model
 from keras.layers import *
 from keras import backend as K
@@ -6,7 +7,7 @@ from keras import regularizers, initializers
 from keras.utils import CustomObjectScope
 
 import math
-from veril.custom_layers import DotKernel, Divide, TransLayer
+from veril.custom_layers import DotKernel, Divide
 import numpy as np
 '''
 A note about the DOT layer: if input is 1: (None, a) and 2: (None, a) then no
@@ -29,12 +30,43 @@ If regularizing, use kernel_regularizer= regularizers.l2(0.))
 def max_negativity(y_true, y_pred):
     return K.max(y_pred)
 
+
+def max_and_sign(y_true, y_pred):
+    # return K.cast(K.equal(y_true, K.sign(y_pred)), K.floatx()) +
+    # .001*K.max(y_pred)
+    return K.sign(y_pred) + 1e-3 * K.max(y_pred)
+
+
+# def sign_only(y_true, y_pred):
+    # return K.equal(y_true, K.sign(y_pred))
+
+def new(y_true, y_pred):
+    return K.mean(K.maximum(y_pred, 0.), axis=-1)
+
+
+def neg_percent(y_true, y_pred):
+    return K.cast(K.equal(y_true, K.sign(y_pred)), K.floatx())
+
+
 def mean_negativity(y_true, y_pred):
-    return K.mean(y_pred)
+    return K.sign(y_pred) + 1e-3 * K.mean(y_pred)
+
 
 def hinge_and_max(y_true, y_pred):
-    return K.max(y_pred) + K.mean(K.maximum(1. - y_true * K.sign(y_pred), 0.),
-       axis=-1)
+    return K.max(y_pred) + 10 * K.mean(K.maximum(1. - y_true * y_pred, 0.),
+                                       axis=-1)
+
+
+def guided_MSE(y_true, y_pred):
+    # want slighty greater than one
+    if K.sign(y_pred - y_true) is 1:
+        return 0.1 * K.square(y_pred - y_true)
+    else:
+        return K.square(y_pred - y_true)
+
+
+def mean_pred(y_true, y_pred):
+    return K.mean(y_pred)
 
 
 def linear_model_for_V(sys_dim, A):
@@ -81,25 +113,28 @@ def poly_model_for_V(sys_dim, max_deg):
     f = lambda x: math.factorial(x)
     # -1 if V doesn't have a constant monomial
     monomial_dim = f(sys_dim + max_deg) // f(max_deg) // f(sys_dim)
-    phi = Input(shape=(monomial_dim,))
+    phi = Input(shape=(monomial_dim,), name='phi')
     layers = [
         Dense(monomial_dim, use_bias=False),
-        # Dense((monomial_dim*2), use_bias=False),
+        Dense((monomial_dim * 2), use_bias=False),
         # Dense(monomial_dim, use_bias=False),
     ]
-    layers = layers + [TransLayer(i) for i in layers[::-1]]
-    phiLL = Sequential(layers)(phi)  # (None, monomial_dim)
+
+    gram_factor = Sequential(layers, name = 'gram_factorization')
+    phiL = gram_factor(phi)  # (None, monomial_dim)
+    V = Dot(1, name = 'V')([phiL,phiL]) # (None,1)
 
     # # need to avoid 0 in the denominator (by adding a strictly positive scalar
     # # to V)
-    V = Dot(1)([phiLL, phi])  # (None,1)
-    dphidx = Input(shape=(monomial_dim, sys_dim,))
-    phiLLdphidx = Dot(1)([phiLL, dphidx])  # (None, sys_dim)
-    fx = Input(shape=(sys_dim,))
-    Vdot = Dot(1)([phiLLdphidx, fx])  # (None, 1)
-    rate = Divide()([Vdot, V])
-    model = Model(inputs=[phi, dphidx, fx], outputs=rate)
-    model.compile(loss=max_negativity, optimizer='adam')
+    dphidxfx = Input(shape=(monomial_dim,), name = 'eta')
+    dphidxfxL = gram_factor(dphidxfx)  # (None, monomial_dim)
+    Vdot = Dot(1,name = 'Vdot')([phiL, dphidxfxL])  # (None,1)
+
+    rate = Divide(name='ratio')([Vdot, V])
+    model = Model(inputs=[phi, dphidxfx], outputs=rate)
+    model.compile(loss=max_negativity, metrics=[mean_pred, max_negativity,
+                                                neg_percent],
+                  optimizer='adam')
     print(model.summary())
     return model
 
@@ -182,16 +217,15 @@ def rho_reg(weight_matrix):
     return 0.001 * K.abs(K.sum(weight_matrix))
 
 
-def guided_MSE(y_true, y_pred):
-    # want slighty greater than one
-    if K.sign(y_pred - y_true) is 1:
-        return 0.1 * K.square(y_pred - y_true)
-    else:
-        return K.square(y_pred - y_true)
+def get_V_model(sys_name, max_deg):
+    dirname = os.path.dirname(__file__) + '/../data/' + sys_name + '/'
+    model_file_name = dirname + str(max_deg) + '.h5'
 
-
-def mean_pred(y_true, y_pred):
-    return y_pred
+    with CustomObjectScope({'Divide': Divide, 'SumUp': SumUp, 'max_negativity':
+        max_negativity, 'mean_pred': mean_pred, 'neg_percent': neg_percent}):
+        model = load_model(model_file_name)
+    print(model.summary())
+    return model
 
 
 # def get_gram_trans_for_levelset_poly(model):

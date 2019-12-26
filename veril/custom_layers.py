@@ -1121,6 +1121,29 @@ class Divide(_Merge):
         return inputs[0] / inputs[1]
 
 
+class SumUp(Layer):
+    """Sum the input. Does not affect the batch size.
+    """
+
+    def __init__(self, data_format=None, **kwargs):
+        super(SumUp, self).__init__(**kwargs)
+
+    def compute_output_shape(self, input_shape):
+        assert input_shape and len(input_shape) == 2
+        assert input_shape[-1]
+        output_shape = list(input_shape)
+        output_shape[-1] = 1
+        return tuple(output_shape)
+
+    def call(self, inputs):
+        return K.sum(inputs, axis=-1)
+
+    def get_config(self):
+        config = {}
+        base_config = super(SumUp, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))
+
+
 class DenseOnOff(Layer):
 
     @interfaces.legacy_dense_support
