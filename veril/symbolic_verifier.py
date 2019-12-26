@@ -8,7 +8,7 @@ from numpy.linalg import eig, inv
 from pydrake.all import (MathematicalProgram, Polynomial, Expression,
                          SolutionResult, Variables, Solve, Jacobian, Evaluate,
                          Substitute, MosekSolver, MonomialBasis)
-import cvxpy
+import cvxpy as cp
 
 
 def bilinear(x, V0, f, S0, A, options):
@@ -207,7 +207,7 @@ def levelset_sos(sys, V0, do_balance=False, write_to_file=False):
 def convexly_search_for_V_on_samples(sampled_quantities, use_cvx=True,
                                      PSD_constrained=True,
                                      write_to_file=False):
-    phi, dphidx, f = sampled_quantities
+    phi, eta = sampled_quantities
     monomial_dim = phi.shape[-1]
     num_samples = phi.shape[0]
     one_vec = np.ones(monomial_dim)
@@ -220,7 +220,7 @@ def convexly_search_for_V_on_samples(sampled_quantities, use_cvx=True,
         constraints += [one_vec.T@P@one_vec == 1]
 
         for i in range(num_samples):
-            this_vdot = phi[i, :].T@P@dphidx[i, :, :]@f[i, :]
+            this_vdot = phi[i, :].T@P@eta[i,:]
             constraints += [this_vdot <= slack]
 
         prob = cp.Problem(cp.Minimize(slack), constraints)
@@ -239,7 +239,7 @@ def convexly_search_for_V_on_samples(sampled_quantities, use_cvx=True,
                 # reduces to an LP
                 this_v = phi[i, :].T@P@phi[i, :]
                 prog.AddConstraint(this_v >= 0)
-            this_vdot = phi[i, :].T@P@dphidx[i, :, :]@f[i, :]
+            this_vdot = phi[i, :].T@P@phi[i, :].T@P@eta[i,:]
             prog.AddConstraint(this_vdot <= slack)
 
         prog.AddConstraint(one_vec.T@P@one_vec == 1)
