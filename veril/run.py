@@ -25,16 +25,15 @@ def train_V(sys_name, max_deg=3, epochs=15, method='SGD'):
     file_path = model_dir + '/train_for_v_features' + str(max_deg) + '.npz'
     if os.path.exists(file_path):
         loaded = np.load(file_path)
-        [phi, dphidx, f] = [loaded['phi'], loaded['dphidx'], loaded['f']]
+        [phi, eta] = [loaded['phi'], loaded['eta']]
     else:
-        [phi, dphidx, f] = system.train_for_V_features(train_x)
+        [phi, eta] = system.train_for_V_features(train_x)
 
     if method is 'SGD':
         num_samples = phi.shape[0]
         y = - np.ones((num_samples,))
         if model is None:
             model = sample_lyap.poly_model_for_V(system.num_states, max_deg)
-        eta = np.array([i@j for (i, j) in zip(dphidx, f)])
         history = model.fit([phi, eta], y, epochs=epochs, verbose=True)
         # assert (history.history['loss'][-1] <= 0)
         dirname = os.path.dirname(__file__) + '/../data/' + sys_name + '/'
@@ -45,6 +44,10 @@ def train_V(sys_name, max_deg=3, epochs=15, method='SGD'):
     else:
         P = symbolic_verifier.convexly_search_for_V_on_samples(phi, dphidx, f)
     V, Vdot = system.rescale_V(P, train_x)
+    # test_x = np.random.randn(1,2)
+    # test = system.train_for_V_features(test_x)
+    # print('model predicted')
+    # print(model.predict(test))
     return V, Vdot, system
 
 

@@ -41,20 +41,23 @@ class ClosedLoopSys(object):
         self.degV = 2 * VFeatureDeg
         self.sym_f = self.polynomial_dynamics()
         self.sym_phi = get_monomials(self.sym_x, VFeatureDeg)
-        self.sym_dphidx = Jacobian(self.sym_phi, self.sym_x)
+        sym_dphidx = Jacobian(self.sym_phi, self.sym_x)
+        self.sym_eta = sym_dphidx@self.sym_f
 
     def train_for_V_features(self, x):  # x: (num_samples, sys_dim)
-        f = self.polynomial_dynamics(sample_states=x)
+        # f = self.polynomial_dynamics(sample_states=x)
         n_samples = x.shape[0]
         phi_dim = self.sym_phi.shape[0]
         phi = np.zeros((n_samples, phi_dim))
-        dphidx = np.zeros((n_samples, phi_dim, self.num_states))
+        # dphidx = np.zeros((n_samples, phi_dim, self.num_states))
+        eta = np.zeros((n_samples, phi_dim))
         for i in range(n_samples):
             env = dict(zip(self.sym_x, x[i, :]))
             phi[i, :] = [i.Evaluate(env) for i in self.sym_phi]
-            dphidx[i, :, :] = [[i.Evaluate(env) for i in j]for j in
-                               self.sym_dphidx]
-        return [phi, dphidx, f]
+            # dphidx[i, :, :] = [[i.Evaluate(env) for i in j]for j in
+                               # self.sym_dphidx]
+            eta[i, :] = [i.Evaluate(env) for i in self.sym_eta]
+        return [phi, eta]
 
     # def levelset_features(self, V, sigma_deg):
     #     self.sym_V = V
