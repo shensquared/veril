@@ -36,8 +36,7 @@ def train_V(sys_name, max_deg=3, epochs=15, method='SGD'):
             model = sample_lyap.poly_model_for_V(system.num_states, max_deg)
         history = model.fit([phi, eta], y, epochs=epochs, verbose=True)
         # assert (history.history['loss'][-1] <= 0)
-        dirname = os.path.dirname(__file__) + '/../data/' + sys_name + '/'
-        model_file_name = dirname + str(max_deg) + '.h5'
+        model_file_name = model_dir + '/V_model_deg_' + str(max_deg) + '.h5'
         model.save(model_file_name)
         print("Saved model " + model_file_name + " to disk")
         P = sample_lyap.get_gram_for_V(model)
@@ -118,7 +117,7 @@ init_root_threads = 33
 # model = sample_lyap.get_V_model(sys_name, max_deg)
 # [plot3d(V, sys_name, i, level_sets=True) for i in system.all_slices]
 V, Vdot, system = train_V(sys_name, epochs=epochs, max_deg=max_deg,
-                              method='CVX')
+                          method='SGD')
 for i in range(30):
 
     # verify_via_equality(system, V)
