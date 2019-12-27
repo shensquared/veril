@@ -44,6 +44,9 @@ def train_V(sys_name, max_deg=3, epochs=15, method='SGD'):
         P = symbolic_verifier.convexly_search_for_V_on_samples([phi, eta])
         cvx_P_filename = model_dir + '/cvx_P_' + str(max_deg) + '.npy'
         np.save(cvx_P_filename, P)
+
+    predicted = model.predict([phi, eta])
+    evals = model.evaluate([phi,eta], y)
     V, Vdot = system.rescale_V(P, train_x)
     # test_x = np.random.randn(1,2)
     # test = system.train_for_V_features(test_x)
@@ -109,18 +112,17 @@ sys_name = 'VanderPol'
 
 system = closed_loop.get(sys_name)
 # system.scatter_stable_samples()
-epochs = 15
+epochs =20
 max_deg = 3
-init_root_threads = 33
+init_root_threads = 22
 
 # V, Vdot, system = train_V(sys_name, epochs=epochs, max_deg=max_deg)
 # model = sample_lyap.get_V_model(sys_name, max_deg)
 # [plot3d(V, sys_name, i, level_sets=True) for i in system.all_slices]
 V, Vdot, system = train_V(sys_name, epochs=epochs, max_deg=max_deg,
                           method='SGD')
+verify_via_equality(system, V)
 for i in range(30):
-
-    # verify_via_equality(system, V)
     verify_via_variety(system, V, init_root_threads=init_root_threads)
 
 # system, V = verify_via_bilinear(sys_name)
