@@ -34,7 +34,8 @@ def train_V(sys_name, max_deg=3, epochs=15, method='SGD'):
         y = - np.ones((num_samples,))
         if model is None:
             model = sample_lyap.poly_model_for_V(system.num_states, max_deg)
-        history = model.fit([phi, eta], y, epochs=epochs, verbose=True)
+        history = model.fit([phi, eta], y, epochs=epochs, verbose=True,
+                            batch_size=32)
         # assert (history.history['loss'][-1] <= 0)
         model_file_name = model_dir + '/V_model_deg_' + str(max_deg) + '.h5'
         model.save(model_file_name)
@@ -45,8 +46,8 @@ def train_V(sys_name, max_deg=3, epochs=15, method='SGD'):
         cvx_P_filename = model_dir + '/cvx_P_' + str(max_deg) + '.npy'
         np.save(cvx_P_filename, P)
 
-    predicted = model.predict([phi, eta])
-    evals = model.evaluate([phi,eta], y)
+    # predicted = model.predict([phi, eta])
+    # evals = model.evaluate([phi,eta], y)
     V, Vdot = system.rescale_V(P, train_x)
     # test_x = np.random.randn(1,2)
     # test = system.train_for_V_features(test_x)
@@ -57,7 +58,8 @@ def train_V(sys_name, max_deg=3, epochs=15, method='SGD'):
 
 def verify_via_equality(system, V):
     V = symbolic_verifier.levelset_sos(system, V, do_balance=False)
-    plot_funnel(V, system.name, system.slice, add_title='')
+    plot_funnel(V, system.name, system.slice, add_title=' - Equality ' + \
+        'Constrainted Result')
 
 
 def verify_via_variety(system, V, init_root_threads=1):
@@ -83,7 +85,8 @@ def verify_via_variety(system, V, init_root_threads=1):
         # (variety, 1)))
         samples = np.vstack((samples, new_sample))
     print(rho)
-    plot_funnel(V, sys_name, system.slice)
+    plot_funnel(V, sys_name, system.slice, add_title=' - Sampling Variety ' +
+                'Result')
     return rho
 
 
@@ -102,7 +105,7 @@ def verify_via_bilinear(sys_name, max_deg=3):
         system.sym_x, V, system.sym_f, S, A, verifierOptions)
     end = time.time()
     print('bilinear time %s' % (end - start))
-    plot_funnel(V, sys_name, system.slice)
+    plot_funnel(V, sys_name, system.slice, add_title=' - Bilinear Result')
     return system, V
 
 
