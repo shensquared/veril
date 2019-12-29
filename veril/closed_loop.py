@@ -131,14 +131,16 @@ class ClosedLoopSys(object):
 
     def rescale_V(self, P, samples):
         V0 = self.sym_phi.T@P@self.sym_phi
+        Vdot0 = self.set_Vdot(V0)
+        H = Jacobian(Vdot0.Jacobian(self.sym_x).T, self.sym_x)
+        env = dict(zip(self.sym_x, np.zeros(self.num_states)))
+        H = np.array([[i.Evaluate(env) for i in j]for j in H])
+        print('eig of Hessian of Vdot0 %s' % (eig(H)[0]))
+        assert (np.all(eig(H)[0] <= 0))
         V_evals = self.get_v_values(samples, V=V0)
         m = np.percentile(V_evals, 75)
         V = V0 / m
-        Vdot = self.set_Vdot(V)
-        H = Jacobian(Vdot.Jacobian(self.sym_x).T, self.sym_x)
-        env = dict(zip(self.sym_x, np.zeros(self.num_states)))
-        H = .5 * np.array([[i.Evaluate(env) for i in j]for j in H])
-        print('eig of Hessian of Vdot %s' % (eig(H)[0]))
+        Vdot= self.set_Vdot(V)
         return V, Vdot
 
     def set_Vdot(self, V):
