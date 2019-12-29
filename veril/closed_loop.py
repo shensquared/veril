@@ -316,6 +316,6 @@ class Pendubot(ClosedLoopSys):
 
     def fx(self, t, y):
         [x1, x2, x3, x4] = y
-        return np.array([x2, 782 * x1 + 135 * x2 + 689 * x3 + 90 * x4, x4,
+        return np.array([1*x2, 782 * x1 + 135 * x2 + 689 * x3 + 90 * x4, 1*x4,
                          279 * x1 * x3**2 - 1425 * x1 - 257 * x2 + 273 *
                          x3**3 - 1249 * x3 - 171 * x4])
