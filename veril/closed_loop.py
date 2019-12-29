@@ -9,7 +9,7 @@ from pydrake.all import (MathematicalProgram, Polynomial, Expression,
 import os
 import itertools
 import six
-
+# import time
 import numpy as np
 from numpy.linalg import eig, inv
 from scipy.linalg import solve_lyapunov, solve_discrete_lyapunov
@@ -102,7 +102,6 @@ class ClosedLoopSys(object):
     def get_sample_variety_features(self, samples):
         # samples: (num_samples, sys_dim)
         n_samples = samples.shape[0]
-        # V = np.zeros((n_samples, 1))
         xxd = np.zeros((n_samples, 1))
         psi = np.zeros((n_samples, self.sym_psi.shape[0]))
         for i in range(n_samples):
@@ -147,15 +146,26 @@ class ClosedLoopSys(object):
 
     def sim_stable_samples(self, d, num_grid, slice_idx=None):
         def event(t, x): return np.linalg.norm(x) - 15
+    def sim_stable_samples(self, d, num_grid, slice_idx=None, x=None):
+        def event(t, x):
+            norm = np.linalg.norm(x)
+            out_ = norm - 15
+            in_ = norm - 1e-8
+            return out_ or in_
         event.terminal = True
-        x = self.get_x(d=d, num_grid=num_grid, slice_idx=slice_idx)
+        if x is None:
+            x = self.get_x(d=d, num_grid=num_grid, slice_idx=slice_idx)
         stableSamples = np.zeros((self.num_states,))
+
         for i in range(x.shape[-1]):
+            # start = time.time()
             sol = integrate.solve_ivp(self.fx, [0, 15], x[:, i], events=event)
             # if sol.status == 1:
             # print('event stopping')
-            if sol.status == 0 and (np.linalg.norm(sol.y[:, -1])) <= 1e-3:
+            if sol.status != -1 and (np.linalg.norm(sol.y[:, -1])) <= 1e-7:
                 stableSamples = np.vstack((stableSamples, x[:, i]))
+            # end = time.time()
+            # print(end-start)
         if slice_idx is None:
             return stableSamples
         else:
@@ -170,9 +180,11 @@ class ClosedLoopSys(object):
 
     def scatter_stable_samples(self, slice_idx=None):
         if slice_idx is None:
-            [scatterSamples(np.zeros((1, self.num_states)), self.name, i) for i in self.all_slices]
+            [scatterSamples(np.zeros((1, self.num_states)), self.name, i)
+             for i in self.all_slices]
         else:
-            scatterSamples(np.zeros((1, self.num_states)), self.name, slice_idx)
+            scatterSamples(np.zeros((1, self.num_states)),
+                           self.name, slice_idx)
 
 
 class VanderPol(ClosedLoopSys):
