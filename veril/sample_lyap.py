@@ -27,46 +27,39 @@ If regularizing, use kernel_regularizer= regularizers.l2(0.))
 '''
 
 
-def max_negativity(y_true, y_pred):
+def max_pred(y_true, y_pred):
     return K.max(y_pred)
 
 
-def max_and_sign(y_true, y_pred):
-    # return K.cast(K.equal(y_true, K.sign(y_pred)), K.floatx()) +
-    # .001*K.max(y_pred)
-    return K.sign(y_pred) + 1e-3 * K.max(y_pred)
+def mean_pred(y_true, y_pred):
+    return K.mean(y_pred)
 
 
-# def sign_only(y_true, y_pred):
-    # return K.equal(y_true, K.sign(y_pred))
-
-def new(y_true, y_pred):
-    return K.mean(K.maximum(y_pred, 0.), axis=-1)
+def relu_(y_true, y_pred):
+    # return K.maximum((K.minimum(y_pred,.1)), 0.)
+    return K.maximum(y_pred, 0.)
 
 
 def neg_percent(y_true, y_pred):
     return K.cast(K.equal(y_true, K.sign(y_pred)), K.floatx())
 
 
-def mean_negativity(y_true, y_pred):
-    return K.sign(y_pred) + 1e-3 * K.mean(y_pred)
+# def hinge_and_max(y_true, y_pred):
+#     return K.max(y_pred) + 10 * K.mean(K.maximum(1. - y_true * y_pred, 0.),
+#                                        axis=-1)
 
 
-def hinge_and_max(y_true, y_pred):
-    return K.max(y_pred) + 10 * K.mean(K.maximum(1. - y_true * y_pred, 0.),
-                                       axis=-1)
+# def guided_MSE(y_true, y_pred):
+#     # want slighty greater than one
+#     if K.sign(y_pred - y_true) is 1:
+#         return 0.1 * K.square(y_pred - y_true)
+#     else:
+#         return K.square(y_pred - y_true)
 
-
-def guided_MSE(y_true, y_pred):
-    # want slighty greater than one
-    if K.sign(y_pred - y_true) is 1:
-        return 0.1 * K.square(y_pred - y_true)
-    else:
-        return K.square(y_pred - y_true)
-
-
-def mean_pred(y_true, y_pred):
-    return K.mean(y_pred)
+# def max_and_sign(y_true, y_pred):
+#     # return K.cast(K.equal(y_true, K.sign(y_pred)), K.floatx()) +
+#     # .001*K.max(y_pred)
+#     return K.sign(y_pred)
 
 
 def linear_model_for_V(sys_dim, A):
@@ -86,7 +79,7 @@ def linear_model_for_V(sys_dim, A):
     Vdot = Dot(1)([xLLA, x])  # Vdot: (None,1)
     rate = Divide()([Vdot, V])
     model = Model(inputs=x, outputs=rate)
-    model.compile(loss=max_negativity, optimizer='adam')
+    model.compile(loss=max_pred, optimizer='adam')
     print(model.summary())
     return model
 
@@ -116,24 +109,25 @@ def poly_model_for_V(sys_dim, max_deg):
     phi = Input(shape=(monomial_dim,), name='phi')
     layers = [
         Dense(monomial_dim, use_bias=False),
-        Dense((monomial_dim * 2), use_bias=False),
+        # Dense((monomial_dim * 2), use_bias=False),
         # Dense(monomial_dim, use_bias=False),
     ]
 
-    gram_factor = Sequential(layers, name = 'gram_factorization')
+    gram_factor = Sequential(layers, name='gram_factorization')
     phiL = gram_factor(phi)  # (None, monomial_dim)
-    V = Dot(1, name = 'V')([phiL,phiL]) # (None,1)
+    V = Dot(1, name='V')([phiL, phiL])  # (None,1)
+    Vsqured = Dot(1, name='Vsqured')([V, V])  # (None,1)
 
     # # need to avoid 0 in the denominator (by adding a strictly positive scalar
     # # to V)
-    dphidxfx = Input(shape=(monomial_dim,), name = 'eta')
+    dphidxfx = Input(shape=(monomial_dim,), name='eta')
     dphidxfxL = gram_factor(dphidxfx)  # (None, monomial_dim)
-    Vdot = Dot(1,name = 'Vdot')([phiL, dphidxfxL])  # (None,1)
+    Vdot = Dot(1, name='Vdot')([phiL, dphidxfxL])  # (None,1)
 
-    rate = Divide(name='ratio')([Vdot, V])
+    rate = Divide(name='rate')([Vdot, Vsqured])
     model = Model(inputs=[phi, dphidxfx], outputs=rate)
-    model.compile(loss=max_negativity, metrics=[mean_pred, max_negativity,
-                                                neg_percent],
+    model.compile(loss=relu_, metrics=[mean_pred, max_pred,
+                                       neg_percent],
                   optimizer='adam')
     print(model.summary())
     return model
@@ -218,11 +212,12 @@ def rho_reg(weight_matrix):
 
 
 def get_V_model(sys_name, max_deg):
-    dirname = os.path.dirname(__file__) + '/../data/' + sys_name + '/'
-    model_file_name = dirname + str(max_deg) + '.h5'
+    model_dir = os.path.dirname(__file__) + '/../data/' + sys_name
+    model_file_name = model_dir + '/V_model_deg_' + str(max_deg) + '.h5'
 
-    with CustomObjectScope({'Divide': Divide, 'SumUp': SumUp, 'max_negativity':
-        max_negativity, 'mean_pred': mean_pred, 'neg_percent': neg_percent}):
+    with CustomObjectScope({'Divide': Divide, 'max_pred': max_pred,
+                            'mean_pred': mean_pred, 'neg_percent': neg_percent,
+                            'relu_': relu_}):
         model = load_model(model_file_name)
     print(model.summary())
     return model

@@ -13,13 +13,13 @@ from veril.util.plots import *
 # from util.samples import withinLevelSet
 
 
-def train_V(sys_name, max_deg=3, epochs=15, method='SGD'):
+def train_V(sys_name, max_deg=3, epochs=15, method='SGD', model=None):
     system = closed_loop.get(sys_name)
     sym_x = system.sym_x
-    model = None
     model_dir = '../data/' + sys_name
     # V = system.knownROA()
     train_x = np.load(model_dir + '/stableSamples.npy')
+    print('x size %s' % str(train_x.shape))
     system.set_features(max_deg)
 
     file_path = model_dir + '/train_for_v_features' + str(max_deg) + '.npz'
@@ -34,12 +34,12 @@ def train_V(sys_name, max_deg=3, epochs=15, method='SGD'):
         y = - np.ones((num_samples,))
         if model is None:
             model = sample_lyap.poly_model_for_V(system.num_states, max_deg)
-        history = model.fit([phi, eta], y, epochs=epochs, verbose=True,
-                            batch_size=32)
-        # assert (history.history['loss'][-1] <= 0)
-        model_file_name = model_dir + '/V_model_deg_' + str(max_deg) + '.h5'
-        model.save(model_file_name)
-        print("Saved model " + model_file_name + " to disk")
+            history = model.fit([phi, eta], y, epochs=epochs, verbose=True)
+            # assert (history.history['loss'][-1] <= 0)
+            model_file_name = model_dir + \
+                '/V_model_deg_' + str(max_deg) + '.h5'
+            model.save(model_file_name)
+            print("Saved model " + model_file_name + " to disk")
         P = sample_lyap.get_gram_for_V(model)
     else:
         P = symbolic_verifier.convexly_search_for_V_on_samples([phi, eta])
@@ -57,9 +57,12 @@ def train_V(sys_name, max_deg=3, epochs=15, method='SGD'):
 
 
 def verify_via_equality(system, V):
+    if V is None:
+        A, S = system.linearized_A_and_P()
+        V = system.sym_x.T@S@system.sym_x
     V = symbolic_verifier.levelset_sos(system, V, do_balance=False)
-    plot_funnel(V, system.name, system.slice, add_title=' - Equality ' + \
-        'Constrainted Result')
+    plot_funnel(V, system.name, system.slice, add_title=' - Equality ' +
+                'Constrainted Result')
 
 
 def verify_via_variety(system, V, init_root_threads=1):
@@ -109,26 +112,24 @@ def verify_via_bilinear(sys_name, max_deg=3):
     return system, V
 
 
-sys_name = 'VanderPol'
-# sys_name = 'Pendubot'
-
+# sys_name = 'VanderPol'
+sys_name = 'Pendubot'
+epochs = 55
+max_deg = 3
+init_root_threads = 30
 
 system = closed_loop.get(sys_name)
-# system.scatter_stable_samples()
-epochs =20
-max_deg = 3
-init_root_threads = 22
-
-# V, Vdot, system = train_V(sys_name, epochs=epochs, max_deg=max_deg)
 # model = sample_lyap.get_V_model(sys_name, max_deg)
-# [plot3d(V, sys_name, i, level_sets=True) for i in system.all_slices]
-V, Vdot, system = train_V(sys_name, epochs=epochs, max_deg=max_deg,
-                          method='SGD')
-verify_via_equality(system, V)
-for i in range(30):
-    verify_via_variety(system, V, init_root_threads=init_root_threads)
+# system.scatter_stable_samples()
 
-# system, V = verify_via_bilinear(sys_name)
+# system, V  = verify_via_bilinear(sys_name, max_deg=4)
+V, Vdot, system = train_V(sys_name, epochs=epochs, max_deg=max_deg)
+# plot_funnel(V, sys_name, system.slice)
+# [plot3d(V, sys_name, i, level_sets=True) for i in system.all_slices]
+# [plot3d(Vdot, sys_name, i, level_sets=False, r_max=1.6) for i in system.all_slices]
+verify_via_equality(system, V)
+# for i in range(30):
+#     verify_via_variety(system, V, init_root_threads=init_root_threads)
 
 
 ############
