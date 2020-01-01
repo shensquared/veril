@@ -149,6 +149,11 @@ class ClosedLoopSys(object):
     def sim_stable_samples(self, d, num_grid, slice_idx=None):
         def event(t, x): return np.linalg.norm(x) - 15
     def sim_stable_samples(self, d, num_grid, slice_idx=None, x=None):
+    def sim_stable_samples(self, d, num_grid, slice_idx=None, x=None,
+                           slice_only=False):
+        if slice_idx is not None:
+            assert slice_only
+
         def event(t, x):
             norm = np.linalg.norm(x)
             out_ = norm - 15
@@ -157,21 +162,22 @@ class ClosedLoopSys(object):
         event.terminal = True
         if x is None:
             x = self.get_x(d=d, num_grid=num_grid, slice_idx=slice_idx)
-        stableSamples = np.zeros((self.num_states,))
+        stableSamples = []
 
-        for i in range(x.shape[-1]):
+        for i in x:
             # start = time.time()
-            sol = integrate.solve_ivp(self.fx, [0, 15], x[:, i], events=event)
+            sol = integrate.solve_ivp(self.fx, [0, 15], i, events=event)
             # if sol.status == 1:
             # print('event stopping')
             if sol.status != -1 and (np.linalg.norm(sol.y[:, -1])) <= 1e-7:
-                stableSamples = np.vstack((stableSamples, x[:, i]))
+                stableSamples.append(i)
             # end = time.time()
             # print(end-start)
-        if slice_idx is None:
-            return stableSamples
+        stableSamples = np.array(stableSamples)
+        if slice_only:
+            return stableSamples[:, slice_idx]
         else:
-            return stableSamples[1:, slice_idx]
+            return stableSamples
 
     def sim_stable_samples_for_all_slices(self, d, num_grid):
         for i in self.all_slices:
