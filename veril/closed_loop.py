@@ -55,7 +55,7 @@ class ClosedLoopSys(object):
             env = dict(zip(self.sym_x, x[i, :]))
             phi[i, :] = [i.Evaluate(env) for i in self.sym_phi]
             # dphidx[i, :, :] = [[i.Evaluate(env) for i in j]for j in
-                               # self.sym_dphidx]
+            # self.sym_dphidx]
             eta[i, :] = [i.Evaluate(env) for i in self.sym_eta]
         return [phi, eta]
 
@@ -140,7 +140,7 @@ class ClosedLoopSys(object):
         V_evals = self.get_v_values(samples, V=V0)
         m = np.percentile(V_evals, 75)
         V = V0 / m
-        Vdot= self.set_Vdot(V)
+        Vdot = self.set_Vdot(V)
         return V, Vdot
 
     def set_Vdot(self, V):
@@ -204,11 +204,10 @@ class VanderPol(ClosedLoopSys):
     def get_x(self, d=2, num_grid=200, slice_idx=None):
         x1 = np.linspace(-d, d, num_grid)
         x2 = np.linspace(-d, d, num_grid)
-        x1 = x1[np.nonzero(x1)]
-        x2 = x2[np.nonzero(x2)]
         x1, x2 = np.meshgrid(x1, x2)
         x1, x2 = x1.ravel(), x2.ravel()
-        return np.array([x1, x2])  # (2, num_grid**2)
+        x = np.array([x1, x2]).T  # (num_grid**2,2)
+        return x[~np.all(x == 0, axis=1)]
 
     def polynomial_dynamics(self, sample_states=None):
         if sample_states is None:
@@ -287,23 +286,18 @@ class Pendubot(ClosedLoopSys):
     def get_x(self, d=2, num_grid=100, slice_idx=None):
         x1 = np.linspace(-d, d, num_grid)
         x2 = np.linspace(-d, d, num_grid)
-        x1 = x1[np.nonzero(x1)]
-        x2 = x2[np.nonzero(x2)]
         if slice_idx is None:
             x3 = np.linspace(-d, d, num_grid)
             x4 = np.linspace(-d, d, num_grid)
-            x3 = x3[np.nonzero(x3)]
-            x4 = x4[np.nonzero(x4)]
             x1, x2, x3, x4 = np.meshgrid(x1, x2, x3, x4)
             x1, x2, x3, x4 = x1.ravel(), x2.ravel(), x3.ravel(), x4.ravel()
-            return np.array([x1, x2, x3, x4])  # (4, num_grid**4)
+            x = np.array([x1, x2, x3, x4]).T  # (num_grid**4,4)
         else:
             x1, x2 = np.meshgrid(x1, x2)
             x1, x2 = x1.ravel(), x2.ravel()
-            x3 = np.zeros(x1.shape)
-            all_states = np.array([x3, x3, x3, x3])  # (4, num_grid**4)
-            all_states[slice_idx, :] = np.array([x1, x2])
-            return np.array(all_states)
+            x = np.zeros((x1.shape[0], 4))  # (num_grid**4,4)
+            x[:, slice_idx] = np.array([x1, x2]).T
+        return x[~np.all(x == 0, axis=1)]
 
     def polynomial_dynamics(self, sample_states=None):
         if sample_states is None:
@@ -318,6 +312,6 @@ class Pendubot(ClosedLoopSys):
 
     def fx(self, t, y):
         [x1, x2, x3, x4] = y
-        return np.array([1*x2, 782 * x1 + 135 * x2 + 689 * x3 + 90 * x4, 1*x4,
+        return np.array([1 * x2, 782 * x1 + 135 * x2 + 689 * x3 + 90 * x4, 1 * x4,
                          279 * x1 * x3**2 - 1425 * x1 - 257 * x2 + 273 *
                          x3**3 - 1249 * x3 - 171 * x4])
