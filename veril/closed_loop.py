@@ -29,7 +29,10 @@ def get_monomials(x, deg, remove_one=False):
     # x),deg))
     # basis = [np.prod(j) for j in y]
     # return np.stack(basis)
-    return np.array([i.ToExpression() for i in MonomialBasis(x, deg)])
+    if remove_one:
+        return np.array([i.ToExpression() for i in MonomialBasis(x, deg)[:-1]])
+    else:
+        return np.array([i.ToExpression() for i in MonomialBasis(x, deg)])
 
 
 class ClosedLoopSys(object):
@@ -37,14 +40,14 @@ class ClosedLoopSys(object):
     def __init__():
         pass
 
-    def set_features(self, VFeatureDeg):
-        self.degV = 2 * VFeatureDeg
+    def set_syms(self, deg, remove_one=True):
+        self.degV = 2 * deg
         self.sym_f = self.polynomial_dynamics()
-        self.sym_phi = get_monomials(self.sym_x, VFeatureDeg)
+        self.sym_phi = get_monomials(self.sym_x, deg, remove_one=remove_one)
         sym_dphidx = Jacobian(self.sym_phi, self.sym_x)
         self.sym_eta = sym_dphidx@self.sym_f
 
-    def train_for_V_features(self, x):  # x: (num_samples, sys_dim)
+    def features_at_x(self, x):  # x: (num_samples, sys_dim)
         # f = self.polynomial_dynamics(sample_states=x)
         n_samples = x.shape[0]
         phi_dim = self.sym_phi.shape[0]
@@ -87,7 +90,7 @@ class ClosedLoopSys(object):
     #         sigma[i, :] = [i.Evaluate(env) for i in self.sym_sigma]
     #     return [V, Vdot, xxd, psi, sigma]
 
-    def set_sample_variety_features(self, V):
+    def set_sample_variety_features(self, V, remove_one=True):
         # this requires far lower degreed multiplier xxd and consequentially
         # lower degree psi, re-write both
         self.sym_V = V
@@ -97,7 +100,8 @@ class ClosedLoopSys(object):
         deg = int(np.ceil((self.degVdot - self.degV) / 2))
         self.sym_xxd = (self.sym_x.T@self.sym_x)**(deg)
         psi_deg = int(((2 * deg + self.degV) / 2))
-        self.sym_psi = get_monomials(self.sym_x, psi_deg, remove_one=False)
+        self.sym_psi = get_monomials(
+            self.sym_x, psi_deg, remove_one=remove_one)
 
     def get_sample_variety_features(self, samples):
         # samples: (num_samples, sys_dim)

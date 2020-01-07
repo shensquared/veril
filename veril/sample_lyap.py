@@ -102,10 +102,12 @@ def linear_model_for_V(sys_dim, A):
 #     return P
 
 
-def poly_model_for_V(sys_dim, max_deg):
+def modelV(sys_dim, max_deg, remove_one=True):
     f = lambda x: math.factorial(x)
     # -1 if V doesn't have a constant monomial
     monomial_dim = f(sys_dim + max_deg) // f(max_deg) // f(sys_dim)
+    if remove_one:
+        monomial_dim = monomial_dim-1
     phi = Input(shape=(monomial_dim,), name='phi')
     layers = [
         Dense(monomial_dim, use_bias=False),
@@ -135,7 +137,7 @@ def poly_model_for_V(sys_dim, max_deg):
 
 # def polyTrain(nx, max_deg, x, V=None, model=None):
 #     if model is None:
-#         model = poly_model_for_V(nx, max_deg)
+#         model = modelV(nx, max_deg)
 #     history = model.fit(train_x, train_y, shuffle=True, epochs=15,
 #        verbose=True)
 #     P = get_gram_for_V(model)

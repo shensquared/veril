@@ -194,7 +194,7 @@ class PolyRNNCL(ClosedLoopSys):
         arg_c = x@self.kernel_c + c@self.recurrent_kernel_c
         return [arg_f, arg_c]
 
-    def train_for_V_features(self, x):
+    def features_at_x(self, x):
         # x: (num_samples, sys_dim)
         f = self.nonlinear_dynamics(sample_states=x)
         self.verifi_f = self.nonlinear_dynamics()
@@ -388,14 +388,14 @@ def originalSysInitialV(CL):
 # def verify_RNN_CL(max_deg=2):
 #     CL, model_file_name = closed_loop.get_NNorCL(**options)
 #     system = closed_loop.PolyRNNCL(CL, model_file_name, taylor_approx=True)
-#     system.set_features(max_deg)
+#     system.set_syms(max_deg)
 #     samples = system.sample_init_states_w_tanh(30000, lb=-.01, ub=.01)
-#     [phi, dphidx, f] = system.train_for_V_features(samples)
+#     [phi, dphidx, f] = system.features_at_x(samples)
 
 #     y = np.zeros(phi.shape)
 #     nx = system.num_states
 #     degf = system.degf
-#     model = sample_lyap.poly_model_for_V(nx, max_deg)
+#     model = sample_lyap.modelV(nx, max_deg)
 #     history = model.fit([phi, dphidx, f], y, epochs=100, shuffle=True)
 #     assert (history.history['loss'][-1] <= 0)
 #     P = sample_lyap.get_gram_for_V(model)
