@@ -21,10 +21,9 @@ def train_V(sys_name, max_deg=3, model=None, remove_one=True, **kwargs):
     sym_x = system.sym_x
     nx = system.num_states
     model_dir = '../data/' + sys_name
-    # V = system.knownROA()
     # train_x = np.load(model_dir + '/stableSamples.npy')
     train_x = np.load(model_dir + '/2-dims/stableSamples_w_2dim_zeros.npy')
-    num_samples = train_x.shape[0]
+    n_samples = train_x.shape[0]
     assert(train_x.shape[1] == nx)
     print('x size %s' % str(train_x.shape))
 
@@ -35,14 +34,12 @@ def train_V(sys_name, max_deg=3, model=None, remove_one=True, **kwargs):
     if os.path.exists(file_path):
         loaded = np.load(file_path)
         features = [loaded['phi'], loaded['eta']]
-        # eval_loaded = np.load(eval_feature_file)
-        # eval_features = [eval_loaded['phi'], eval_loaded['eta']]
+        assert(features[0].shape[0] == n_samples)
     else:
         features = system.features_at_x(train_x)
         np.savez_compressed(file_path, phi=features[0], eta=features[1])
-    assert(features[0].shape[0] == num_samples)
-    y = - np.ones((num_samples,))
-    # y_eval = -np.ones((eval_x.shape[0]))
+
+    y = - np.ones((n_samples,))
     if model is None:
         model = sample_lyap.modelV(nx, max_deg, remove_one=remove_one)
         history = model.fit(features, y, **kwargs)
