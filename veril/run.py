@@ -13,19 +13,19 @@ from veril.util.plots import *
 # from util.samples import withinLevelSet
 
 
-def train_V(sys_name, max_deg=3, epochs=15, method='SGD', model=None,
-            remove_one=True):
+def train_V(sys_name, max_deg=3, model=None, remove_one=True, **kwargs):
     tag = str(max_deg)
     if remove_one:
         tag = 'remove_one' + tag
     system = closed_loop.get(sys_name)
     sym_x = system.sym_x
+    nx = system.num_states
     model_dir = '../data/' + sys_name
     # V = system.knownROA()
     # train_x = np.load(model_dir + '/stableSamples.npy')
     train_x = np.load(model_dir + '/2-dims/stableSamples_w_2dim_zeros.npy')
     num_samples = train_x.shape[0]
-    assert(train_x.shape[1] == sym_x.shape[0])
+    assert(train_x.shape[1] == nx)
     print('x size %s' % str(train_x.shape))
 
     system.set_syms(max_deg, remove_one=remove_one)
@@ -41,28 +41,20 @@ def train_V(sys_name, max_deg=3, epochs=15, method='SGD', model=None,
         features = system.features_at_x(train_x)
         np.savez_compressed(file_path, phi=features[0], eta=features[1])
     assert(features[0].shape[0] == num_samples)
-    if method is 'SGD':
-        y = - np.ones((num_samples,))
-        # y_eval = -np.ones((eval_x.shape[0]))
-        if model is None:
-            model = sample_lyap.modelV(
-                system.num_states, max_deg, remove_one=remove_one)
-            history = model.fit(features, y, epochs=epochs,
-                                verbose=True, validation_split=0, shuffle=True)
-            # assert (history.history['loss'][-1] <= 0)
-        bad_samples, bad_predictions = eval_model(
-            model, system, train_x, features=features)
-        P = sample_lyap.get_gram_for_V(model)
-        V, Vdot = system.P_to_V(P, train_x, rescale=False)
-        # test_model(model, system, V, Vdot, x=None)
-        model_file_name = model_dir + '/V_model_' + tag + '.h5'
-        model.save(model_file_name)
-        print("Saved model " + model_file_name + " to disk")
-    else:
-        P = symbolic_verifier.convexly_search_for_V_on_samples(features)
-        cvx_P_filename = model_dir + '/cvx_P_' + str(max_deg) + '.npy'
-        np.save(cvx_P_filename, P)
-        return P
+    y = - np.ones((num_samples,))
+    # y_eval = -np.ones((eval_x.shape[0]))
+    if model is None:
+        model = sample_lyap.modelV(nx, max_deg, remove_one=remove_one)
+        history = model.fit(features, y, **kwargs)
+        # assert (history.history['loss'][-1] <= 0)
+    bad_samples, bad_predictions = eval_model(
+        model, system, train_x, features=features)
+    P = sample_lyap.get_gram_for_V(model)
+    V, Vdot = system.P_to_V(P, train_x, rescale=False)
+    # test_model(model, system, V, Vdot, x=None)
+    model_file_name = model_dir + '/V_model_' + tag + '.h5'
+    model.save(model_file_name)
+    print("Saved model " + model_file_name + " to disk")
     return V, Vdot, system
 
 
@@ -146,11 +138,37 @@ def verify_via_bilinear(sys_name, max_deg=3):
     return system, V
 
 
-sys_name = 'VanderPol'
-# sys_name = 'Pendubot'
-epochs = 20
-max_deg = 3
+def cvx_V(sys_name, max_deg, remove_one=False):
+    tag = str(max_deg)
+    system = closed_loop.get(sys_name)
+    sym_x = system.sym_x
+    model_dir = '../data/' + sys_name
+    # train_x = np.load(model_dir + '/stableSamples.npy')
+    num_samples = train_x.shape[0]
+    assert(train_x.shape[1] == sym_x.shape[0])
+    print('x size %s' % str(train_x.shape))
+
+    system.set_syms(max_deg, remove_one=remove_one)
+    file_path = model_dir + '/train_for_v_features_' + tag + '.npz'
+
+    if os.path.exists(file_path):
+        loaded = np.load(file_path)
+        features = [loaded['phi'], loaded['eta']]
+    else:
+        features = system.features_at_x(train_x)
+        np.savez_compressed(file_path, phi=features[0], eta=features[1])
+    assert(features[0].shape[0] == num_samples)
+    P = symbolic_verifier.convexly_search_for_V_on_samples(features)
+    cvx_P_filename = model_dir + '/cvx_P_' + str(max_deg) + '.npy'
+    np.save(cvx_P_filename, P)
+    V, Vdot = system.P_to_V(P, train_x, rescale=False)
+    return V, Vdot, system
+
+
+# sys_name = 'VanderPol'
+sys_name = 'Pendubot'
 init_root_threads = 30
+epochs = 15
 
 system = closed_loop.get(sys_name)
 # model = sample_lyap.get_V_model(sys_name, max_deg)
@@ -159,18 +177,20 @@ model = None
 
 # test_model(system, model = None)
 
-# system, V  = verify_via_bilinear(sys_name, max_deg=4)
-V, Vdot, system = train_V(sys_name, epochs=epochs, max_deg=max_deg,
-                          model=model, remove_one=True)
-# [plot_funnel(V*3, sys_name, i) for i in system.all_slices]
+
+V, Vdot, system = train_V(sys_name, max_deg=max_deg, model=model,
+                          remove_one=True, epochs=epochs, verbose=True, validation_split=0,
+                          shuffle=True)
+
 [plot3d(V, sys_name, i, level_sets=True) for i in system.all_slices]
 [plot3d(Vdot, sys_name, i, level_sets=False, r_max=1.6)
  for i in system.all_slices]
+
 verify_via_equality(system, V)
 # for i in range(30):
 #     verify_via_variety(system, V, init_root_threads=init_root_threads)
 
-
+# system, V  = verify_via_bilinear(sys_name, max_deg=4)
 ############
 # Dirty code below, but may be useful for refrence
 # def SGDLevelSetGramCandidate(V, vdp, max_deg=3):
