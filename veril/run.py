@@ -41,6 +41,7 @@ def train_V(sys_name, max_deg=3, epochs=15, method='SGD', model=None):
             model.save(model_file_name)
             print("Saved model " + model_file_name + " to disk")
         P = sample_lyap.get_gram_for_V(model)
+        V, Vdot = system.P_to_V(P, train_x)
     else:
         P = symbolic_verifier.convexly_search_for_V_on_samples([phi, eta])
         cvx_P_filename = model_dir + '/cvx_P_' + str(max_deg) + '.npy'

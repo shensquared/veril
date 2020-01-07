@@ -129,17 +129,20 @@ class ClosedLoopSys(object):
         print('eig of P %s' % (eig(P)[0]))
         return A, P
 
-    def rescale_V(self, P, samples):
+    def P_to_V(self, P, samples, rescale=True):
         V0 = self.sym_phi.T@P@self.sym_phi
         Vdot0 = self.set_Vdot(V0)
         H = Jacobian(Vdot0.Jacobian(self.sym_x).T, self.sym_x)
         env = dict(zip(self.sym_x, np.zeros(self.num_states)))
         H = np.array([[i.Evaluate(env) for i in j]for j in H])
         print('eig of Hessian of Vdot0 %s' % (eig(H)[0]))
-        assert (np.all(eig(H)[0] <= 0))
-        V_evals = self.get_v_values(samples, V=V0)
-        m = np.percentile(V_evals, 75)
-        V = V0 / m
+        # assert (np.all(eig(H)[0] <= 0))
+        if rescale:
+            V_evals = self.get_v_values(samples, V=V0)
+            m = np.percentile(V_evals, 75)
+            V = V0 / m
+        else:
+            V = V0
         Vdot = self.set_Vdot(V)
         return V, Vdot
 
