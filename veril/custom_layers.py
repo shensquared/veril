@@ -1144,6 +1144,169 @@ class SumUp(Layer):
         return dict(list(base_config.items()) + list(config.items()))
 
 
+class Sigmoid(Layer):
+    """sigmoid activation function.
+
+    # Input shape
+        Arbitrary. Use the keyword argument `input_shape`
+        (tuple of integers, does not include the samples axis)
+        when using this layer as the first layer in a model.
+
+    # Output shape
+        Same shape as the input.
+
+    # Arguments
+        axis: Integer, axis along which the sigmoid normalization is applied.
+    """
+
+    def __init__(self, axis=-1, **kwargs):
+        super(Sigmoid, self).__init__(**kwargs)
+        self.supports_masking = True
+        self.axis = axis
+
+    def call(self, inputs):
+        return activations.sigmoid(inputs, axis=self.axis)
+
+    def get_config(self):
+        config = {'axis': self.axis}
+        base_config = super(Sigmoid, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))
+
+    def compute_output_shape(self, input_shape):
+        return input_shape
+
+
+class Normalize(Layer):
+    """Normalize activation function.
+    """
+
+    def __init__(self, axis=-1, **kwargs):
+        super(Normalize, self).__init__(**kwargs)
+        self.supports_masking = True
+        self.axis = axis
+
+    def call(self, inputs):
+        return inputs / K.max(inputs)
+
+    def get_config(self):
+        config = {'axis': self.axis}
+        base_config = super(Normalize, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))
+
+    def compute_output_shape(self, input_shape):
+        return input_shape
+
+
+class Sign(Layer):
+    """Sign activation function.
+    """
+
+    def __init__(self, axis=-1, **kwargs):
+        super(Sign, self).__init__(**kwargs)
+        self.supports_masking = True
+        self.axis = axis
+
+    def call(self, inputs):
+        return K.sign(inputs)
+
+    def get_config(self):
+        config = {'axis': self.axis}
+        base_config = super(Sign, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))
+
+    def compute_output_shape(self, input_shape):
+        return input_shape
+
+
+class Flipped_Saturate(Layer):
+    """Flipped_Saturate activation function.
+    """
+
+    def __init__(self, axis=-1, **kwargs):
+        super(Flipped_Saturate, self).__init__(**kwargs)
+        self.supports_masking = True
+        self.axis = axis
+
+    def call(self, inputs):
+        # if inputs greater than zero, return the inputs, otherwise, return one
+        return - K.sign(inputs) * K.cast(K.less(inputs, 0), K.floatx()) \
+            + inputs * K.cast(K.greater_equal(inputs, 0), K.floatx())
+
+    def get_config(self):
+        config = {'axis': self.axis}
+        base_config = super(Flipped_Saturate, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))
+
+    def compute_output_shape(self, input_shape):
+        return input_shape
+
+
+class Min_Positive(Layer):
+    """Min_Positive activation function.
+    """
+
+    def __init__(self, axis=-1, **kwargs):
+        super(Min_Positive, self).__init__(**kwargs)
+        self.supports_masking = True
+        self.axis = axis
+
+    def call(self, inputs):
+        min_pos = K.min(K.max(K.maximum(inputs, 0)) * K.cast(K.less(inputs, 0)\
+            , K.floatx()) + inputs * K.cast(K.greater_equal(inputs, 0),\
+            K.floatx()))
+        # return K.cast(K.greater_equal(inputs, min_pos), K.floatx())
+        return min_pos
+
+    def get_config(self):
+        config = {'axis': self.axis}
+        base_config = super(Min_Positive, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))
+
+    def compute_output_shape(self, input_shape):
+        return input_shape
+
+
+class Power(Layer):
+
+    def __init__(self, alpha=1, **kwargs):
+        super(Power, self).__init__(**kwargs)
+        self.supports_masking = True
+        self.alpha = alpha
+
+    def call(self, inputs):
+        return K.pow(inputs, self.alpha)
+
+    def get_config(self):
+        config = {'alpha': self.alpha}
+        base_config = super(Power, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))
+
+    def compute_output_shape(self, input_shape):
+        return input_shape
+
+
+class Greater(_Merge):
+    """Layer that Greaters two inputs.
+
+    It takes as input a list of tensors of size 2,
+    both of the same shape, and returns a single tensor, (inputs[0] / inputs
+    [1]),
+    also of the same shape.
+    """
+
+    def build(self, input_shape):
+        super(Greater, self).build(input_shape)
+        if len(input_shape) != 2:
+            raise ValueError('A `Subtract` layer should be called '
+                             'on exactly 2 inputs')
+
+    def _merge_function(self, inputs):
+        if len(inputs) != 2:
+            raise ValueError('A `Subtract` layer should be called '
+                             'on exactly 2 inputs')
+        return K.cast(K.greater_equal(inputs[0], inputs[1]), K.floatx())
+
+
 class DenseOnOff(Layer):
 
     @interfaces.legacy_dense_support
