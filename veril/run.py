@@ -15,26 +15,23 @@ from veril.util.plots import *
 
 def train_V(sys_name, max_deg=3, epochs=15, method='SGD', model=None,
             remove_one=True):
+    tag = str(max_deg)
+    if remove_one:
+        tag = 'remove_one' + tag
     system = closed_loop.get(sys_name)
     sym_x = system.sym_x
     model_dir = '../data/' + sys_name
     # V = system.knownROA()
-    train_x = np.load(model_dir + '/stableSamples.npy')
-    # train_x = np.load(model_dir + '/2-dims/stableSamples_w_2dim_zeros.npy')
+    # train_x = np.load(model_dir + '/stableSamples.npy')
+    train_x = np.load(model_dir + '/2-dims/stableSamples_w_2dim_zeros.npy')
     num_samples = train_x.shape[0]
-    assert(train_x.shape[1]==sym_x.shape[0])
+    assert(train_x.shape[1] == sym_x.shape[0])
     print('x size %s' % str(train_x.shape))
 
     system.set_syms(max_deg, remove_one=remove_one)
-
-    if remove_one:
-        file_path = model_dir + '/train_for_v_features_remove_one' + \
-            str(max_deg) + '.npz'
-    else:
-        file_path = model_dir + '/train_for_v_features' + str(max_deg) + '.npz'
+    file_path = model_dir + '/train_for_v_features_' + tag + '.npz'
     # train_feature_file = model_dir+'/backup-train_for_v_features3(etafull4dim).npz'
-    # file_path = model_dir + '/2-dims/train_for_v_features' + \
-    # str(max_deg) + '_w_2dim_zeros.npz'
+    file_path = model_dir + '/2-dims/train_for_v_features_' + tag + '_w_2dim_zeros.npz'
     if os.path.exists(file_path):
         loaded = np.load(file_path)
         features = [loaded['phi'], loaded['eta']]
@@ -42,22 +39,23 @@ def train_V(sys_name, max_deg=3, epochs=15, method='SGD', model=None,
         # eval_features = [eval_loaded['phi'], eval_loaded['eta']]
     else:
         features = system.features_at_x(train_x)
-        np.savez_compressed(file_path, phi=phi, eta=eta)
-    assert(features[0].shape[0]==num_samples)
+        np.savez_compressed(file_path, phi=features[0], eta=features[1])
+    assert(features[0].shape[0] == num_samples)
     if method is 'SGD':
         y = - np.ones((num_samples,))
         # y_eval = -np.ones((eval_x.shape[0]))
         if model is None:
-            model = sample_lyap.modelV(system.num_states, max_deg, remove_one=remove_one)
+            model = sample_lyap.modelV(
+                system.num_states, max_deg, remove_one=remove_one)
             history = model.fit(features, y, epochs=epochs,
                                 verbose=True, validation_split=0, shuffle=True)
             # assert (history.history['loss'][-1] <= 0)
-        bad_samples, bad_predictions = eval_model(model, system, train_x, features=features)
+        bad_samples, bad_predictions = eval_model(
+            model, system, train_x, features=features)
         P = sample_lyap.get_gram_for_V(model)
         V, Vdot = system.P_to_V(P, train_x, rescale=False)
-        test_model(model, system, V, Vdot, x=None)
-        model_file_name = model_dir + \
-            '/V_model_deg_' + str(max_deg) + '.h5'
+        # test_model(model, system, V, Vdot, x=None)
+        model_file_name = model_dir + '/V_model_' + tag + '.h5'
         model.save(model_file_name)
         print("Saved model " + model_file_name + " to disk")
     else:
@@ -87,10 +85,9 @@ def test_model(model, system, V, Vdot, x=None):
         test_x = x
     test_features = system.features_at_x(test_x)
     test_prediction = model.predict(test_features)
-    test_V = system.get_v_values(test_x,V=V)
-    test_Vdot = system.get_v_values(test_x,V=Vdot)
-    return [test_prediction,test_V,test_Vdot]
-
+    test_V = system.get_v_values(test_x, V=V)
+    test_Vdot = system.get_v_values(test_x, V=Vdot)
+    return [test_prediction, test_V, test_Vdot]
 
 
 def verify_via_equality(system, V):
