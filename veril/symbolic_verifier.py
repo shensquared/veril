@@ -11,36 +11,40 @@ from pydrake.all import (MathematicalProgram, Polynomial, Expression,
 import cvxpy as cp
 
 
-def bilinear(x, V0, f, S0, A, options):
+def bilinear(x, V0, f, S0, A, **kwargs):
     V = V0
-    if options.do_balance:
+    nX = x.shape[0]
+    do_balance = kwargs['do_balance']
+    max_iterations = kwargs['max_iterations']
+    converged_tol = kwargs['converged_tol']
+    if do_balance:
         [T, V0bal, fbal, S0, A] = balance(x, V0, f, S0, A)
     else:
-        T, V0bal, fbal = np.eye(options.nX), V0, f
+        T, V0bal, fbal = np.eye(nX), V0, f
     rho = 1
     vol = 0
-    for iter in range(options.max_iterations):
+    for iter in range(max_iterations):
         # print('iteration  %s' % (iter))
         last_vol = vol
 
         # balance on every iteration (since V and Vdot are changing):
-        if options.do_balance:
+        if do_balance:
             [T, Vbal, fbal] = balance(x, V, f, S0 / rho, A)[0:3]
         else:
-            T, Vbal, fbal = np.eye(options.nX), V, f
+            T, Vbal, fbal = np.eye(nX), V, f
         # print('T is %s' % (T))
         V0bal = V0.Substitute(dict(zip(x, T@x)))
         # env = dict(zip(list(V0bal.GetVariables()), np.array([1, 2.31])))
         # print('V0bal is %s' % (V0bal.Evaluate(env)))
 
-        [L1, sigma1] = findL1(x, fbal, Vbal, options)
-        L2 = findL2(x, Vbal, V0bal, rho, options)
-        [Vbal, rho] = optimizeV(x, fbal, L1, L2, V0bal, sigma1, options)
+        [L1, sigma1] = findL1(x, fbal, Vbal, **kwargs)
+        L2 = findL2(x, Vbal, V0bal, rho, **kwargs)
+        [Vbal, rho] = optimizeV(x, fbal, L1, L2, V0bal, sigma1, **kwargs)
         vol = rho
 
         #  undo balancing (for the next iteration, or if i'm done)
         V = Vbal.Substitute(dict(zip(x, inv(T)@x)))
-        if ((vol - last_vol) < options.converged_tol * last_vol):
+        if ((vol - last_vol) < converged_tol * last_vol):
             break
     print('iteration is %s' % iter)
     # print('final rho is %s' % (rho))
@@ -49,13 +53,13 @@ def bilinear(x, V0, f, S0, A, options):
     return V
 
 
-def findL1(x, f, V, options):
+def findL1(x, f, V, **kwargs):
     # print('finding L1')
     prog = MathematicalProgram()
     prog.AddIndeterminates(x)
-
+    degL1 = kwargs['degL1']
     # % construct multipliers for Vdot
-    L1 = prog.NewFreePolynomial(Variables(x), options.degL1).ToExpression()
+    L1 = prog.NewFreePolynomial(Variables(x), degL1).ToExpression()
 
     # % construct Vdot
     Vdot = clean(V.Jacobian(x) @ f, x)
@@ -85,15 +89,16 @@ def findL1(x, f, V, options):
     return L1, sigma1
 
 
-def findL2(x, V, V0, rho, options):
+def findL2(x, V, V0, rho, **kwargs):
     # print('finding L2')
     prog = MathematicalProgram()
     prog.AddIndeterminates(x)
+    degL2 = kwargs['degL2']
     # env = dict(zip(x, np.array([1, 2.31])))
     # print('V0 is %s' % (V0.Evaluate(env)))
     # print('V is %s' % (V.Evaluate(env)))
     # % construct multipliers for Vdot
-    L2 = prog.NewFreePolynomial(Variables(x), options.degL2).ToExpression()
+    L2 = prog.NewFreePolynomial(Variables(x), degL2).ToExpression()
     # % construct slack var
     slack = prog.NewContinuousVariables(1, "s")[0]
     prog.AddConstraint(slack >= 0)
@@ -112,16 +117,17 @@ def findL2(x, V, V0, rho, options):
     return L2
 
 
-def optimizeV(x, f, L1, L2, V0, sigma1, options):
+def optimizeV(x, f, L1, L2, V0, sigma1, **kwargs):
     # print('finding V')
     prog = MathematicalProgram()
     prog.AddIndeterminates(x)
+    degV = kwargs['degV']
     # env = dict(zip(x, np.array([1, 2.31])))
 
     #% construct V
-    V = prog.NewFreePolynomial(Variables(x), options.degV).ToExpression()
+    V = prog.NewFreePolynomial(Variables(x), degV).ToExpression()
 
-    # V = prog.NewSosPolynomial(Variables(x), options.degV)[0].ToExpression()
+    # V = prog.NewSosPolynomial(Variables(x), degV)[0].ToExpression()
     Vdot = V.Jacobian(x) @ f
     # % construct rho
     rho = prog.NewContinuousVariables(1, "r")[0]
@@ -171,7 +177,7 @@ def levelset_sos(sys, V0, do_balance=False, write_to_file=False):
     env = dict(zip(x, np.zeros(x.shape)))
     H = .5 * np.array([[i.Evaluate(env) for i in j]for j in H])
     # print('eig of Hessian of Vdot %s' % (eig(H)[0]))
-    assert (np.all(eig(H)[0] <= 0))
+    # assert (np.all(eig(H)[0] <= 0))
     # % construct slack var
     rho = prog.NewContinuousVariables(1, "r")[0]
     prog.AddConstraint(rho >= 0)
@@ -315,25 +321,25 @@ def clean(poly, x, tol=1e-9):
     return poly.RemoveTermsWithSmallCoefficients(tol).ToExpression()
 
 
-class opt:
-
-    def __init__(self, nX, degf, degV=4, converged_tol=.01, max_iterations=10,
-                 degL1=None, degL2=None, do_balance=False):
-        self.nX = nX
-        self.degf = degf
-        self.degV = degV
-        self.converged_tol = converged_tol
-        self.max_iterations = max_iterations
-        if degL1 is None:
-            degL1 = degV - 1 + degf
-        self.degL1 = degL1
-        if degL2 is None:
-            degL2 = degL1
-        self.degL2 = degL2
-        self.do_balance = do_balance
-
-
 ################
+# class opt:
+
+#     def __init__(self, nX, degf, degV=4, converged_tol=.01, max_iterations=10,
+#                  degL1=None, degL2=None, do_balance=False):
+#         self.nX = nX
+#         self.degf = degf
+#         self.degV = degV
+#         self.converged_tol = converged_tol
+#         self.max_iterations = max_iterations
+#         if degL1 is None:
+#             degL1 = degV - 1 + degf
+#         self.degL1 = degL1
+#         if degL2 is None:
+#             degL2 = degL1
+#         self.degL2 = degL2
+#         self.do_balance = do_balance
+
+
 def levelset_w_feature_transformation(system, gram, g, L1):
     # dirty, hard coded everything
     f = system.sym_f

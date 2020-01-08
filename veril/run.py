@@ -51,7 +51,7 @@ def train_V(sys_name, train_or_load, max_deg=3, remove_one=True, **kwargs):
             model, system, train_x, features=features)
         model_file_name = model_dir + '/V_model_' + tag + '.h5'
         model.save(model_file_name)
-        print("Saved model " + model_file_name + " to disk")
+        print('Saved model ' + model_file_name + ' to disk')
     elif train_or_load is 'Load':
         # TODO: decide if should save the model or directly save V
         train_x = None
@@ -123,17 +123,18 @@ def verify_via_variety(system, V, init_root_threads=1):
     return rho
 
 
-def verify_via_bilinear(sys_name, max_deg=3):
+def verify_via_bilinear(sys_name, max_deg=3, **kwargs):
     system = get_system(sys_name, max_deg, remove_one=True)
-    A, S, V= system.linearized_quadractic_V()
+    A, S, V = system.linearized_quadractic_V()
+    degV = 2 * max_deg
+    degf = system.degf
+    degL = degV - 1 + degf
+    options = {'degV': degV, 'do_balance': False, 'degL1': degL, 'degL2': degL,
+               'converged_tol': 1e-2, 'max_iterations': 20}
 
-    verifierOptions = symbolic_verifier.opt(system.num_states, system.degf,
-                                            do_balance=False, degV=2 * max_deg,
-                                            converged_tol=1e-2,
-                                            max_iterations=20)
     start = time.time()
     V = symbolic_verifier.bilinear(
-        system.sym_x, V, system.sym_f, S, A, verifierOptions)
+        system.sym_x, V, system.sym_f, S, A, **options)
     end = time.time()
     print('bilinear time %s' % (end - start))
     plot_funnel(V, sys_name, system.slice, add_title=' - Bilinear Result')
