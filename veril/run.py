@@ -44,10 +44,12 @@ def train_V(sys_name, max_deg=3, model=None, remove_one=True, **kwargs):
         model = sample_lyap.modelV(nx, max_deg, remove_one=remove_one)
         history = model.fit(features, y, **kwargs)
         # assert (history.history['loss'][-1] <= 0)
+
+
     bad_samples, bad_predictions = eval_model(
         model, system, train_x, features=features)
     P = sample_lyap.get_gram_for_V(model)
-    V, Vdot = system.P_to_V(P, train_x, rescale=False)
+    V, Vdot = system.P_to_V(P)
     # test_model(model, system, V, Vdot, x=None)
     model_file_name = model_dir + '/V_model_' + tag + '.h5'
     model.save(model_file_name)
@@ -158,7 +160,7 @@ def cvx_V(sys_name, max_deg, remove_one=False):
     P = symbolic_verifier.convexly_search_for_V_on_samples(features)
     cvx_P_filename = model_dir + '/cvx_P_' + str(max_deg) + '.npy'
     np.save(cvx_P_filename, P)
-    V, Vdot = system.P_to_V(P, train_x, rescale=False)
+    V, Vdot = system.P_to_V(P)
     return V, Vdot, system
 
 
