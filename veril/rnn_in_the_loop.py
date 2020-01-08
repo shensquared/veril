@@ -307,7 +307,7 @@ class PolyRNNCL(ClosedLoopSys):
             s = np.hstack((x, c, tanh_f, tanh_c))
         return s
 
-    def linearized_A_and_P(self, which_dynamics='nonlinear'):
+    def linearized_quadractic_V(self, which_dynamics='nonlinear'):
         """
         linearize f, which is the augmented (via the change of variable recasting)
         w.r.t. the states x.
@@ -337,7 +337,8 @@ class PolyRNNCL(ClosedLoopSys):
         print('eig of the linearized A matrix for augmented with tanh poly system %s' % (
             eig(A)[0]))
         S = solve_lyapunov(A.T, -np.eye(xc.shape[0]))
-        return A, S
+        V = self.sym_x.T@P@self.sym_x
+        return A, S, P
 
 
 def originalSysInitialV(CL):
@@ -372,16 +373,6 @@ def originalSysInitialV(CL):
     print('eig of orignal A  %s' % (eig(A0)[0]))
     print('eig of orignal SA+A\'S  %s' % (eig(A0.T@S0 + S0@A0)[0]))
     return x.T@S0@x
-
-
-
-# verify_RNN_CL(max_deg=2)
-# train_RNN_controller(**options)
-
-# closed_loop.originalSysInitialV(CL)
-# augedSys = closed_loop.PolyRNNCL(CL, model_file_name, taylor_approx=True)
-# augedSys.linearized_A_and_P(which_dynamics='nonlinear')
-
 
 ############
 # Dirty code below, but may be useful for refrence

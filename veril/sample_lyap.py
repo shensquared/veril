@@ -104,32 +104,36 @@ def linear_model_for_V(sys_dim, A):
 
 def modelV(sys_dim, max_deg, remove_one=True):
     f = lambda x: math.factorial(x)
-    # -1 if V doesn't have a constant monomial
     monomial_dim = f(sys_dim + max_deg) // f(max_deg) // f(sys_dim)
     if remove_one:
-        monomial_dim = monomial_dim-1
+        monomial_dim = monomial_dim - 1
+
     phi = Input(shape=(monomial_dim,), name='phi')
+
     layers = [
         Dense(monomial_dim, use_bias=False),
         # Dense((monomial_dim * 2), use_bias=False),
-        # Dense(monomial_dim, use_bias=False),
     ]
 
     gram_factor = Sequential(layers, name='gram_factorization')
     phiL = gram_factor(phi)  # (None, monomial_dim)
     V = Dot(1, name='V')([phiL, phiL])  # (None,1)
-    Vsqured = Dot(1, name='Vsqured')([V, V])  # (None,1)
+    Vsqured = Power(2, name='Vsqured')(V)  # (None,1)
 
-    # # need to avoid 0 in the denominator (by adding a strictly positive scalar
-    # # to V)
-    dphidxfx = Input(shape=(monomial_dim,), name='eta')
-    dphidxfxL = gram_factor(dphidxfx)  # (None, monomial_dim)
-    Vdot = Dot(1, name='Vdot')([phiL, dphidxfxL])  # (None,1)
+    # # TODO: need to avoid 0 in the denominator (by adding a strictly positive
+    # scalar to V)
+    eta = Input(shape=(monomial_dim,), name='eta')
+    etaL = gram_factor(eta)  # (None, monomial_dim)
+    Vdot = Dot(1, name='Vdot')([phiL, etaL])  # (None,1)
+    rate = Divide(name='rate')([Vdot, V])
+    # Vdot_sign = Sign(name='Vdot_sign')(Vdot)
+    # V_signed = Dot(1, name='Vsigned')([V, Vdot_sign])
+    min_pos = Min_Positive(name='V-flipped')(rate)
+    diff = Subtract()([rate, min_pos])
+    # rectified_V = ReLu(name = 'rectified_V')(V)
 
-    rate = Divide(name='rate')([Vdot, Vsqured])
-    model = Model(inputs=[phi, dphidxfx], outputs=rate)
-    model.compile(loss=relu_, metrics=[mean_pred, max_pred,
-                                       neg_percent],
+    model = Model(inputs=[phi, eta], outputs=rate)
+    model.compile(loss=max_pred, metrics=[max_pred, mean_pred, neg_percent],
                   optimizer='adam')
     print(model.summary())
     return model
@@ -213,9 +217,9 @@ def rho_reg(weight_matrix):
     return 0.001 * K.abs(K.sum(weight_matrix))
 
 
-def get_V_model(sys_name, max_deg):
+def get_V_model(sys_name, tag):
     model_dir = os.path.dirname(__file__) + '/../data/' + sys_name
-    model_file_name = model_dir + '/V_model_deg_' + str(max_deg) + '.h5'
+    model_file_name = model_dir + '/V_model_' + tag + '.h5'
 
     with CustomObjectScope({'Divide': Divide, 'max_pred': max_pred,
                             'mean_pred': mean_pred, 'neg_percent': neg_percent,

@@ -119,7 +119,7 @@ class ClosedLoopSys(object):
             V = self.sym_V
         return np.array([V.Evaluate(dict(zip(self.sym_x, i))) for i in samples])
 
-    def linearized_A_and_P(self):
+    def linearized_quadractic_V(self):
         x = self.sym_x
         f = self.polynomial_dynamics()
         J = Jacobian(f, x)
@@ -131,7 +131,8 @@ class ClosedLoopSys(object):
         P = solve_lyapunov(A.T, -np.eye(x.shape[0]))
         # print('P %s' % P)
         print('eig of P %s' % (eig(P)[0]))
-        return A, P
+        V = self.sym_x.T@P@self.sym_x
+        return A, P, V
 
     def P_to_V(self, P, samples=None):
         V0 = self.sym_phi.T@P@self.sym_phi
