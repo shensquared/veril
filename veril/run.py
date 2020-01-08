@@ -19,7 +19,7 @@ def get_system(sys_name, max_deg, remove_one=True):
     return system
 
 
-def train_V(sys_name, train_or_load, max_deg, remove_one=True, **kwargs):
+def get_V(sys_name, train_or_load, max_deg, remove_one=True, **kwargs):
     tag = str(max_deg)
     if remove_one:
         tag = 'remove_one' + tag
@@ -181,7 +181,7 @@ remove_one = True
 
 # verify_via_bilinear(sys_name, max_deg)
 
-V, Vdot, system = train_V(sys_name, train_or_load, max_deg, epochs=epochs,
+V, Vdot, system = get_V(sys_name, train_or_load, max_deg, epochs=epochs,
                           verbose=True, validation_split=0, shuffle=True)
 
 # [plot3d(V, sys_name, i, level_sets=True) for i in system.all_slices]
