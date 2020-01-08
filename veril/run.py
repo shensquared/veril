@@ -19,7 +19,7 @@ def get_system(sys_name, max_deg, remove_one=True):
     return system
 
 
-def train_V(sys_name, train_or_load, max_deg=3, remove_one=True, **kwargs):
+def train_V(sys_name, train_or_load, max_deg, remove_one=True, **kwargs):
     tag = str(max_deg)
     if remove_one:
         tag = 'remove_one' + tag
@@ -123,7 +123,7 @@ def verify_via_variety(system, V, init_root_threads=1):
     return rho
 
 
-def verify_via_bilinear(sys_name, max_deg=3, **kwargs):
+def verify_via_bilinear(sys_name, max_deg, **kwargs):
     system = get_system(sys_name, max_deg, remove_one=True)
     A, S, V = system.linearized_quadractic_V()
     degV = 2 * max_deg
@@ -168,24 +168,28 @@ def cvx_V(sys_name, max_deg, remove_one=False):
 
 sys_name = 'VanderPol'
 # sys_name = 'Pendubot'
-init_root_threads = 30
-epochs = 15
-max_deg = 3
+
 # train_or_load = 'Train'
 train_or_load = 'Load'
 
-V, Vdot, system = train_V(sys_name, train_or_load, max_deg=max_deg,
-                          remove_one=True, epochs=epochs, verbose=True, validation_split=0,
+max_deg = 3
+
+init_root_threads = 30
+epochs = 15
+remove_one = True
+
+# verify_via_bilinear(sys_name, max_deg)
+
+V, Vdot, system = train_V(sys_name, train_or_load, max_deg, epochs=epochs, verbose=True, validation_split=0,
                           shuffle=True)
 
 # [plot3d(V, sys_name, i, level_sets=True) for i in system.all_slices]
 # [plot3d(Vdot, sys_name, i, level_sets=False, r_max=1.6)
 #  for i in system.all_slices]
 
-# verify_via_equality(system, None)
-# verify_via_variety(system, V, init_root_threads=init_root_threads)
+verify_via_equality(system, V)
+verify_via_variety(system, V, init_root_threads=init_root_threads)
 
-# system, V  = verify_via_bilinear(sys_name, max_deg=4)
 ############
 # Dirty code below, but may be useful for refrence
 # def SGDLevelSetGramCandidate(V, vdp, max_deg=3):
