@@ -1,3 +1,4 @@
+import os
 from keras import backend as K
 from keras.utils import CustomObjectScope
 from keras.models import load_model
@@ -26,7 +27,7 @@ options = {
 
 def sim_RNN_stable_samples(**options):
     old_sampels = np.load('DIsamples.npy')
-    model, model_file_name = closed_loop.get_NNorCL(NNorCL='NN', **options)
+    model, file_name = closed_loop.get_NNorCL(NNorCL='NN', **options)
     samples = closed_loop.sample_stable_inits(
         model, 20000, 1000, lb=-1.5, ub=1.5)
     np.save('DIsamples', np.vstack([old_sampels, samples]))
@@ -59,11 +60,11 @@ def train_RNN_controller(pre_trained=None, **kwargs):
     else:
         model = pre_trained
 
-    dirname = os.path.dirname(__file__) + '../data/'
-    model_file_name = dirname + plant.name + '/' + \
-        'unit' + str(num_units) + 'step' + str(timesteps) + tag
+    dirname = os.path.dirname(__file__) + '/../data/' + plant.name + '/'
+    file_name = dirname + 'unit' + str(num_units) + 'step' \
+        + str(timesteps) + tag
 
-    callbacks = [ModelCheckpoint(model_file_name + '.h5',
+    callbacks = [ModelCheckpoint(file_name + '.h5',
                                  monitor='val_loss', verbose=0,
                                  save_best_only=False,
                                  save_weights_only=False, mode='auto',
@@ -72,9 +73,9 @@ def train_RNN_controller(pre_trained=None, **kwargs):
     [x_train, y_train] = plant.get_data(num_samples, timesteps, num_units)
     history = model.fit(x_train, y_train, callbacks=callbacks, **kwargs)
     last_loss = history.history['loss'][-1]
-    model_file_name = model_file_name + 'loss' + str(last_loss) + tag + '.h5'
-    model.save(model_file_name)
-    print("Saved model " + model_file_name + " to disk")
+    file_name = file_name + 'loss' + str(last_loss) + tag + '.h5'
+    model.save(file_name)
+    print("Saved model " + file_name + " to disk")
 
 
 def get_NNorCL(NNorCL='CL', **kwargs):
@@ -86,21 +87,19 @@ def get_NNorCL(NNorCL='CL', **kwargs):
     tag = kwargs['tag']
     plant_name = kwargs['plant_name']
 
-    dirname = os.path.dirname(__file__)
-    # dirname = os.path.join('/users/shenshen/veril/data/')
-    dirname = dirname + '../data/'
-    model_file_name = dirname + plant_name + '/' + \
+    model_dir = os.path.dirname(__file__) + '/../data/' + plant_name
+    file_name = model_dir + '/' + \
         'unit' + str(num_units) + 'step' + str(timesteps) + tag
 
     with CustomObjectScope({'JanetController': JanetController}):
-        model = load_model(model_file_name + '.h5')
+        model = load_model(file_name + '.h5')
     print(model.summary())
     if NNorCL is 'NN':
-        return model, model_file_name
+        return model, file_name
     elif NNorCL is 'CL':
         for this_layer in model.layers:
             if hasattr(this_layer, 'cell'):
-                return [this_layer, model_file_name]
+                return [this_layer, file_name]
 
 
 def call_CLsys(CL, tm1, num_samples):
@@ -152,7 +151,7 @@ class PolyRNNCL(ClosedLoopSys):
     # from the tanh nonlinearity, tau_c, and tau_f
     """
 
-    def __init__(self, CL, model_file_name, taylor_approx=False):
+    def __init__(self, CL, file_name, taylor_approx=False):
         self.output_kernel = (K.eval(CL.cell.output_kernel))
         self.feedthrough_kernel = (K.eval(CL.cell.feedthrough_kernel))
         self.recurrent_kernel_f = (K.eval(CL.cell.recurrent_kernel_f))
@@ -180,7 +179,7 @@ class PolyRNNCL(ClosedLoopSys):
             self.sym_x = np.concatenate(
                 (self.x, self.c, self.tau_f, self.tau_c))
             self.num_states = self.nx + 3 * self.units
-        self.model_file_name = model_file_name
+        self.file_name = file_name
 
     def inverse_recast_map(self):
         [arg_f, arg_c] = self.args_for_tanh(self.x, self.c)
@@ -206,8 +205,6 @@ class PolyRNNCL(ClosedLoopSys):
             phi[i, :] = [i.Evaluate(env) for i in self.sym_phi]
             dphidx[i, :, :] = [[i.Evaluate(env) for i in j]for j in
                                self.sym_dphidx]
-        # np.savez(self.model_file_name + '-' + str(n_samples) +
-        #          'samples', phi=phi, dphidx=dphidx, f=f)
         return [phi, dphidx, f]
 
     def nonlinear_dynamics(self, sample_states=None):
@@ -374,11 +371,12 @@ def originalSysInitialV(CL):
     print('eig of orignal SA+A\'S  %s' % (eig(A0.T@S0 + S0@A0)[0]))
     return x.T@S0@x
 
+
 ############
 # Dirty code below, but may be useful for refrence
 # def verify_RNN_CL(max_deg=2):
-#     CL, model_file_name = closed_loop.get_NNorCL(**options)
-#     system = closed_loop.PolyRNNCL(CL, model_file_name, taylor_approx=True)
+#     CL, file_name = closed_loop.get_NNorCL(**options)
+#     system = closed_loop.PolyRNNCL(CL, file_name, taylor_approx=True)
 #     system.set_syms(max_deg)
 #     samples = system.sample_init_states_w_tanh(30000, lb=-.01, ub=.01)
 #     [phi, dphidx, f] = system.features_at_x(samples)

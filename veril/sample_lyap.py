@@ -219,12 +219,12 @@ def rho_reg(weight_matrix):
 
 def get_V_model(sys_name, tag):
     model_dir = os.path.dirname(__file__) + '/../data/' + sys_name
-    model_file_name = model_dir + '/V_model_' + tag + '.h5'
+    file_name = model_dir + '/V_model_' + tag + '.h5'
 
     with CustomObjectScope({'Divide': Divide, 'max_pred': max_pred,
                             'mean_pred': mean_pred, 'neg_percent': neg_percent,
                             'relu_': relu_}):
-        model = load_model(model_file_name)
+        model = load_model(file_name)
     print(model.summary())
     return model
 

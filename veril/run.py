@@ -52,6 +52,7 @@ def train_V(sys_name, train_or_load, max_deg, remove_one=True, **kwargs):
         model_file_name = model_dir + '/V_model_' + tag + '.h5'
         model.save(model_file_name)
         print('Saved model ' + model_file_name + ' to disk')
+
     elif train_or_load is 'Load':
         # TODO: decide if should save the model or directly save V
         train_x = None
@@ -180,8 +181,8 @@ remove_one = True
 
 # verify_via_bilinear(sys_name, max_deg)
 
-V, Vdot, system = train_V(sys_name, train_or_load, max_deg, epochs=epochs, verbose=True, validation_split=0,
-                          shuffle=True)
+V, Vdot, system = train_V(sys_name, train_or_load, max_deg, epochs=epochs,
+                          verbose=True, validation_split=0, shuffle=True)
 
 # [plot3d(V, sys_name, i, level_sets=True) for i in system.all_slices]
 # [plot3d(Vdot, sys_name, i, level_sets=False, r_max=1.6)
