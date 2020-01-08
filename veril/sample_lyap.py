@@ -109,6 +109,7 @@ def modelV(sys_dim, max_deg, remove_one=True):
         monomial_dim = monomial_dim - 1
 
     phi = Input(shape=(monomial_dim,), name='phi')
+    eta = Input(shape=(monomial_dim,), name='eta')
 
     layers = [
         Dense(monomial_dim, use_bias=False),
@@ -117,21 +118,22 @@ def modelV(sys_dim, max_deg, remove_one=True):
 
     gram_factor = Sequential(layers, name='gram_factorization')
     phiL = gram_factor(phi)  # (None, monomial_dim)
+    # V # TODO: need to avoid 0 in the denominator (by adding a strictly
+    # positive scalar to V)
     V = Dot(1, name='V')([phiL, phiL])  # (None,1)
-    Vsqured = Power(2, name='Vsqured')(V)  # (None,1)
-
-    # # TODO: need to avoid 0 in the denominator (by adding a strictly positive
-    # scalar to V)
-    eta = Input(shape=(monomial_dim,), name='eta')
+    # Vdot
     etaL = gram_factor(eta)  # (None, monomial_dim)
     Vdot = Dot(1, name='Vdot')([phiL, etaL])  # (None,1)
-    rate = Divide(name='rate')([Vdot, V])
+
+    Vsqured = Power(2, name='Vsqured')(V)  # (None,1)
+
     # Vdot_sign = Sign(name='Vdot_sign')(Vdot)
     # V_signed = Dot(1, name='Vsigned')([V, Vdot_sign])
     min_pos = Min_Positive(name='V-flipped')(rate)
     diff = Subtract()([rate, min_pos])
     # rectified_V = ReLu(name = 'rectified_V')(V)
 
+    rate = Divide(name='rate')([Vdot, V])
     model = Model(inputs=[phi, eta], outputs=rate)
     model.compile(loss=max_pred, metrics=[max_pred, mean_pred, neg_percent],
                   optimizer='adam')
