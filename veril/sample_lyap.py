@@ -1,13 +1,15 @@
 import os
 from keras.models import Sequential, Model, load_model
 from keras.layers import *
+from keras.layers.advanced_activations import ReLU, Softmax
 from keras import backend as K
+
 # from keras.callbacks import TensorBoard
 from keras import regularizers, initializers
 from keras.utils import CustomObjectScope
 
 import math
-from veril.custom_layers import DotKernel, Divide
+from veril.custom_layers import *
 import numpy as np
 '''
 A note about the DOT layer: if input is 1: (None, a) and 2: (None, a) then no
@@ -32,17 +34,35 @@ def max_pred(y_true, y_pred):
 
 
 def mean_pred(y_true, y_pred):
-    return K.mean(y_pred)
-
-
-def relu_(y_true, y_pred):
-    # return K.maximum((K.minimum(y_pred,.1)), 0.)
-    return K.maximum(y_pred, 0.)
+    return y_pred
 
 
 def neg_percent(y_true, y_pred):
     return K.cast(K.equal(y_true, K.sign(y_pred)), K.floatx())
 
+
+def mean_pos(y_true, y_pred):
+    return K.maximum(y_pred, 0.)
+
+
+def max_min(y_true, y_pred):
+    # maximize the V value among all the samples such that Vdot is negative
+    # return K.maximum((K.minimum(y_pred,5e-2)), 0.)
+    # vdotsign = K.sign(y_pred[-1])
+    # signed_V = vdotsign * y_pred[0]
+    return -K.min(y_pred)
+
+
+def sign_loss(y_true, y_pred):
+    return K.sign(y_pred)
+
+
+def flipped_relu(y_true, y_pred):
+    return - K.maximum(y_pred, 0.)
+
+
+# def test_idx(y_true,y_pred):
+    # return K.gather(y_pred,1)
 
 # def hinge_and_max(y_true, y_pred):
 #     return K.max(y_pred) + 10 * K.mean(K.maximum(1. - y_true * y_pred, 0.),
@@ -135,7 +155,7 @@ def modelV(sys_dim, max_deg, remove_one=True):
 
     rate = Divide(name='rate')([Vdot, V])
     model = Model(inputs=[phi, eta], outputs=rate)
-    model.compile(loss=max_pred, metrics=[max_pred, mean_pred, neg_percent],
+    model.compile(loss=mean_pos, metrics=[max_pred, mean_pred, neg_percent],
                   optimizer='adam')
     print(model.summary())
     return model
@@ -225,7 +245,7 @@ def get_V_model(sys_name, tag):
 
     with CustomObjectScope({'Divide': Divide, 'max_pred': max_pred,
                             'mean_pred': mean_pred, 'neg_percent': neg_percent,
-                            'relu_': relu_}):
+                            'mean_pos': mean_pos}):
         model = load_model(file_name)
     print(model.summary())
     return model

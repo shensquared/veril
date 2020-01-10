@@ -1251,9 +1251,8 @@ class Min_Positive(Layer):
         self.axis = axis
 
     def call(self, inputs):
-        min_pos = K.min(K.max(K.maximum(inputs, 0)) * K.cast(K.less(inputs, 0)\
-            , K.floatx()) + inputs * K.cast(K.greater_equal(inputs, 0),\
-            K.floatx()))
+        min_pos = K.min(K.max(K.maximum(inputs, 0)) * K.cast(K.less(inputs, 0), K.floatx()) + inputs * K.cast(K.greater_equal(inputs, 0),
+                                                                                                              K.floatx()))
         # return K.cast(K.greater_equal(inputs, min_pos), K.floatx())
         return min_pos
 
@@ -1279,6 +1278,24 @@ class Power(Layer):
     def get_config(self):
         config = {'alpha': self.alpha}
         base_config = super(Power, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))
+
+    def compute_output_shape(self, input_shape):
+        return input_shape
+
+
+class Sign_of_one_minus_input(Layer):
+
+    def __init__(self, **kwargs):
+        super(Sign_of_one_minus_input, self).__init__(**kwargs)
+        self.supports_masking = True
+
+    def call(self, inputs):
+        return K.sign(K.ones(K.shape(inputs)) - inputs)
+
+    def get_config(self):
+        config = {'alpha': self.alpha}
+        base_config = super(Sign_of_one_minus_input, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
 
     def compute_output_shape(self, input_shape):
