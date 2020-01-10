@@ -129,8 +129,8 @@ def modelV(sys_dim, max_deg, remove_one=True):
 
     # Vdot_sign = Sign(name='Vdot_sign')(Vdot)
     # V_signed = Dot(1, name='Vsigned')([V, Vdot_sign])
-    min_pos = Min_Positive(name='V-flipped')(rate)
-    diff = Subtract()([rate, min_pos])
+    # min_pos = Min_Positive(name='V-flipped')(rate)
+    # diff = Subtract()([rate, min_pos])
     # rectified_V = ReLu(name = 'rectified_V')(V)
 
     rate = Divide(name='rate')([Vdot, V])

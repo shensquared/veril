@@ -154,9 +154,6 @@ class ClosedLoopSys(object):
     def set_Vdot(self, V):
         return V.Jacobian(self.sym_x)@self.sym_f
 
-    def sim_stable_samples(self, d, num_grid, slice_idx=None):
-        def event(t, x): return np.linalg.norm(x) - 15
-    def sim_stable_samples(self, d, num_grid, slice_idx=None, x=None):
     def sim_stable_samples(self, d, num_grid, slice_idx=None, x=None,
                            slice_only=False):
         if slice_idx is not None:
