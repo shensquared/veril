@@ -240,12 +240,15 @@ def solve_SDP_on_samples(system, sampled_quantities, write_to_file=False):
     assert result.is_success()
     P = result.GetSolution(P)
     rho = result.GetSolution(rho)
-    V = system.sym_V / rho
-    return V, rho, P
+    # V = system.sym_V / rho
+    # TODO: double check if scaling at this stage affects the downstream
+    # oversampling
+    print(rho)
+    return system.sym_V, rho, P
 
 
 def check_vanishing(system, variety, rho, P, Tinv):
-    test_samples = sample_on_variety(variety, 2)
+    test_samples = sample_on_variety(variety, 1)
     V = system.get_v_values(test_samples)
     [xxd, psi] = system.get_sample_variety_features(test_samples)
     idx = []
