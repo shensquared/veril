@@ -122,9 +122,9 @@ def linear_model_for_V(sys_dim, A):
 #     return P
 
 
-def modelV(sys_dim, max_deg, remove_one=True):
+def modelV(sys_dim, degFeatures, remove_one=True):
     f = lambda x: math.factorial(x)
-    monomial_dim = f(sys_dim + max_deg) // f(max_deg) // f(sys_dim)
+    monomial_dim = f(sys_dim + degFeatures) // f(degFeatures) // f(sys_dim)
     if remove_one:
         monomial_dim = monomial_dim - 1
 
@@ -161,9 +161,9 @@ def modelV(sys_dim, max_deg, remove_one=True):
     return model
 
 
-# def polyTrain(nx, max_deg, x, V=None, model=None):
+# def polyTrain(nx, degFeatures, x, V=None, model=None):
 #     if model is None:
-#         model = modelV(nx, max_deg)
+#         model = modelV(nx, degFeatures)
 #     history = model.fit(train_x, train_y, shuffle=True, epochs=15,
 #        verbose=True)
 #     P = get_gram_for_V(model)

@@ -13,29 +13,29 @@ from veril.util.plots import *
 # from util.samples import withinLevelSet
 
 
-def get_system(sys_name, max_deg, remove_one=True):
+def get_system(sys_name, degFeatures, remove_one=True):
     system = closed_loop.get(sys_name)
-    system.set_syms(max_deg, remove_one=remove_one)
+    system.set_syms(degFeatures, remove_one=remove_one)
     return system
 
 
-def get_V(sys_name, train_or_load, max_deg, remove_one=True, **kwargs):
-    tag = str(max_deg)
+def get_V(system, train_or_load, remove_one=True, **kwargs):
+    sys_name = system.name
+    degFeatures = system.degFeatures
+    tag = str(degFeatures)
     if remove_one:
         tag = 'remove_one' + tag
-    system = get_system(sys_name, max_deg, remove_one=remove_one)
+    system = get_system(sys_name, degFeatures, remove_one=remove_one)
 
     if train_or_load is 'Train':
         nx = system.num_states
         model_dir = '../data/' + sys_name
         train_x = np.load(model_dir + '/stableSamples.npy')
-        # train_x = np.load(model_dir + '/2-dims/stableSamples_w_2dim_zeros.npy')
         n_samples = train_x.shape[0]
         assert(train_x.shape[1] == nx)
         print('x size %s' % str(train_x.shape))
 
         file_path = model_dir + '/train_for_v_features_' + tag + '.npz'
-        # file_path = model_dir + '/2-dims/train_for_v_features_' + tag + '_w_2dim_zeros.npz'
         if os.path.exists(file_path):
             loaded = np.load(file_path)
             features = [loaded['phi'], loaded['eta']]
@@ -44,7 +44,7 @@ def get_V(sys_name, train_or_load, max_deg, remove_one=True, **kwargs):
             features = system.features_at_x(train_x)
             np.savez_compressed(file_path, phi=features[0], eta=features[1])
         y = - np.ones((n_samples,))
-        model = sample_lyap.modelV(nx, max_deg, remove_one=remove_one)
+        model = sample_lyap.modelV(nx, degFeatures, remove_one=remove_one)
         history = model.fit(features, y, **kwargs)
         # assert (history.history['loss'][-1] <= 0)
         bad_samples, bad_predictions = eval_model(
@@ -124,27 +124,30 @@ def verify_via_variety(system, V, init_root_threads=1):
     return rho
 
 
-def verify_via_bilinear(sys_name, max_deg, **kwargs):
-    system = get_system(sys_name, max_deg, remove_one=True)
-    A, S, V = system.linearized_quadractic_V()
-    degV = 2 * max_deg
+def verify_via_bilinear(system, **kwargs):
+    sys_name = system.name
+    degV = system.degV
     degf = system.degf
     degL = degV - 1 + degf
     options = {'degV': degV, 'do_balance': False, 'degL1': degL, 'degL2': degL,
                'converged_tol': 1e-2, 'max_iterations': 20}
 
     start = time.time()
+    A, S, V0 = system.linearized_quadractic_V()
+
+    if 'V0' in kwargs:
+        V0 = kwargs['V0']
     V = symbolic_verifier.bilinear(
-        system.sym_x, V, system.sym_f, S, A, **options)
+        system.sym_x, V0, system.sym_f, S, A, **options)
     end = time.time()
     print('bilinear time %s' % (end - start))
     plot_funnel(V, sys_name, system.slice, add_title=' - Bilinear Result')
     return system, V
 
 
-def cvx_V(sys_name, max_deg, remove_one=False):
-    tag = str(max_deg)
-    system = get_system(sys_name, max_deg, remove_one=remove_one)
+def cvx_V(sys_name, degFeatures, remove_one=False):
+    tag = str(degFeatures)
+    system = get_system(sys_name, degFeatures, remove_one=remove_one)
     model_dir = '../data/' + sys_name
     # train_x = np.load(model_dir + '/stableSamples.npy')
     num_samples = train_x.shape[0]
@@ -161,43 +164,43 @@ def cvx_V(sys_name, max_deg, remove_one=False):
         np.savez_compressed(file_path, phi=features[0], eta=features[1])
     assert(features[0].shape[0] == num_samples)
     P = symbolic_verifier.convexly_search_for_V_on_samples(features)
-    cvx_P_filename = model_dir + '/cvx_P_' + str(max_deg) + '.npy'
+    cvx_P_filename = model_dir + '/cvx_P_' + str(degFeatures) + '.npy'
     np.save(cvx_P_filename, P)
     V, Vdot = system.P_to_V(P)
     return V, Vdot, system
 
 
-sys_name = 'VanderPol'
-# sys_name = 'Pendubot'
+# sys_name = 'VanderPol'
+sys_name = 'Pendubot'
+train_or_load = 'Train'
+# train_or_load = 'Load'
 
-# train_or_load = 'Train'
-train_or_load = 'Load'
-
-max_deg = 3
-
-init_root_threads = 30
-epochs = 15
+degFeatures = 3
+init_root_threads = 100
+epochs = 3
 remove_one = True
 
-# verify_via_bilinear(sys_name, max_deg)
+system = get_system(sys_name, degFeatures)
+V, Vdot, system = get_V(system, train_or_load, epochs=epochs,
+                        verbose=True, validation_split=0, shuffle=True)
 
-V, Vdot, system = get_V(sys_name, train_or_load, max_deg, epochs=epochs,
-                          verbose=True, validation_split=0, shuffle=True)
-
+# [plot_funnel(V, sys_name, slice_idx=i) for i in system.all_slices]
 # [plot3d(V, sys_name, i, level_sets=True) for i in system.all_slices]
 # [plot3d(Vdot, sys_name, i, level_sets=False, r_max=1.6)
 #  for i in system.all_slices]
 
-verify_via_equality(system, V)
-verify_via_variety(system, V, init_root_threads=init_root_threads)
+
+verify_via_bilinear(system, V0=V)
+# verify_via_equality(system, V)
+# verify_via_variety(system, V, init_root_threads=init_root_threads)
 
 ############
 # Dirty code below, but may be useful for refrence
-# def SGDLevelSetGramCandidate(V, vdp, max_deg=3):
+# def SGDLevelSetGramCandidate(V, vdp, degFeatures=3):
 #     sym_x = vdp.sym_x
 #     train_x = vdp.get_x(d=10).T
 #     train_y = np.ones((train_x.shape[0], 1))
-#     vdp.set_syms(max_deg)
+#     vdp.set_syms(degFeatures)
 #     sigma_deg = 8
 #     psi_deg = 8
 #     vdp.levelset_features(V, sigma_deg)
