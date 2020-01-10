@@ -197,9 +197,11 @@ def check_genericity(all_samples):
     m, n = all_samples.shape
     n2 = n * (n + 1) / 2
     m0 = min(m, n2)
-    sub_samples = all_samples[:m0, :]
+    # sub_samples = all_samples[:m0, :]
+    sub_samples = all_samples
 
     c = np.power(sub_samples@sub_samples.T, 2)  # c = q'*q
+    print('c shape is %s' %str(c.shape))
     s = abs(np.linalg.eig(c)[0])
     tol = max(c.shape) * np.spacing(max(s)) * 1e3
     sample_rank = sum(s > tol)
