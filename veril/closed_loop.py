@@ -3,8 +3,7 @@ sys.path.append(
     "/Users/shenshen/drake-build/install/lib/python3.7/site-packages")
 import pydrake
 from pydrake.all import (MathematicalProgram, Polynomial, Expression,
-                         SolutionResult, MonomialBasis, Variables, Solve,
-                         Jacobian, Evaluate, Substitute, MosekSolver)
+                         MonomialBasis, Jacobian, Evaluate)
 
 import os
 import itertools
