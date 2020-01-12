@@ -46,22 +46,34 @@ class S4CV_Plants(object):
             gx = self.gx(x).T
         return gx - self.x0dot
 
-    def set_syms(self, deg, remove_one=True):
-        self.degFeatures = deg
-        self.degV = 2 * deg
-        self.sym_phi = get_monomials(self.sym_x, deg, remove_one=remove_one)
+    def set_syms(self, degFeatures, degU, remove_one=True):
+        self.degFeatures = degFeatures
+        self.degV = 2 * degFeatures
+        self.degU = degU
+        self.sym_phi = get_monomials(
+            self.sym_x, degFeatures, remove_one=remove_one)
         self.sym_dphidx = Jacobian(self.sym_phi, self.sym_x)
+        self.sym_ubasis = get_monomials(self.sym_x, degU,
+                                        remove_one=remove_one)
 
-    def features_at_x(self, x):  # x: (num_samples, sys_dim)
+    def features_at_x(self, x=None):  # x: (num_samples, sys_dim)
+        if x is None:
+            x = self.get_x()
         g = self.dynamic_without_control(sample_states=x)
         n_samples = x.shape[0]
-        phi, dphidx = [], []
+        phi, dphidx, ubasis = [], [], []
         for i in range(n_samples):
             env = dict(zip(self.sym_x, x[i]))
             phi.append([j.Evaluate(env) for j in self.sym_phi])
             dphidx.append([[j.Evaluate(env) for j in k]for k in
                            self.sym_dphidx])
-        return [x, g, np.array(phi), np.array(dphidx)]
+            ubasis.append([j.Evaluate(env) for j in self.sym_ubasis])
+        features = [g, np.array(phi), np.array(dphidx), np.array(ubasis)]
+        model_dir = '../data/' + self.name +'/V_u_features'
+        file_path = model_dir + '_degV' + str(self.degFeatures) + 'degU' + str(self.degU) + '.npz'
+        np.savez_compressed(file_path, g=features[0], phi=features[1],
+            dphidx=features[2], ubasis=features[3])
+        return features
 
 
 class PendulumTrig(S4CV_Plants):
@@ -69,6 +81,7 @@ class PendulumTrig(S4CV_Plants):
     def __init__(self):
         self.name = 'PendulumTrig'
         self.num_states = 2
+        self.num_inputs = 1
         # parameters
         self.m = 1
         self.l = .5
@@ -85,7 +98,7 @@ class PendulumTrig(S4CV_Plants):
         self.x0dot = np.zeros((self.num_states,))
         self.init_x_g_B()
 
-    def get_x(self, d=2, num_grid=100, slice_idx=None):
+    def get_x(self, d=2, num_grid=200, slice_idx=None):
         x1 = np.linspace(-np.pi, np.pi, num_grid)
         x2 = np.linspace(-d, d, num_grid)
         x1, x2 = np.meshgrid(x1, x2)
@@ -102,3 +115,7 @@ class PendulumTrig(S4CV_Plants):
 
     def hx(self, x=None):
         return np.array([0, 1 / (self.I)])
+
+# plant = get('PendulumTrig')
+# plant.set_syms(3,2)
+# plant.features_at_x()
