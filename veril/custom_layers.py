@@ -15,7 +15,7 @@ from keras.layers.recurrent import RNN
 from keras.layers.merge import _Merge
 
 import numpy as np
-from veril import plants
+from veril import plants_via_RNN
 from tensorflow.python.ops.parallel_for.gradients import jacobian, batch_jacobian
 # import itertools
 # import math
@@ -258,7 +258,7 @@ class JanetControllerCell(Layer):
         self.plant_name = plant_name
         self.dt = dt
         self.obs_idx = obs_idx
-        self.plant = plants.get(plant_name, dt, obs_idx)
+        self.plant = plants_via_RNN.get(plant_name, dt, obs_idx)
         self.num_plant_states = self.plant.num_states
         self.num_plant_output = self.plant.num_outputs
         self.num_plant_disturb = self.plant.num_disturb

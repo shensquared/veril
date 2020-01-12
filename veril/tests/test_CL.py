@@ -1,5 +1,5 @@
 from Veril import closed_loop
-from Veril import plants
+from Veril import plants_via_RNN
 import numpy as np
 
 import sys
@@ -35,7 +35,7 @@ NN = closed_loop.get_NNorCL(NNorCL='NN', **options)
 test_time_steps = 1
 test_num_samples = 2
 
-plant = plants.get(CL.plant_name, CL.dt, CL.obs_idx)
+plant = plants_via_RNN.get(CL.plant_name, CL.dt, CL.obs_idx)
 augedSys = closed_loop.PolyRNNCL(CL, model_file_name)
 x = augedSys.sample_init_states_w_tanh(test_num_samples)
 initx=x[:,0:2]

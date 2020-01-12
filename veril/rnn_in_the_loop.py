@@ -3,7 +3,7 @@ from keras import backend as K
 from keras.utils import CustomObjectScope
 from keras.models import load_model
 
-from veril import plants
+from veril import plants_via_RNN
 from veril.custom_layers import JanetController
 from veril.closed_loop import ClosedLoopSys
 
@@ -43,7 +43,7 @@ def train_RNN_controller(pre_trained=None, **kwargs):
     tag = kwargs.pop('tag')
     plant_name = kwargs.pop('plant_name')
 
-    plant = plants.get(plant_name, dt, obs_idx)
+    plant = plants_via_RNN.get(plant_name, dt, obs_idx)
     if pre_trained is None:
         [init_x, init_c, ext_in] = [
             Input(shape=(plant.num_states,), name='init_x'),
@@ -101,7 +101,6 @@ def get_NNorCL(NNorCL='CL', **kwargs):
             if hasattr(this_layer, 'cell'):
                 return [this_layer, file_name]
 
-
 def call_CLsys(CL, tm1, num_samples):
     inputs = K.placeholder()
     states = [K.placeholder(shape=(num_samples, CL.cell.num_plant_states)),
@@ -134,7 +133,7 @@ def sample_stable_inits(model, num_samples, timesteps, **kwargs):
     for this_layer in model.layers:
         if hasattr(this_layer, 'cell'):
             CL = this_layer
-    plant = plants.get(CL.plant_name, CL.dt, CL.obs_idx)
+    plant = plants_via_RNN.get(CL.plant_name, CL.dt, CL.obs_idx)
     init = plant.get_data(num_samples, timesteps,
                           CL.units, random_c=True, **kwargs)[0]
     pred = model.predict(init)
@@ -159,7 +158,7 @@ class PolyRNNCL(ClosedLoopSys):
         self.recurrent_kernel_c = (K.eval(CL.cell.recurrent_kernel_c))
         self.kernel_c = (K.eval(CL.cell.kernel_c))
 
-        self.plant = plants.get(CL.plant_name, CL.dt, CL.obs_idx)
+        self.plant = plants_via_RNN.get(CL.plant_name, CL.dt, CL.obs_idx)
         self.nx = CL.cell.num_plant_states
         self.units = CL.units
         self.dt = CL.dt
@@ -339,7 +338,7 @@ class PolyRNNCL(ClosedLoopSys):
 
 
 def originalSysInitialV(CL):
-    plant = plants.get(CL.plant_name, CL.dt, CL.obs_idx)
+    plant = plants_via_RNN.get(CL.plant_name, CL.dt, CL.obs_idx)
     A0 = CL.linearize()
     full_dim = plant.num_states + CL.units
     prog = MathematicalProgram()
