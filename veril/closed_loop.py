@@ -88,8 +88,7 @@ class ClosedLoopSys(object):
         # this requires far lower degreed multiplier xxd and consequentially
         # lower degree psi, re-write both
         self.sym_V = V
-        self.sym_Vdot = self.sym_V.Jacobian(self.sym_x) @ self.sym_f
-        # self.sym_Vdot = Polynomial(self.sym_Vdot, self.sym_x)
+        self.sym_Vdot = self.set_Vdot(V)
         self.degVdot = self.degV - 1 + self.degf
         deg = int(np.ceil((self.degVdot - self.degV) / 2))
         self.sym_xxd = (self.sym_x.T@self.sym_x)**(deg)
