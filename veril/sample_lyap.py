@@ -8,7 +8,7 @@ from keras import backend as K
 from keras import regularizers, initializers
 from keras.utils import CustomObjectScope
 
-import math
+from math import factorial as fact
 from veril.custom_layers import *
 import numpy as np
 '''
@@ -123,8 +123,8 @@ def linear_model_for_V(sys_dim, A):
 
 
 def modelV(sys_dim, degFeatures, remove_one=True):
-    f = lambda x: math.factorial(x)
-    monomial_dim = f(sys_dim + degFeatures) // f(degFeatures) // f(sys_dim)
+    f = lambda dim, deg: fact(dim + deg) // fact(dim) // fact(deg)
+    monomial_dim = f(sys_dim, degFeatures)
     if remove_one:
         monomial_dim = monomial_dim - 1
 
@@ -182,9 +182,10 @@ def get_gram_for_V(model):
 
 
 def gram_decomp_model_for_levelsetpoly(sys_dim, sigma_deg, psi_deg):
-    f = lambda x: math.factorial(x)
+    f = lambda dim, deg: fact(dim + deg) // fact(dim) // fact(deg)
     # -1 if V doesn't have a constant monomial
-    psi_dim = f(sys_dim + psi_deg) // f(psi_deg) // f(sys_dim)
+    psi_dim = f(sys_dim, psi_deg)
+
     psi = Input(shape=(psi_dim,), name='psi')
     layers = [
         Dense(psi_dim, use_bias=False),

@@ -168,8 +168,8 @@ def levelset_sos(sys, V0, do_balance=False, write_to_file=False):
     degxx = int(np.floor((degL1 + degVdot - degV) / 2))
 
     psi_deg = int(np.floor(max(2 * degxx + degV, degL1 + degVdot) / 2))
-    f = lambda x: math.factorial(x)
-    psi_dim = f(nX + psi_deg) // f(psi_deg) // f(nX)
+    f = lambda dim, deg: fact(dim + deg) // fact(dim) // fact(deg)
+    psi_dim = f(nX, psi_deg)
     # print('equality-constrained SDP size is %s' % psi_dim)
 
     H = Jacobian(Vdot.Jacobian(x).T, x)
