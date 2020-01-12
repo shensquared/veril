@@ -38,6 +38,13 @@ class ClosedLoopSys(object):
     def __init__():
         pass
 
+    def polynomial_dynamics(self, sample_states=None):
+        if sample_states is None:
+            x = self.sym_x
+        else:
+            x = sample_states.T
+        return self.fx(None, x)
+
     def set_syms(self, deg, remove_one=True):
         self.degFeatures = deg
         self.degV = 2 * deg
@@ -47,7 +54,6 @@ class ClosedLoopSys(object):
         self.sym_eta = sym_dphidx@self.sym_f
 
     def features_at_x(self, x):  # x: (num_samples, sys_dim)
-        # f = self.polynomial_dynamics(sample_states=x)
         n_samples = x.shape[0]
         phi, eta = [], []
         for i in range(n_samples):
@@ -212,16 +218,6 @@ class VanderPol(ClosedLoopSys):
         x = np.array([x1, x2]).T  # (num_grid**2,2)
         return x[~np.all(x == 0, axis=1)]
 
-    def polynomial_dynamics(self, sample_states=None):
-        if sample_states is None:
-            sym_x = self.sym_x
-            return -np.array([sym_x[1], -sym_x[0] - sym_x[1] * (sym_x[0]**2 -
-                                                                1)])
-        else:
-            x = sample_states.T
-            f = - np.array([x[1, :], (1 - x[0, :]**2) * x[1, :] - x[0, :]]).T
-            return f
-
     def knownROA(self):
         x = self.sym_x
         x1 = x[0]
@@ -234,44 +230,6 @@ class VanderPol(ClosedLoopSys):
 
     def fx(self, t, y):
         return - np.array([y[1], (1 - y[0]**2) * y[1] - y[0]])
-
-    def outward_vdp(self, t, y):
-        return - self.fx(t, y)
-
-    def phase_portrait(self, ax, ax_max):
-        num = 60
-        u = np.linspace(-ax_max, ax_max, num=num)
-        v = np.linspace(-ax_max, ax_max, num=num)
-        u, v = np.meshgrid(u, v)
-        u, v = u.ravel(), v.ravel()
-        x = -v
-        y = u - v + v * u**2
-        # angles='xy', width=1e-3,scale_units='xy', scale=12, color='r'
-        ax.quiver(u, v, x, y, color='r', width=1e-3, scale_units='x')
-
-    def plot_sim_traj(self, timesteps, full_states, stable_sample,
-                      num_samples=1, scale_time=1):
-        fig, ax = plt.subplots()
-        for i in range(num_samples):
-            sim_traj = self.sim_traj(timesteps, full_states,
-                                     stable_sample, scale_time=scale_time)
-            if full_states:
-                self._phase_portrait(ax, 3)
-                ax.scatter(sim_traj[:, 0], sim_traj[:, 1], c='b')
-                ax.scatter(sim_traj[0, 0], sim_traj[0, 1], c='g')
-                # ax.axis([-3, 3, -3, 3])
-                plt.xlabel('$x_1$')
-                plt.ylabel('$x_2$', rotation=0)
-                plt.xticks(fontsize=8)
-                plt.yticks(fontsize=8)
-            else:
-                t = np.arange(timesteps)
-                ax.scatter(t, sim_traj, c='b')
-                plt.xlabel('$t$')
-                plt.ylabel('$x_2$', rotation=0)
-                plt.xticks(fontsize=8)
-                plt.yticks(fontsize=8)
-        plt.show()
 
 
 class Pendubot(ClosedLoopSys):
@@ -302,19 +260,10 @@ class Pendubot(ClosedLoopSys):
             x[:, slice_idx] = np.array([x1, x2]).T
         return x[~np.all(x == 0, axis=1)]
 
-    def polynomial_dynamics(self, sample_states=None):
-        if sample_states is None:
-            return self.fx(None, self.sym_x)
-        else:
-            x = sample_states.T
-            x1 = x[0, :]
-            x2 = x[1, :]
-            x3 = x[2, :]
-            x4 = x[3, :]
-            return self.fx(None, [x1, x2, x3, x4]).T
-
     def fx(self, t, y):
         [x1, x2, x3, x4] = y
-        return np.array([1 * x2, 782 * x1 + 135 * x2 + 689 * x3 + 90 * x4, 1 * x4,
-                         279 * x1 * x3**2 - 1425 * x1 - 257 * x2 + 273 *
-                         x3**3 - 1249 * x3 - 171 * x4])
+        return np.array([1 * x2,
+                         782 * x1 + 135 * x2 + 689 * x3 + 90 * x4,
+                         1 * x4,
+                         279 * x1 * x3**2 - 1425 * x1 - 257 * x2 + 273 * x3**3
+                         - 1249 * x3 - 171 * x4])
