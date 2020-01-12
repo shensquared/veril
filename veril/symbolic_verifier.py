@@ -1,13 +1,12 @@
 import sys
 sys.path.append(
     "/Users/shenshen/drake-build/install/lib/python3.7/site-packages")
-import math
-import pydrake
-import numpy as np
-from numpy.linalg import eig, inv
 from pydrake.all import (MathematicalProgram, Polynomial, Expression,
                          SolutionResult, Variables, Solve, Jacobian, Evaluate,
                          Substitute, MosekSolver, MonomialBasis)
+import math
+import numpy as np
+from numpy.linalg import eig, inv
 import cvxpy as cp
 
 

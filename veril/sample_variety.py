@@ -1,11 +1,10 @@
 import sys
 sys.path.append(
     "/Users/shenshen/drake-build/install/lib/python3.7/site-packages")
-import pydrake
-import numpy as np
-from numpy.linalg import eig, inv
 from pydrake.all import (Polynomial, Variable, Evaluate, Substitute,
                          MathematicalProgram, MosekSolver)
+import numpy as np
+from numpy.linalg import eig, inv
 import time
 
 
