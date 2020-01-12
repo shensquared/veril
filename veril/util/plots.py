@@ -34,7 +34,7 @@ def scatterSamples(samples, sys_name, slice_idx, add_title=''):
 
     file_dir = '../data/' + sys_name
     stable_samples = np.load(file_dir + '/stableSamplesSlice' + id1 + id2 +
-       '.npy')
+                             '.npy')
 
     if sys_name is 'VanderPol':
         xlim = np.load(file_dir + '/VanderPol_limitCycle.npy')
@@ -88,3 +88,39 @@ def plot3d(V, sys_name, slice_idx, r_max=2, add_title='', level_sets=False):
             xx = samples.levelsetData(V / i, slice_idx)[0]
             ax.plot(xx[:, 0], xx[:, 1], zs=0, zdir='z', label='levels')
     plt.show()
+
+
+# def phase_portrait(self, ax, ax_max):
+#     num = 60
+#     u = np.linspace(-ax_max, ax_max, num=num)
+#     v = np.linspace(-ax_max, ax_max, num=num)
+#     u, v = np.meshgrid(u, v)
+#     u, v = u.ravel(), v.ravel()
+#     x = -v
+#     y = u - v + v * u**2
+#     # angles='xy', width=1e-3,scale_units='xy', scale=12, color='r'
+#     ax.quiver(u, v, x, y, color='r', width=1e-3, scale_units='x')
+
+# def plot_sim_traj(self, timesteps, full_states, stable_sample,
+#                   num_samples=1, scale_time=1):
+#     fig, ax = plt.subplots()
+#     for i in range(num_samples):
+#         sim_traj = self.sim_traj(timesteps, full_states,
+#                                  stable_sample, scale_time=scale_time)
+#         if full_states:
+#             self._phase_portrait(ax, 3)
+#             ax.scatter(sim_traj[:, 0], sim_traj[:, 1], c='b')
+#             ax.scatter(sim_traj[0, 0], sim_traj[0, 1], c='g')
+#             # ax.axis([-3, 3, -3, 3])
+#             plt.xlabel('$x_1$')
+#             plt.ylabel('$x_2$', rotation=0)
+#             plt.xticks(fontsize=8)
+#             plt.yticks(fontsize=8)
+#         else:
+#             t = np.arange(timesteps)
+#             ax.scatter(t, sim_traj, c='b')
+#             plt.xlabel('$t$')
+#             plt.ylabel('$x_2$', rotation=0)
+#             plt.xticks(fontsize=8)
+#             plt.yticks(fontsize=8)
+#     plt.show()
