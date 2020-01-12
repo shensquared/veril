@@ -45,10 +45,14 @@ class ClosedLoopSys(object):
             x = sample_states.T
         return self.fx(None, x)
 
+    def init_x_f(self):
+        prog = MathematicalProgram()
+        self.sym_x = prog.NewIndeterminates(self.num_states, "x")
+        self.sym_f = self.polynomial_dynamics()
+
     def set_syms(self, deg, remove_one=True):
         self.degFeatures = deg
         self.degV = 2 * deg
-        self.sym_f = self.polynomial_dynamics()
         self.sym_phi = get_monomials(self.sym_x, deg, remove_one=remove_one)
         sym_dphidx = Jacobian(self.sym_phi, self.sym_x)
         self.sym_eta = sym_dphidx@self.sym_f
@@ -119,11 +123,9 @@ class ClosedLoopSys(object):
 
     def linearized_quadractic_V(self):
         x = self.sym_x
-        f = self.polynomial_dynamics()
-        J = Jacobian(f, x)
+        f = self.sym_f
         env = dict(zip(x, np.zeros(x.shape)))
-
-        A = np.array([[i.Evaluate(env) for i in j]for j in J])
+        A = np.array([[i.Evaluate(env) for i in j]for j in Jacobian(f,x)])
         print('A  %s' % A)
         print('eig of the linearized A matrix %s' % (eig(A)[0]))
         P = solve_lyapunov(A.T, -np.eye(x.shape[0]))
@@ -207,8 +209,7 @@ class VanderPol(ClosedLoopSys):
         self.all_slices = [[0, 1]]
         self.trueROA = True
         self.degf = 3
-        prog = MathematicalProgram()
-        self.sym_x = prog.NewIndeterminates(self.num_states, "x")
+        self.init_x_f()
 
     def get_x(self, d=2, num_grid=200, slice_idx=None):
         x1 = np.linspace(-d, d, num_grid)
@@ -241,8 +242,7 @@ class Pendubot(ClosedLoopSys):
         self.all_slices = list(
             itertools.combinations(range(self.num_states), 2))
         self.degf = 3
-        prog = MathematicalProgram()
-        self.sym_x = prog.NewIndeterminates(self.num_states, "x")
+        self.init_x_f()
 
     def get_x(self, d=2, num_grid=100, slice_idx=None):
         x1 = np.linspace(-d, d, num_grid)
