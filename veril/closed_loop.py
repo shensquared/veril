@@ -49,17 +49,12 @@ class ClosedLoopSys(object):
     def features_at_x(self, x):  # x: (num_samples, sys_dim)
         # f = self.polynomial_dynamics(sample_states=x)
         n_samples = x.shape[0]
-        phi_dim = self.sym_phi.shape[0]
-        phi = np.zeros((n_samples, phi_dim))
-        # dphidx = np.zeros((n_samples, phi_dim, self.num_states))
-        eta = np.zeros((n_samples, phi_dim))
+        phi, eta = [], []
         for i in range(n_samples):
             env = dict(zip(self.sym_x, x[i, :]))
-            phi[i, :] = [i.Evaluate(env) for i in self.sym_phi]
-            # dphidx[i, :, :] = [[i.Evaluate(env) for i in j]for j in
-            # self.sym_dphidx]
-            eta[i, :] = [i.Evaluate(env) for i in self.sym_eta]
-        return [phi, eta]
+            phi.append([j.Evaluate(env) for j in self.sym_phi])
+            eta.append([j.Evaluate(env) for j in self.sym_eta])
+        return [np.array(phi), np.array(eta)]
 
     # def levelset_features(self, V, sigma_deg):
     #     self.sym_V = V
@@ -105,13 +100,12 @@ class ClosedLoopSys(object):
     def get_sample_variety_features(self, samples):
         # samples: (num_samples, sys_dim)
         n_samples = samples.shape[0]
-        xxd = np.zeros((n_samples, 1))
-        psi = np.zeros((n_samples, self.sym_psi.shape[0]))
+        xxd, psi = [], []
         for i in range(n_samples):
             env = dict(zip(self.sym_x, samples[i, :]))
-            xxd[i, :] = self.sym_xxd.Evaluate(env)
-            psi[i, :] = [i.Evaluate(env) for i in self.sym_psi]
-        return [xxd, psi]
+            xxd.append(self.sym_xxd.Evaluate(env))
+            psi.append([j.Evaluate(env) for j in self.sym_psi])
+        return [np.array(xxd), np.array(psi)]
 
     def get_v_values(self, samples, V=None):
         if V is None:

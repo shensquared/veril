@@ -225,7 +225,7 @@ def solve_SDP_on_samples(system, sampled_quantities, write_to_file=False):
 
     for i in range(psi.shape[0]):
         residual = xxd[i] * (V[i] - rho) - psi[i].T@P@psi[i]
-        prog.AddConstraint(residual[0] == 0)
+        prog.AddConstraint(residual == 0)
 
     prog.AddCost(-rho)
     solver = MosekSolver()
@@ -254,7 +254,7 @@ def check_vanishing(system, variety, rho, P, Tinv):
     isVanishing = True
     # print('vanishing V %s' % V)
     for i in range(test_samples.shape[0]):
-        levelset = (xxd[i] * (V[i] - rho))[0]
+        levelset = (xxd[i] * (V[i] - rho))
         this_psi = Tinv@psi[i]
         candidate = this_psi.T@P@this_psi
         ratio = levelset / candidate
