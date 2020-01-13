@@ -35,7 +35,7 @@ def get_monomials(x, deg, remove_one=False):
 
 class ClosedLoopSys(object):
 
-    def __init__():
+    def __init__(self):
         pass
 
     def polynomial_dynamics(self, sample_states=None):
