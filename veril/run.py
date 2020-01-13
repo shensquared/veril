@@ -24,8 +24,7 @@ def get_V(system, train_or_load, remove_one=True, **kwargs):
     degFeatures = system.degFeatures
     tag = str(degFeatures)
     if remove_one:
-        tag = 'remove_one' + tag
-    system = get_system(sys_name, degFeatures, remove_one=remove_one)
+        tag = '_remove_one' + tag
 
     if train_or_load is 'Train':
         nx = system.num_states
@@ -35,7 +34,7 @@ def get_V(system, train_or_load, remove_one=True, **kwargs):
         assert(train_x.shape[1] == nx)
         print('x size %s' % str(train_x.shape))
 
-        file_path = model_dir + '/train_for_v_features_' + tag + '.npz'
+        file_path = model_dir + '/train_for_v_features' + tag + '.npz'
         if os.path.exists(file_path):
             loaded = np.load(file_path)
             features = [loaded['phi'], loaded['eta']]
@@ -119,8 +118,8 @@ def verify_via_variety(system, V, init_root_threads=1):
         # (variety, 1)))
         samples = np.vstack((samples, new_sample))
     print(rho)
-    plot_funnel(V, sys_name, system.slice, add_title=' - Sampling Variety ' +
-                'Result')
+    plot_funnel(V/rho, sys_name, system.slice, add_title=' - Sampling Variety '
+       + 'Result')
     return rho
 
 
@@ -180,8 +179,8 @@ init_root_threads = 100
 epochs = 3
 remove_one = True
 
-system = get_system(sys_name, degFeatures)
-V, Vdot, system = get_V(system, train_or_load, epochs=epochs,
+system = get_system(sys_name, degFeatures, remove_one = remove_one)
+V, Vdot, system = get_V(system, train_or_load, epochs=epochs, remove_one=remove_one,
                         verbose=True, validation_split=0, shuffle=True)
 
 # [plot_funnel(V, sys_name, slice_idx=i) for i in system.all_slices]
