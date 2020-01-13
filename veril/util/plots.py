@@ -3,6 +3,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 from . import samples
 from mpl_toolkits.mplot3d import Axes3D
+import os
 
 
 def plot_funnel(V, sys_name, slice_idx, add_title=''):
@@ -33,16 +34,16 @@ def scatterSamples(samples, sys_name, slice_idx, add_title=''):
     id2 = str(slice_idx[1] + 1)
 
     file_dir = '../data/' + sys_name
-    stable_samples = np.load(file_dir + '/stableSamplesSlice' + id1 + id2 +
-                             '.npy')
+    stableSamples_path = file_dir + '/stableSamplesSlice' + id1 + id2 + '.npy'
+    if os.path.exists(stableSamples_path):
+        stable_samples = np.load(stableSamples_path)
+        plt.scatter(stable_samples[:, 0], stable_samples[
+            :, 1], color='red', label='Simulated Stable Samples')
 
     if sys_name is 'VanderPol':
         xlim = np.load(file_dir + '/VanderPol_limitCycle.npy')
-        bdry = plt.plot(xlim[0, :], xlim[1, :],
-                        color='yellow', label='ROA boundary')
+        bdry = plt.plot(xlim[0], xlim[1], color='yellow', label='ROA boundary')
 
-    plt.scatter(stable_samples[:, 0], stable_samples[
-        :, 1], color='red', label='Simulated Stable Samples')
     plt.scatter(samples[:, slice_idx[0]], samples[:, slice_idx[1]],
                 label='Samples')
     xlab, ylab = 'X' + id1, 'X' + id2
