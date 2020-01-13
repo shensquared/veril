@@ -140,21 +140,22 @@ def get_V_model(sys_name, tag):
     model_dir = os.path.dirname(__file__) + '/../data/' + sys_name
     file_name = model_dir + '/V_model' + tag + '.h5'
 
-    with CustomObjectScope({'Divide': Divide, 'max_pred': max_pred,
-                            'mean_pred': mean_pred, 'neg_percent': neg_percent,
-                            'mean_pos': mean_pos}):
+    with CustomObjectScope({'Divide': Divide, 'DotKernel': DotKernel,
+                            'max_pred': max_pred, 'mean_pred': mean_pred,
+                            'neg_percent': neg_percent, 'mean_pos': mean_pos}):
         model = load_model(file_name)
     print(model.summary())
     return model
 
 
-def model_UV(plant, remove_one=True):
+def model_UV(plant):
     # assuming control affine
-    B = plant.ctrl_B
+    B = plant.ctrl_B.T
     u_dim = plant.num_inputs
     sys_dim = plant.num_states
     degFeatures = plant.degFeatures
     degU = plant.degU
+    remove_one = plant.remove_one
 
     monomial_dim = get_dim(sys_dim, degFeatures)
     ubasis_dim = get_dim(sys_dim, degU)
@@ -177,11 +178,12 @@ def model_UV(plant, remove_one=True):
     ubasis = Input(shape=(ubasis_dim,), name='ubasis')
     u = Dense(u_dim, use_bias=False, name='u')(ubasis)
     g = Input(shape=(sys_dim,), name='open_loop_dynamics')
-    Bu = DotKernel(B)(u)
-    f_cl = Add(name='closed_loop_dynamics')(g, Bu)
+
+    Bu = DotKernel(B, name='Bu')(u)
+    f_cl = Add(name='closed_loop_dynamics')([g, Bu])
 
     dphidx = Input(shape=(monomial_dim, sys_dim), name='dphidx')
-    eta = Dot(1, name='eta')([dphidx, f_cl])
+    eta = Dot(-1, name='eta')([dphidx, f_cl])
     etaL = gram_factor(eta)  # (None, monomial_dim)
     Vdot = Dot(1, name='Vdot')([phiL, etaL])  # (None,1)
     rate = Divide(name='ratio')([Vdot, V])
@@ -246,26 +248,26 @@ def gram_decomp_model_for_levelsetpoly(sys_dim, sigma_deg, psi_deg):
     return model
 
 
-def linear_model_for_V(sys_dim, A):
-    x = Input(shape=(sys_dim,))  # (None, sys_dim)
-    layers = [
-        Dense(5, input_shape=(sys_dim,), use_bias=False,
-              kernel_regularizer=regularizers.l2(0.)),
-        Dense(2, use_bias=False, kernel_regularizer=regularizers.l2(0.)),
-        Dense(2, use_bias=False, kernel_regularizer=regularizers.l2(0.))
-    ]
-    layers = layers + [TransLayer(i) for i in layers[::-1]]
-    xLL = Sequential(layers)(x)  # (None, sys_dim)
-    # need to avoid 0 in the denominator (by adding a strictly positive scalar
-    # to V)
-    V = Dot(1)([xLL, x])  # (None, 1)
-    xLLA = DotKernel(A)(xLL)  # A: (sys_dim,sys_dim), xLLA: (None, sys_dim)
-    Vdot = Dot(1)([xLLA, x])  # Vdot: (None,1)
-    rate = Divide()([Vdot, V])
-    model = Model(inputs=x, outputs=rate)
-    model.compile(loss=max_pred, optimizer='adam')
-    print(model.summary())
-    return model
+# def linear_model_for_V(sys_dim, A):
+#     x = Input(shape=(sys_dim,))  # (None, sys_dim)
+#     layers = [
+#         Dense(5, input_shape=(sys_dim,), use_bias=False,
+#               kernel_regularizer=regularizers.l2(0.)),
+#         Dense(2, use_bias=False, kernel_regularizer=regularizers.l2(0.)),
+#         Dense(2, use_bias=False, kernel_regularizer=regularizers.l2(0.))
+#     ]
+#     layers = layers + [TransLayer(i) for i in layers[::-1]]
+#     xLL = Sequential(layers)(x)  # (None, sys_dim)
+#     # need to avoid 0 in the denominator (by adding a strictly positive scalar
+#     # to V)
+#     V = Dot(1)([xLL, x])  # (None, 1)
+#     xLLA = DotKernel(A)(xLL)  # A: (sys_dim,sys_dim), xLLA: (None, sys_dim)
+#     Vdot = Dot(1)([xLLA, x])  # Vdot: (None,1)
+#     rate = Divide()([Vdot, V])
+#     model = Model(inputs=x, outputs=rate)
+#     model.compile(loss=max_pred, optimizer='adam')
+#     print(model.summary())
+#     return model
 
 
 def get_dim(num_var, deg):

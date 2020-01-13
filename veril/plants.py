@@ -47,6 +47,7 @@ class S4CV_Plants(object):
         return gx - self.x0dot
 
     def set_syms(self, degFeatures, degU, remove_one=True):
+        self.remove_one = remove_one
         self.degFeatures = degFeatures
         self.degV = 2 * degFeatures
         self.degU = degU
@@ -69,10 +70,11 @@ class S4CV_Plants(object):
                            self.sym_dphidx])
             ubasis.append([j.Evaluate(env) for j in self.sym_ubasis])
         features = [g, np.array(phi), np.array(dphidx), np.array(ubasis)]
-        model_dir = '../data/' + self.name +'/V_u_features'
-        file_path = model_dir + '_degV' + str(self.degFeatures) + 'degU' + str(self.degU) + '.npz'
+        model_dir = '../data/' + self.name + '/V_u_features'
+        file_path = model_dir + '_degV' + \
+            str(self.degFeatures) + 'degU' + str(self.degU) + '.npz'
         np.savez_compressed(file_path, g=features[0], phi=features[1],
-            dphidx=features[2], ubasis=features[3])
+                            dphidx=features[2], ubasis=features[3])
         return features
 
 
@@ -114,7 +116,7 @@ class PendulumTrig(S4CV_Plants):
         return np.array([1 * x2, thetaddot])
 
     def hx(self, x=None):
-        return np.array([0, 1 / (self.I)])
+        return np.array([[0], [1 / self.I]])
 
 # plant = get('PendulumTrig')
 # plant.set_syms(3,2)

@@ -1070,7 +1070,7 @@ class DotKernel(Layer):
         if 'input_shape' not in kwargs and 'input_dim' in kwargs:
             kwargs['input_shape'] = (kwargs.pop('input_dim'),)
         super(DotKernel, self).__init__(**kwargs)
-        self.A = K.variable(A)
+        self.A = A
         self.input_spec = InputSpec(min_ndim=2)
 
     def build(self, input_shape):
@@ -1081,14 +1081,14 @@ class DotKernel(Layer):
         self.built = True
 
     def call(self, inputs):
-        output = K.dot(inputs, self.A)
+        output = K.dot(inputs, K.variable(self.A))
         return output
 
     def compute_output_shape(self, input_shape):
         assert input_shape and len(input_shape) >= 2
         assert input_shape[-1]
         output_shape = list(input_shape)
-        output_shape[-1] = self.A.shape[0]
+        output_shape[-1] = self.A.shape[-1]
         return tuple(output_shape)
 
     def get_config(self):
