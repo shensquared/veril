@@ -61,6 +61,9 @@ def flipped_relu(y_true, y_pred):
     return - K.maximum(y_pred, 0.)
 
 
+def rho_reg(weight_matrix):
+    return 0.001 * K.abs(K.sum(weight_matrix))
+
 # def test_idx(y_true,y_pred):
     # return K.gather(y_pred,1)
 
@@ -82,49 +85,8 @@ def flipped_relu(y_true, y_pred):
 #     return K.sign(y_pred)
 
 
-def linear_model_for_V(sys_dim, A):
-    x = Input(shape=(sys_dim,))  # (None, sys_dim)
-    layers = [
-        Dense(5, input_shape=(sys_dim,), use_bias=False,
-              kernel_regularizer=regularizers.l2(0.)),
-        Dense(2, use_bias=False, kernel_regularizer=regularizers.l2(0.)),
-        Dense(2, use_bias=False, kernel_regularizer=regularizers.l2(0.))
-    ]
-    layers = layers + [TransLayer(i) for i in layers[::-1]]
-    xLL = Sequential(layers)(x)  # (None, sys_dim)
-    # need to avoid 0 in the denominator (by adding a strictly positive scalar
-    # to V)
-    V = Dot(1)([xLL, x])  # (None, 1)
-    xLLA = DotKernel(A)(xLL)  # A: (sys_dim,sys_dim), xLLA: (None, sys_dim)
-    Vdot = Dot(1)([xLLA, x])  # Vdot: (None,1)
-    rate = Divide()([Vdot, V])
-    model = Model(inputs=x, outputs=rate)
-    model.compile(loss=max_pred, optimizer='adam')
-    print(model.summary())
-    return model
-
-
-# def linearTrain():
-#     callbacks = []
-#     x, y = get_data()
-#     A = np.array([[-.1, 0], [1, -2]])
-#     model = linear_model_for_V(2, A)
-#     print(model.predict(x))
-#     history = model.fit(x, y, epochs=15, verbose=True, callbacks=callbacks)
-#     # getting the weights and verify the eigs
-#     L = np.linalg.multi_dot(model.get_weights())
-#     P = L@L.T
-#     print('eig of orignal PA+A\'P  %s' % (np.linalg.eig(P@A + A.T@P)[0]))
-#     model_file_name = '../data/Kernel/lyap_model.h5'
-#     model.save(model_file_name)
-#     del model
-#     print("Saved model" + model_file_name + " to disk")
-#     return P
-
-
 def modelV(sys_dim, degFeatures, remove_one=True):
-    f = lambda dim, deg: fact(dim + deg) // fact(dim) // fact(deg)
-    monomial_dim = f(sys_dim, degFeatures)
+    monomial_dim = get_dim(sys_dim, degFeatures)
     if remove_one:
         monomial_dim = monomial_dim - 1
 
@@ -161,17 +123,6 @@ def modelV(sys_dim, degFeatures, remove_one=True):
     return model
 
 
-# def polyTrain(nx, degFeatures, x, V=None, model=None):
-#     if model is None:
-#         model = modelV(nx, degFeatures)
-#     history = model.fit(train_x, train_y, shuffle=True, epochs=15,
-#        verbose=True)
-#     P = get_gram_for_V(model)
-#     model_file_name = '../data/Kernel/polyModel.h5'
-#     model.save(model_file_name)
-#     print("Saved model" + model_file_name + " to disk")
-#     return P, model, history
-
 def get_gram_for_V(model):
     weights = model.get_weights()
     if len(weights) == 1:
@@ -181,11 +132,66 @@ def get_gram_for_V(model):
     return L@L.T
 
 
-def gram_decomp_model_for_levelsetpoly(sys_dim, sigma_deg, psi_deg):
-    f = lambda dim, deg: fact(dim + deg) // fact(dim) // fact(deg)
-    # -1 if V doesn't have a constant monomial
-    psi_dim = f(sys_dim, psi_deg)
+def get_V_model(sys_name, tag):
+    model_dir = os.path.dirname(__file__) + '/../data/' + sys_name
+    file_name = model_dir + '/V_model_' + tag + '.h5'
 
+    with CustomObjectScope({'Divide': Divide, 'max_pred': max_pred,
+                            'mean_pred': mean_pred, 'neg_percent': neg_percent,
+                            'mean_pos': mean_pos}):
+        model = load_model(file_name)
+    print(model.summary())
+    return model
+
+
+def model_UV(plant, remove_one=True):
+    # assuming control affine
+    B = plant.ctrl_B
+    u_dim = plant.num_inputs
+    sys_dim = plant.num_states
+    degFeatures = plant.degFeatures
+    degU = plant.degU
+
+    monomial_dim = get_dim(sys_dim, degFeatures)
+    ubasis_dim = get_dim(sys_dim, degU)
+    if remove_one:
+        monomial_dim = monomial_dim - 1
+        ubasis_dim = ubasis_dim - 1
+
+    phi = Input(shape=(monomial_dim,), name='phi')
+    layers = [
+        Dense(monomial_dim, use_bias=False),
+        # Dense((monomial_dim * 2), use_bias=False),
+        # Dense(monomial_dim, use_bias=False),
+    ]
+    gram_factor = Sequential(layers, name='gram_factorization')
+    phiL = gram_factor(phi)  # (None, monomial_dim)
+    V = Dot(1, name='V')([phiL, phiL])  # (None,1)
+
+    # # need to avoid 0 in the denominator (by adding a strictly positive scalar
+    # # to V)
+    ubasis = Input(shape=(ubasis_dim,), name='ubasis')
+    u = Dense(u_dim, use_bias=False, name='u')(ubasis)
+    g = Input(shape=(sys_dim,), name='open_loop_dynamics')
+    Bu = DotKernel(B)(u)
+    f_cl = Add(name='closed_loop_dynamics')(g, Bu)
+
+    dphidx = Input(shape=(monomial_dim, sys_dim), name='dphidx')
+    eta = Dot(1, name='eta')([dphidx, f_cl])
+    etaL = gram_factor(eta)  # (None, monomial_dim)
+    Vdot = Dot(1, name='Vdot')([phiL, etaL])  # (None,1)
+    rate = Divide(name='ratio')([Vdot, V])
+
+    features = [g, phi, dphidx, ubasis]
+    model = Model(inputs=features, outputs=rate)
+    model.compile(loss=max_pred, metrics=[mean_pred, max_pred, neg_percent],
+                  optimizer='adam')
+    print(model.summary())
+    return model
+
+
+def gram_decomp_model_for_levelsetpoly(sys_dim, sigma_deg, psi_deg):
+    psi_dim = get_dim(sys_dim, psi_deg)
     psi = Input(shape=(psi_dim,), name='psi')
     layers = [
         Dense(psi_dim, use_bias=False),
@@ -204,7 +210,7 @@ def gram_decomp_model_for_levelsetpoly(sys_dim, sigma_deg, psi_deg):
 
     xxdV = Dot(-1)([xxd, V])
 
-    sigma_dim = f(sys_dim + sigma_deg) // f(sigma_deg) // f(sys_dim)
+    sigma_dim = get_dim(sys_dim + sigma_deg)
     sigma = Input(shape=(sigma_dim,), name='sigma')
 
     multiplierLayers = [
@@ -236,22 +242,30 @@ def gram_decomp_model_for_levelsetpoly(sys_dim, sigma_deg, psi_deg):
     return model
 
 
-def rho_reg(weight_matrix):
-    return 0.001 * K.abs(K.sum(weight_matrix))
-
-
-def get_V_model(sys_name, tag):
-    model_dir = os.path.dirname(__file__) + '/../data/' + sys_name
-    file_name = model_dir + '/V_model_' + tag + '.h5'
-
-    with CustomObjectScope({'Divide': Divide, 'max_pred': max_pred,
-                            'mean_pred': mean_pred, 'neg_percent': neg_percent,
-                            'mean_pos': mean_pos}):
-        model = load_model(file_name)
+def linear_model_for_V(sys_dim, A):
+    x = Input(shape=(sys_dim,))  # (None, sys_dim)
+    layers = [
+        Dense(5, input_shape=(sys_dim,), use_bias=False,
+              kernel_regularizer=regularizers.l2(0.)),
+        Dense(2, use_bias=False, kernel_regularizer=regularizers.l2(0.)),
+        Dense(2, use_bias=False, kernel_regularizer=regularizers.l2(0.))
+    ]
+    layers = layers + [TransLayer(i) for i in layers[::-1]]
+    xLL = Sequential(layers)(x)  # (None, sys_dim)
+    # need to avoid 0 in the denominator (by adding a strictly positive scalar
+    # to V)
+    V = Dot(1)([xLL, x])  # (None, 1)
+    xLLA = DotKernel(A)(xLL)  # A: (sys_dim,sys_dim), xLLA: (None, sys_dim)
+    Vdot = Dot(1)([xLLA, x])  # Vdot: (None,1)
+    rate = Divide()([Vdot, V])
+    model = Model(inputs=x, outputs=rate)
+    model.compile(loss=max_pred, optimizer='adam')
     print(model.summary())
     return model
 
 
+def get_dim(num_var, deg):
+    return fact(num_var + deg) // fact(num_var) // fact(deg)
 # def get_gram_trans_for_levelset_poly(model):
 #     names = [weight.name for layer in model.layers for weight in layer.weights]
 #     weights = model.get_weights()
