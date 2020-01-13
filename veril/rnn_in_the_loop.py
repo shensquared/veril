@@ -386,6 +386,6 @@ def originalSysInitialV(CL):
 #     model = sample_lyap.modelV(nx, max_deg)
 #     history = model.fit([phi, dphidx, f], y, epochs=100, shuffle=True)
 #     assert (history.history['loss'][-1] <= 0)
-#     P = sample_lyap.get_gram_for_V(model)
+#     P = sample_lyap.get_model_weights(model)
 #     V0 = system.sym_phi.T@P@system.sym_phi
 #     return V0, system

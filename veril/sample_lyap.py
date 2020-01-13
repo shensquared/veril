@@ -127,13 +127,24 @@ def model_V(system):
     return model
 
 
-def get_gram_for_V(model):
+def get_model_weights(model):
+    names = [weight.name for layer in model.layers for weight in layer.weights]
     weights = model.get_weights()
-    if len(weights) == 1:
-        L = weights[0]
+    u_weights, gram_weights = [], []
+    for name, weight in zip(names, weights):
+        if name.startswith('u'):
+            u_weights.append(weight)
+        else:
+            gram_weights.append(weight)
+
+    if len(gram_weights) == 1:
+        L = gram_weights[0]
     else:
-        L = np.linalg.multi_dot(weights)
-    return L@L.T
+        L = np.linalg.multi_dot(gram_weights)
+    if len(u_weights)==0:
+        return L@L.T
+    else:
+        return L@L.T, u_weights
 
 
 def get_V_model(sys_name, tag):

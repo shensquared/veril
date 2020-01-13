@@ -58,7 +58,7 @@ def get_V(system, train_or_load, **kwargs):
         train_x = None
         model = sample_lyap.get_V_model(sys_name, tag)
 
-    P = sample_lyap.get_gram_for_V(model)
+    P = sample_lyap.get_model_weights(model)
     V, Vdot = system.P_to_V(P, samples=train_x)
     # test_model(model, system, V, Vdot, x=None)
     return V, Vdot, system
