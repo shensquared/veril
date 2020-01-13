@@ -9,6 +9,7 @@ import itertools
 import six
 # import time
 import numpy as np
+from veril import closed_loop
 
 
 def get(plant_name):
@@ -22,6 +23,25 @@ def get_monomials(x, deg, remove_one=False):
         return np.array([i.ToExpression() for i in MonomialBasis(x, deg)[:-1]])
     else:
         return np.array([i.ToExpression() for i in MonomialBasis(x, deg)])
+
+
+def plant_to_closedloop(plant, u_weights):
+    system = closed_loop.ClosedLoopSys()
+    system.name = plant.name
+    system.num_states = plant.num_states
+    system.slice = plant.slice
+    system.all_slices = plant.all_slices
+
+    system.remove_one = plant.remove_one
+    system.degFeatures = plant.degFeatures
+    system.degV = plant.degV
+    system.sym_phi = plant.sym_phi
+
+    u = (plant.sym_ubasis@u_weights).T
+    fx = plant.sym_g + plant.ctrl_B@u
+    system.sym_x = plant.sym_x
+    system.sym_f = fx
+    return system
 
 
 class S4CV_Plants(object):
