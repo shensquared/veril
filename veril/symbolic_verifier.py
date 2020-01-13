@@ -8,7 +8,7 @@ import math
 import numpy as np
 from numpy.linalg import eig, inv
 import cvxpy as cp
-
+from math import factorial as fact
 
 def bilinear(x, V0, f, S0, A, **kwargs):
     V = V0
