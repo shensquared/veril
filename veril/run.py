@@ -19,10 +19,11 @@ def get_system(sys_name, degFeatures, remove_one=True):
     return system
 
 
-def get_V(system, train_or_load, remove_one=True, **kwargs):
+def get_V(system, train_or_load, **kwargs):
     sys_name = system.name
     degFeatures = system.degFeatures
     tag = str(degFeatures)
+    remove_one = system.remove_one
     if remove_one:
         tag = '_remove_one' + tag
 
@@ -43,7 +44,7 @@ def get_V(system, train_or_load, remove_one=True, **kwargs):
             features = system.features_at_x(train_x)
             np.savez_compressed(file_path, phi=features[0], eta=features[1])
         y = - np.ones((n_samples,))
-        model = sample_lyap.modelV(nx, degFeatures, remove_one=remove_one)
+        model = sample_lyap.model_V(system)
         history = model.fit(features, y, **kwargs)
         # assert (history.history['loss'][-1] <= 0)
         bad_samples, bad_predictions = eval_model(
@@ -118,8 +119,8 @@ def verify_via_variety(system, V, init_root_threads=1):
         # (variety, 1)))
         samples = np.vstack((samples, new_sample))
     print(rho)
-    plot_funnel(V/rho, sys_name, system.slice, add_title=' - Sampling Variety '
-       + 'Result')
+    plot_funnel(V / rho, sys_name, system.slice, add_title=' - Sampling Variety '
+                + 'Result')
     return rho
 
 
@@ -179,8 +180,8 @@ init_root_threads = 100
 epochs = 3
 remove_one = True
 
-system = get_system(sys_name, degFeatures, remove_one = remove_one)
-V, Vdot, system = get_V(system, train_or_load, epochs=epochs, remove_one=remove_one,
+system = get_system(sys_name, degFeatures, remove_one=remove_one)
+V, Vdot, system = get_V(system, train_or_load, epochs=epochs,
                         verbose=True, validation_split=0, shuffle=True)
 
 # [plot_funnel(V, sys_name, slice_idx=i) for i in system.all_slices]

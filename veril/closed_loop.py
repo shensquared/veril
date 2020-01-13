@@ -56,6 +56,7 @@ class ClosedLoopSys(object):
         self.sym_phi = get_monomials(self.sym_x, deg, remove_one=remove_one)
         sym_dphidx = Jacobian(self.sym_phi, self.sym_x)
         self.sym_eta = sym_dphidx@self.sym_f
+        self.remove_one = remove_one
 
     def features_at_x(self, x):  # x: (num_samples, sys_dim)
         n_samples = x.shape[0]
@@ -94,9 +95,10 @@ class ClosedLoopSys(object):
     #         sigma[i, :] = [i.Evaluate(env) for i in self.sym_sigma]
     #     return [V, Vdot, xxd, psi, sigma]
 
-    def set_sample_variety_features(self, V, remove_one=True):
+    def set_sample_variety_features(self, V):
         # this requires far lower degreed multiplier xxd and consequentially
         # lower degree psi, re-write both
+        remove_one=self.remove_one
         self.sym_V = V
         self.sym_Vdot = self.set_Vdot(V)
         self.degVdot = self.degV - 1 + self.degf

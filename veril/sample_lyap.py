@@ -85,7 +85,11 @@ def rho_reg(weight_matrix):
 #     return K.sign(y_pred)
 
 
-def modelV(sys_dim, degFeatures, remove_one=True):
+def model_V(system):
+    sys_dim = system.num_states
+    degFeatures = system.degFeatures
+    remove_one = system.remove_one
+
     monomial_dim = get_dim(sys_dim, degFeatures)
     if remove_one:
         monomial_dim = monomial_dim - 1
@@ -134,7 +138,7 @@ def get_gram_for_V(model):
 
 def get_V_model(sys_name, tag):
     model_dir = os.path.dirname(__file__) + '/../data/' + sys_name
-    file_name = model_dir + '/V_model_' + tag + '.h5'
+    file_name = model_dir + '/V_model' + tag + '.h5'
 
     with CustomObjectScope({'Divide': Divide, 'max_pred': max_pred,
                             'mean_pred': mean_pred, 'neg_percent': neg_percent,
