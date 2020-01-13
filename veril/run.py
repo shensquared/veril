@@ -91,7 +91,10 @@ def test_model(model, system, V, Vdot, x=None):
 def verify_via_equality(system, V0):
     if V0 is None:
         A, S, V0 = system.linearized_quadractic_V()
+    start = time.time()
     V = symbolic_verifier.levelset_sos(system, V0, do_balance=False)
+    end = time.time()
+    print('equlity constrained time %s' % (end - start))
     plot_funnel(V, system.name, system.slice, add_title=' - Equality ' +
                 'Constrainted Result')
 
@@ -110,10 +113,14 @@ def verify_via_variety(system, V, init_root_threads=1):
     while not is_vanishing:
         samples_monomial, Tinv = sample_variety.sample_monomials(
             system, samples, variety)
+        start = time.time()
         V, rho, P = sample_variety.solve_SDP_on_samples(
             system, samples_monomial)
         is_vanishing, new_sample = sample_variety.check_vanishing(
             system, variety, rho, P, Tinv)
+        end = time.time()
+        print('sampling variety time %s' % (end - start))
+
         # samples = [np.vstack(i) for i in zip(samples, new_sample)]
         # samples = np.vstack((samples, sample_variety.sample_on_variety
         # (variety, 1)))
