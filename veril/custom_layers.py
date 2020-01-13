@@ -1088,7 +1088,7 @@ class DotKernel(Layer):
         assert input_shape and len(input_shape) >= 2
         assert input_shape[-1]
         output_shape = list(input_shape)
-        output_shape[-1] = self.A.shape[-1]
+        output_shape[-1] = K.variable(self.A).shape[-1]
         return tuple(output_shape)
 
     def get_config(self):
