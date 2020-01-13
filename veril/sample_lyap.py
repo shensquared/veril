@@ -141,10 +141,13 @@ def get_model_weights(model):
         L = gram_weights[0]
     else:
         L = np.linalg.multi_dot(gram_weights)
+
     if len(u_weights)==0:
         return L@L.T
+    elif len(u_weights)==1:
+        return L@L.T, u_weights[0]
     else:
-        return L@L.T, u_weights
+        return L@L.T, np.linalg.multi_dot(u_weights)
 
 
 def get_V_model(sys_name, tag):
