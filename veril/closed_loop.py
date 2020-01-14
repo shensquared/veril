@@ -160,11 +160,7 @@ class ClosedLoopSys(object):
         event = self.event
 
         if x is None:
-            if 'd' in kwargs:
-                d = kwargs['d']
-            if 'num_grid' in kwargs:
-                num_grid = kwargs['num_grid']
-            x = self.get_x(d=d, num_grid=num_grid, slice_idx=slice_idx)
+            x = self.get_x(**kwargs)
 
         stableSamples = []
         for i in x:
@@ -199,17 +195,25 @@ class ClosedLoopSys(object):
             scatterSamples(np.zeros((1, self.num_states)),
                            self.name, slice_idx)
 
-    def get_x(self, d=2, num_grid=200, slice_idx=None):
-        x1 = np.linspace(-d, d, num_grid)
-        x2 = np.linspace(-d, d, num_grid)
-        x1, x2 = np.meshgrid(x1, x2)
+    def get_x(self, **kwargs):
+        if 'd' in kwargs:
+            d = kwargs['d']
+        else:
+            d=self.d
+        if 'num_grid' in kwargs:
+            num_grid = kwargs['num_grid']
+        else:
+            num_grid = self.num_grid
+
+        x0 = np.linspace(-d, d, num_grid)
+        x1, x2 = np.meshgrid(x0, x0)
         x1, x2 = x1.ravel(), x2.ravel()
         x = np.array([x1, x2]).T  # (num_grid**2,2)
         return x[~np.all(x == 0, axis=1)]
 
     def is_at_fixed_pt(self, x):
         # return np.linalg.norm(x) <= self.at_fixed_pt_tol
-        return np.allclose(x,0, atol=self.at_fixed_pt_tol)
+        return np.allclose(x, 0, atol=self.at_fixed_pt_tol)
 
     def event(self, t, x):
         norm = np.linalg.norm(x)
@@ -234,6 +238,8 @@ class VanderPol(ClosedLoopSys):
         self.int_stop_ub = 5
         self.int_stop_lb = self.at_fixed_pt_tol
         self.int_horizon = 20
+        self.d = 2
+        self.num_grid = 100
 
     def knownROA(self):
         x = self.sym_x
@@ -265,21 +271,29 @@ class Pendubot(ClosedLoopSys):
         self.int_stop_lb = self.at_fixed_pt_tol
         self.int_horizon = 20
 
+        self.d = 2
+        self.num_grid = 100
 
-    def get_x(self, d=2, num_grid=100, slice_idx=None):
-        x1 = np.linspace(-d, d, num_grid)
-        x2 = np.linspace(-d, d, num_grid)
-        if slice_idx is None:
-            x3 = np.linspace(-d, d, num_grid)
-            x4 = np.linspace(-d, d, num_grid)
-            x1, x2, x3, x4 = np.meshgrid(x1, x2, x3, x4)
-            x1, x2, x3, x4 = x1.ravel(), x2.ravel(), x3.ravel(), x4.ravel()
-            x = np.array([x1, x2, x3, x4]).T  # (num_grid**4,4)
+    def get_x(self, **kwargs):
+        if 'd' in kwargs:
+            d = kwargs['d']
         else:
-            x1, x2 = np.meshgrid(x1, x2)
+            d=self.d
+        if 'num_grid' in kwargs:
+            num_grid = kwargs['num_grid']
+        else:
+            num_grid = self.num_grid
+
+        x0 = np.linspace(-d, d, num_grid)
+        if 'slice_idx' in kwargs:
+            x1, x2 = np.meshgrid(x0, x0)
             x1, x2 = x1.ravel(), x2.ravel()
             x = np.zeros((x1.shape[0], 4))  # (num_grid**4,4)
-            x[:, slice_idx] = np.array([x1, x2]).T
+            x[:, kwargs['slice_idx']] = np.array([x1, x2]).T
+        else:
+            x1, x2, x3, x4 = np.meshgrid(x0, x0, x0, x0)
+            x1, x2, x3, x4 = x1.ravel(), x2.ravel(), x3.ravel(), x4.ravel()
+            x = np.array([x1, x2, x3, x4]).T  # (num_grid**4,4)
         return x[~np.all(x == 0, axis=1)]
 
     def fx(self, t, y):
