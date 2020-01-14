@@ -202,6 +202,15 @@ class ClosedLoopSys(object):
                            self.name, slice_idx)
 
 
+    def get_x(self, d=2, num_grid=200, slice_idx=None):
+        x1 = np.linspace(-d, d, num_grid)
+        x2 = np.linspace(-d, d, num_grid)
+        x1, x2 = np.meshgrid(x1, x2)
+        x1, x2 = x1.ravel(), x2.ravel()
+        x = np.array([x1, x2]).T  # (num_grid**2,2)
+        return x[~np.all(x == 0, axis=1)]
+
+
 class VanderPol(ClosedLoopSys):
 
     def __init__(self):
@@ -212,14 +221,6 @@ class VanderPol(ClosedLoopSys):
         self.trueROA = True
         self.degf = 3
         self.init_x_f()
-
-    def get_x(self, d=2, num_grid=200, slice_idx=None):
-        x1 = np.linspace(-d, d, num_grid)
-        x2 = np.linspace(-d, d, num_grid)
-        x1, x2 = np.meshgrid(x1, x2)
-        x1, x2 = x1.ravel(), x2.ravel()
-        x = np.array([x1, x2]).T  # (num_grid**2,2)
-        return x[~np.all(x == 0, axis=1)]
 
     def knownROA(self):
         x = self.sym_x
