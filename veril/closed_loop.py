@@ -156,36 +156,37 @@ class ClosedLoopSys(object):
     def set_Vdot(self, V):
         return V.Jacobian(self.sym_x)@self.sym_f
 
-    def sim_stable_samples(self, d, num_grid, slice_idx=None, x=None,
-                           slice_only=False):
-        if slice_idx is not None:
-            assert slice_only
-
+    def sim_stable_samples(self, x=None, **kwargs):
         event = self.event
 
         if x is None:
+            if 'd' in kwargs:
+                d = kwargs['d']
+            if 'num_grid' in kwargs:
+                num_grid = kwargs['num_grid']
             x = self.get_x(d=d, num_grid=num_grid, slice_idx=slice_idx)
-        stableSamples = []
 
+        stableSamples = []
         for i in x:
             # start = time.time()
             sol = integrate.solve_ivp(self.fx, [0, self.int_horizon], i,
-               events=event)
-            if sol.status == 1:
-                print('event stopping')
+                                      events=event)
+            # if sol.status == 1:
+            # print('event stopping')
             if sol.status != -1 and self.is_at_fixed_pt(sol.y[:, -1]):
                 stableSamples.append(i)
             # end = time.time()
             # print(end-start)
         stableSamples = np.array(stableSamples)
-        if slice_only:
-            return stableSamples[:, slice_idx]
+        if 'slice_idx' in kwargs:
+            return stableSamples[:, kwargs['slice_idx']]
         else:
             return stableSamples
 
     def sim_stable_samples_for_all_slices(self, d, num_grid):
         for i in self.all_slices:
-            samples = self.sim_stable_samples(d, num_grid, slice_idx=i)
+            samples = self.sim_stable_samples(
+                d=d, num_grid=num_grid, slice_idx=i)
             name = '../data/' + self.name + '/stableSamplesSlice' + \
                 str(i[0] + 1) + str(i[1] + 1) + '.npy'
             np.save(name, samples)
@@ -217,6 +218,7 @@ class ClosedLoopSys(object):
         return out_ or in_
     event.terminal = True
 
+
 class VanderPol(ClosedLoopSys):
 
     def __init__(self):
@@ -229,7 +231,7 @@ class VanderPol(ClosedLoopSys):
         self.init_x_f()
 
         self.at_fixed_pt_tol = 1e-3
-        self.int_stop_ub = 15
+        self.int_stop_ub = 5
         self.int_stop_lb = self.at_fixed_pt_tol
         self.int_horizon = 20
 
