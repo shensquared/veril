@@ -90,9 +90,9 @@ class S4CV_Plants(object):
                            self.sym_dphidx])
             ubasis.append([j.Evaluate(env) for j in self.sym_ubasis])
         features = [g, np.array(phi), np.array(dphidx), np.array(ubasis)]
-        model_dir = '../data/' + self.name + '/V_u_features'
-        file_path = model_dir + '_degV' + \
-            str(self.degFeatures) + 'degU' + str(self.degU) + '.npz'
+        model_dir = '../data/' + self.name + '/features_degV'
+        file_path = model_dir + str(self.degV) + 'degU' + str(self.degU) + \
+        '.npz'
         np.savez_compressed(file_path, g=features[0], phi=features[1],
                             dphidx=features[2], ubasis=features[3])
         return features

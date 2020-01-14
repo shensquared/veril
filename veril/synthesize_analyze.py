@@ -23,13 +23,13 @@ def getUV(system, train_or_load, **kwargs):
     sys_name = system.name
     degFeatures = system.degFeatures
     degU = system.degU
-    tag = '_degV' + str(degFeatures) + 'degU' + str(degU)
+    tag = '_degV' + str(2*degFeatures) + 'degU' + str(degU)
     system = get_system(sys_name, degFeatures, degU, remove_one=remove_one)
 
     if train_or_load is 'Train':
         nx = system.num_states
         model_dir = '../data/' + sys_name
-        file_path = model_dir + '/V_u_features' + tag + '.npz'
+        file_path = model_dir + '/features' + tag + '.npz'
         if os.path.exists(file_path):
             loaded = np.load(file_path)
             features = [loaded['g'], loaded['phi'], loaded['dphidx'], loaded
