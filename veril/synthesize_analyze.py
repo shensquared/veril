@@ -100,6 +100,6 @@ np.save('stableSamples', stableSamples)
 scatterSamples(stableSamples, sys_name, system.slice_idx, add_title='')
 
 # [plot_funnel(V, sys_name, slice_idx=i) for i in system.all_slices]
-[plot3d(V, sys_name, i, level_sets=True) for i in system.all_slices]
-[plot3d(Vdot, sys_name, i, level_sets=False, r_max=1.6)
+[plot3d(V, i, level_sets=True) for i in system.all_slices]
+[plot3d(Vdot, i, level_sets=False, r_max=1.6)
  for i in system.all_slices]

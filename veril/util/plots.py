@@ -54,7 +54,7 @@ def scatterSamples(samples, sys_name, slice_idx, add_title=''):
     plt.show()
 
 
-def plot3d(V, sys_name, slice_idx, r_max=2, add_title='', level_sets=False):
+def plot3d(V, slice_idx, r_max=2, level_sets=False):
     thetas = np.linspace(-np.pi, np.pi, 100)
     sym_x = list(V.GetVariables())
     n = thetas.shape[0]
@@ -76,11 +76,9 @@ def plot3d(V, sys_name, slice_idx, r_max=2, add_title='', level_sets=False):
     X, Y, Z = x[1:], y[1:], z[1:]
     ax.plot_trisurf(X, Y, Z, linewidth=0.2,
                     cmap=plt.cm.Spectral, antialiased=True)
-    xlab = 'X' + str(slice_idx[0] + 1)
-    ylab = 'X' + str(slice_idx[1] + 1)
 
-    ax.set_xlabel(xlab)
-    ax.set_ylabel(ylab)
+    ax.set_xlabel('X' + str(slice_idx[0] + 1))
+    ax.set_ylabel('X' + str(slice_idx[1] + 1))
     # ax.set_ylim(-r_max, r_max)
     ax.set_zlabel('V')
     if level_sets:

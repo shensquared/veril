@@ -192,8 +192,8 @@ V, Vdot, system = get_V(system, train_or_load, epochs=epochs,
                         verbose=True, validation_split=0, shuffle=True)
 
 # [plot_funnel(V, sys_name, slice_idx=i) for i in system.all_slices]
-# [plot3d(V, sys_name, i, level_sets=True) for i in system.all_slices]
-# [plot3d(Vdot, sys_name, i, level_sets=False, r_max=1.6)
+# [plot3d(V, i, level_sets=True) for i in system.all_slices]
+# [plot3d(Vdot, i, level_sets=False, r_max=1.6)
 #  for i in system.all_slices]
 
 
