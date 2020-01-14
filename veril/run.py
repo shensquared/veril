@@ -70,7 +70,7 @@ def eval_model(model, system, x, features=None):
     predicted = model.predict(features)
     bad_samples = x[predicted.ravel() > 0]
     bad_predictions = predicted[predicted.ravel() > 0]
-    [scatterSamples(bad_samples, sys_name, slice_idx=i)
+    [scatterSamples(bad_samples, system, slice_idx=i)
      for i in system.all_slices]
     return bad_samples, bad_predictions
 
@@ -95,7 +95,7 @@ def verify_via_equality(system, V0):
     V = symbolic_verifier.levelset_sos(system, V0, do_balance=False)
     end = time.time()
     print('equlity constrained time %s' % (end - start))
-    plot_funnel(V, system.name, system.slice, add_title=' - Equality ' +
+    plot_funnel(V, system, slice_idx = system.slice, add_title=' - Equality ' +
                 'Constrainted Result')
 
 
@@ -103,8 +103,6 @@ def verify_via_variety(system, V, init_root_threads=1):
     system.set_sample_variety_features(V)
     Vdot = system.sym_Vdot
     variety = sample_variety.multi_to_univariate(Vdot)
-    # [scatterSamples(sample_variety.sample_on_variety(variety, 30, slice_idx
-    #    =i), sys_name, i) for i in system.all_slices]
 
     is_vanishing = False
 
@@ -126,7 +124,7 @@ def verify_via_variety(system, V, init_root_threads=1):
         # (variety, 1)))
         samples = np.vstack((samples, new_sample))
     print(rho)
-    plot_funnel(V / rho, sys_name, system.slice, add_title=' - Sampling Variety '
+    plot_funnel(V / rho, system, slice_idx = system.slice, add_title=' - Sampling Variety '
                 + 'Result')
     return rho
 
@@ -148,7 +146,7 @@ def verify_via_bilinear(system, **kwargs):
         system.sym_x, V0, system.sym_f, S, A, **options)
     end = time.time()
     print('bilinear time %s' % (end - start))
-    plot_funnel(V, sys_name, system.slice, add_title=' - Bilinear Result')
+    plot_funnel(V, system, slice_idx = system.slice, add_title=' - Bilinear Result')
     return system, V
 
 

@@ -6,39 +6,56 @@ from mpl_toolkits.mplot3d import Axes3D
 import os
 
 
-def plot_funnel(V, sys_name, slice_idx, add_title=''):
-    id1 = str(slice_idx[0] + 1)
-    id2 = str(slice_idx[1] + 1)
+def plot_params(system, **kwargs):
+    sys_name = system.name
+    add_title = ''
+    if 'add_title' in kwargs:
+        add_title = kwargs['add_title']
+
+    if 'slice_idx' in kwargs:
+        slice_idx = kwargs['slice_idx']
+    else:
+        slice_idx = system.slice
+
+    id1, id2 = str(slice_idx[0] + 1), str(slice_idx[1] + 1)
     file_dir = '../data/' + sys_name
-    x = samples.levelsetData(V, slice_idx)[0]
+    stableSamples_path = file_dir + '/stableSamplesSlice' + id1 + id2 + '.npy'
+    if os.path.exists(stableSamples_path):
+        stable_samples = np.load(stableSamples_path)
+    else:
+        stable_samples = None
+
+    return [sys_name, slice_idx, file_dir, add_title, id1, id2, stable_samples]
+
+
+def plot_funnel(V, system, **kwargs):
+    [sys_name, slice_idx, file_dir, add_title, id1, id2, stable_samples] = \
+        plot_params(system, **kwargs)
+
     if sys_name is 'VanderPol':
         xlim = np.load(file_dir + '/VanderPol_limitCycle.npy')
-        bdry = plt.plot(xlim[0, :], xlim[1, :],
-                        color='red', label='Known ROA Boundary')
-    else:
-        stable_samples = np.load(file_dir + '/stableSamplesSlice' + id1 + id2 +
-                                 '.npy')
+        plt.plot(xlim[0], xlim[1], color='red', label='Known ROA Boundary')
+    elif stable_samples is not None:
         plt.scatter(stable_samples[:, 0], stable_samples[:, 1], color='red',
                     label='Simulated Stable Samples')
+
+    x = samples.levelsetData(V, slice_idx)[0]
     plt.plot(x[:, 0], x[:, 1], label='Verified ROA Boundary')
-    xlab, ylab = 'X' + id1, 'X' + id2
-    plt.xlabel(xlab)
-    plt.ylabel(ylab)
+
+    plt.xlabel('X' + id1)
+    plt.ylabel('X' + id2)
     leg = plt.legend()
     plt.title(sys_name + add_title)
     plt.show()
 
 
-def scatterSamples(samples, sys_name, slice_idx, add_title=''):
-    id1 = str(slice_idx[0] + 1)
-    id2 = str(slice_idx[1] + 1)
+def scatterSamples(samples, system, **kwargs):
+    [sys_name, slice_idx, file_dir, add_title, id1, id2, stable_samples] = \
+        plot_params(system, **kwargs)
 
-    file_dir = '../data/' + sys_name
-    stableSamples_path = file_dir + '/stableSamplesSlice' + id1 + id2 + '.npy'
-    if os.path.exists(stableSamples_path):
-        stable_samples = np.load(stableSamples_path)
-        plt.scatter(stable_samples[:, 0], stable_samples[
-            :, 1], color='red', label='Simulated Stable Samples')
+    if stable_samples is not None:
+        plt.scatter(stable_samples[:, 0], stable_samples[:, 1], color='red',
+                    label='Simulated Stable Samples')
 
     if sys_name is 'VanderPol':
         xlim = np.load(file_dir + '/VanderPol_limitCycle.npy')
@@ -46,6 +63,7 @@ def scatterSamples(samples, sys_name, slice_idx, add_title=''):
 
     plt.scatter(samples[:, slice_idx[0]], samples[:, slice_idx[1]],
                 label='Samples')
+
     xlab, ylab = 'X' + id1, 'X' + id2
     plt.xlabel(xlab)
     plt.ylabel(ylab)

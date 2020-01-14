@@ -64,7 +64,7 @@ def eval_model(model, system, x, features=None):
     predicted = model.predict(features)
     bad_samples = x[predicted.ravel() > 0]
     bad_predictions = predicted[predicted.ravel() > 0]
-    [scatterSamples(bad_samples, sys_name, slice_idx=i)
+    [scatterSamples(bad_samples, system, slice_idx=i)
      for i in system.all_slices]
     return bad_samples, bad_predictions
 
@@ -95,11 +95,11 @@ remove_one = True
 system = get_system(sys_name, degFeatures, degU)
 V, Vdot, system = getUV(system, train_or_load, epochs=epochs, verbose=True,
                         validation_split=0, shuffle=True)
-stableSamples = system.sim_stable_samples(np.pi, 100)
+stableSamples = system.sim_stable_samples(d=np.pi, num_grid=100)
 np.save('stableSamples', stableSamples)
-scatterSamples(stableSamples, sys_name, system.slice_idx, add_title='')
+scatterSamples(stableSamples, system, slice_idx = system.slice_idx)
 
-# [plot_funnel(V, sys_name, slice_idx=i) for i in system.all_slices]
+# [plot_funnel(V, system, slice_idx = i) for i in system.all_slices]
 [plot3d(V, i, level_sets=True) for i in system.all_slices]
 [plot3d(Vdot, i, level_sets=False, r_max=1.6)
  for i in system.all_slices]
