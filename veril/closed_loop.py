@@ -98,7 +98,7 @@ class ClosedLoopSys(object):
     def set_sample_variety_features(self, V):
         # this requires far lower degreed multiplier xxd and consequentially
         # lower degree psi, re-write both
-        remove_one=self.remove_one
+        remove_one = self.remove_one
         self.sym_V = V
         self.sym_Vdot = self.set_Vdot(V)
         self.degVdot = self.degV - 1 + self.degf
@@ -127,7 +127,7 @@ class ClosedLoopSys(object):
         x = self.sym_x
         f = self.sym_f
         env = dict(zip(x, np.zeros(x.shape)))
-        A = np.array([[i.Evaluate(env) for i in j]for j in Jacobian(f,x)])
+        A = np.array([[i.Evaluate(env) for i in j]for j in Jacobian(f, x)])
         print('A  %s' % A)
         print('eig of the linearized A matrix %s' % (eig(A)[0]))
         P = solve_lyapunov(A.T, -np.eye(x.shape[0]))
@@ -161,22 +161,19 @@ class ClosedLoopSys(object):
         if slice_idx is not None:
             assert slice_only
 
-        def event(t, x):
-            norm = np.linalg.norm(x)
-            out_ = norm - 15
-            in_ = norm - 1e-8
-            return out_ or in_
-        event.terminal = True
+        event = self.event
+
         if x is None:
             x = self.get_x(d=d, num_grid=num_grid, slice_idx=slice_idx)
         stableSamples = []
 
         for i in x:
             # start = time.time()
-            sol = integrate.solve_ivp(self.fx, [0, 15], i, events=event)
-            # if sol.status == 1:
-            # print('event stopping')
-            if sol.status != -1 and (np.linalg.norm(sol.y[:, -1])) <= 1e-7:
+            sol = integrate.solve_ivp(self.fx, [0, self.int_horizon], i,
+               events=event)
+            if sol.status == 1:
+                print('event stopping')
+            if sol.status != -1 and self.is_at_fixed_pt(sol.y[:, -1]):
                 stableSamples.append(i)
             # end = time.time()
             # print(end-start)
@@ -201,7 +198,6 @@ class ClosedLoopSys(object):
             scatterSamples(np.zeros((1, self.num_states)),
                            self.name, slice_idx)
 
-
     def get_x(self, d=2, num_grid=200, slice_idx=None):
         x1 = np.linspace(-d, d, num_grid)
         x2 = np.linspace(-d, d, num_grid)
@@ -210,6 +206,16 @@ class ClosedLoopSys(object):
         x = np.array([x1, x2]).T  # (num_grid**2,2)
         return x[~np.all(x == 0, axis=1)]
 
+    def is_at_fixed_pt(self, x):
+        # return np.linalg.norm(x) <= self.at_fixed_pt_tol
+        return np.allclose(x,0, atol=self.at_fixed_pt_tol)
+
+    def event(self, t, x):
+        norm = np.linalg.norm(x)
+        out_ = norm - self.int_stop_ub
+        in_ = norm - self.int_stop_lb
+        return out_ or in_
+    event.terminal = True
 
 class VanderPol(ClosedLoopSys):
 
@@ -221,6 +227,11 @@ class VanderPol(ClosedLoopSys):
         self.trueROA = True
         self.degf = 3
         self.init_x_f()
+
+        self.at_fixed_pt_tol = 1e-3
+        self.int_stop_ub = 15
+        self.int_stop_lb = self.at_fixed_pt_tol
+        self.int_horizon = 20
 
     def knownROA(self):
         x = self.sym_x
@@ -246,6 +257,12 @@ class Pendubot(ClosedLoopSys):
             itertools.combinations(range(self.num_states), 2))
         self.degf = 3
         self.init_x_f()
+
+        self.at_fixed_pt_tol = 1e-3
+        self.int_stop_ub = 15
+        self.int_stop_lb = self.at_fixed_pt_tol
+        self.int_horizon = 20
+
 
     def get_x(self, d=2, num_grid=100, slice_idx=None):
         x1 = np.linspace(-d, d, num_grid)
