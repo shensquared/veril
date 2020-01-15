@@ -134,9 +134,7 @@ class ClosedLoopSys(object):
         event = kwargs['event'] if 'event' in kwargs else self.event
         int_horizon = kwargs['int_horizon'] if 'int_horizon' in kwargs else \
             self.int_horizon
-
-        sol = integrate.solve_ivp(self.fx, [0, int_horizon], i,
-                                  events=event)
+        sol = integrate.solve_ivp(self.fx, [0, int_horizon], x, events=event)
         return sol
 
     def sample_stable_inits(self, x=None, **kwargs):
