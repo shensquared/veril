@@ -147,9 +147,9 @@ class ClosedLoopSys(object):
             sol = self.forward_sim(i, **kwargs)
             # if sol.status == 1:
             # print('event stopping')
-            if sol.status != 1:
-                print('init %s' % i)
-                print('final %s' % sol.y[:, -1])
+            # if sol.status != 1:
+            #     print('init %s' % i)
+            #     print('final %s' % sol.y[:, -1])
             if sol.status != -1 and self.is_at_fixed_pt(sol.y[:, -1]):
                 stableSamples.append(i)
             # end = time.time()
@@ -245,14 +245,9 @@ class Pendubot(ClosedLoopSys):
         self.num_grid = 100
 
     def get_x(self, **kwargs):
-        if 'd' in kwargs:
-            d = kwargs['d']
-        else:
-            d = self.d
-        if 'num_grid' in kwargs:
-            num_grid = kwargs['num_grid']
-        else:
-            num_grid = self.num_grid
+        d = kwargs['d'] if 'd' in kwargs else self.d
+        num_grid = kwargs['num_grid'] if 'num_grid' in kwargs else \
+            self.num_grid
 
         x0 = np.linspace(-d, d, num_grid)
         if 'slice_idx' in kwargs:
