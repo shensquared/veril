@@ -7,10 +7,8 @@ from pydrake.all import (MathematicalProgram, Polynomial, Expression,
 import os
 import itertools
 import six
-# import time
 import numpy as np
 from veril import closed_loop
-import itertools
 
 
 def get(plant_name):
@@ -157,7 +155,7 @@ class PendulumTrig(S4CV_Plants):
         if not vel_close:
             return False
         else:
-            y = np.arctan2(np.sin(x[0]),np.cos(x[0]))
+            y = np.arctan2(np.sin(x[0]), np.cos(x[0]))
             return np.isclose(y, 0, atol=self.at_fixed_pt_tol)
 
 # plant = get('PendulumTrig')
