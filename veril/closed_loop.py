@@ -162,14 +162,9 @@ class ClosedLoopSys(object):
             np.save(name, samples)
 
     def get_x(self, **kwargs):
-        if 'd' in kwargs:
-            d = kwargs['d']
-        else:
-            d = self.d
-        if 'num_grid' in kwargs:
-            num_grid = kwargs['num_grid']
-        else:
-            num_grid = self.num_grid
+        d = kwargs['d'] if 'd' in kwargs else self.d
+        num_grid = kwargs[
+            'num_grid'] if 'num_grid' in kwargs else self.num_grid
 
         x0 = np.linspace(-d, d, num_grid)
         x1, x2 = np.meshgrid(x0, x0)

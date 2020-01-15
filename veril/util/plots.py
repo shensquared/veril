@@ -8,14 +8,8 @@ import os
 
 def plot_params(system, **kwargs):
     sys_name = system.name
-    add_title = ''
-    if 'add_title' in kwargs:
-        add_title = kwargs['add_title']
-
-    if 'slice_idx' in kwargs:
-        slice_idx = kwargs['slice_idx']
-    else:
-        slice_idx = system.slice
+    add_title = kwargs['add_title'] if 'add_title' in kwargs else ''
+    slice_idx = kwargs['slice_idx'] if 'slice_idx' in kwargs else system.slice
 
     id1, id2 = str(slice_idx[0] + 1), str(slice_idx[1] + 1)
     file_dir = '../data/' + sys_name
