@@ -25,12 +25,12 @@ def get_V(system, train_or_load, **kwargs):
     remove_one = system.remove_one
     is_cl_sys = system.loop_closed
 
-    if is_cl_sys:
-        tag = str(degFeatures)
-        if remove_one:
-            tag = tag + '_rm'
-    else:
-        tag = '_degV' + str(2 * degFeatures) + 'degU' + str(degU)
+    tag = '_degV' + str(2 * degFeatures)
+
+    if is_cl_sys and remove_one:
+        tag = tag + '_rm'
+    if not is_cl_sys:
+        tag = tag + 'degU' + str(degU)
 
     if train_or_load is 'Train':
         nx = system.num_states
@@ -66,7 +66,7 @@ def get_V(system, train_or_load, **kwargs):
         # assert (history.history['loss'][-1] <= 0)
         # bad_samples, bad_predictions = eval_model(
         #     model, system, train_x, features=features)
-        model_file_name = model_dir + '/V_model_' + tag + '.h5'
+        model_file_name = model_dir + '/V_model' + tag + '.h5'
         model.save(model_file_name)
         print('Saved model ' + model_file_name + ' to disk')
 
