@@ -13,9 +13,9 @@ from veril.util.plots import *
 # from util.samples import withinLevelSet
 
 
-def get_system(sys_name, degFeatures, remove_one=True):
+def get_system(sys_name, degFeatures, degU, remove_one=True):
     system = systems.get(sys_name)
-    system.set_syms(degFeatures, remove_one=remove_one)
+    system.set_syms(degFeatures, degU, remove_one=remove_one)
     return system
 
 
@@ -32,29 +32,42 @@ def get_V(system, train_or_load, **kwargs):
     else:
         tag = '_degV' + str(2 * degFeatures) + 'degU' + str(degU)
 
-
     if train_or_load is 'Train':
         nx = system.num_states
         model_dir = '../data/' + sys_name
-        train_x = np.load(model_dir + '/stableSamples.npy')
-        n_samples = train_x.shape[0]
-        assert(train_x.shape[1] == nx)
-        print('x size %s' % str(train_x.shape))
 
-        file_path = model_dir + '/train_for_v_features' + tag + '.npz'
-        if os.path.exists(file_path):
-            loaded = np.load(file_path)
-            features = [loaded['phi'], loaded['eta']]
-            assert(features[0].shape[0] == n_samples)
+        if is_cl_sys:
+            train_x = np.load(model_dir + '/stableSamples.npy')
+            n_samples = train_x.shape[0]
+            assert(train_x.shape[1] == nx)
+            print('x size %s' % str(train_x.shape))
+            file_path = model_dir + '/train_for_v_features' + tag + '.npz'
         else:
-            features = system.features_at_x(train_x)
-            np.savez_compressed(file_path, phi=features[0], eta=features[1])
+            file_path = model_dir + '/features' + tag + '.npz'
+
+        if os.path.exists(file_path):
+            l = np.load(file_path)
+            if is_cl_sys:
+                features = [l['phi'], l['eta']]
+                assert(features[0].shape[0] == n_samples)
+            else:
+                features = [l['g'], l['phi'], l['dphidx'], l['ubasis']]
+        else:
+            if is_cl_sys:
+                features = system.features_at_x(train_x)
+                np.savez_compressed(file_path, phi=features[
+                                    0], eta=features[1])
+            else:
+                features = system.features_at_x()
+                np.savez_compressed(file_path, g=features[0], phi=features[1],
+                                    dphidx=features[2], ubasis=features[3])
+        n_samples = features[0].shape[0]
         y = - np.ones((n_samples,))
         model = sample_lyap.model_V(system)
         history = model.fit(features, y, **kwargs)
         # assert (history.history['loss'][-1] <= 0)
-        bad_samples, bad_predictions = eval_model(
-            model, system, train_x, features=features)
+        # bad_samples, bad_predictions = eval_model(
+        #     model, system, train_x, features=features)
         model_file_name = model_dir + '/V_model_' + tag + '.h5'
         model.save(model_file_name)
         print('Saved model ' + model_file_name + ' to disk')
@@ -63,9 +76,13 @@ def get_V(system, train_or_load, **kwargs):
         # TODO: decide if should save the model or directly save V
         train_x = None
         model = sample_lyap.get_V_model(sys_name, tag)
+    if is_cl_sys:
+        P = sample_lyap.get_model_weights(model)
+    else:
+        P, u_weights = sample_lyap.get_model_weights(model)
+        system.close_the_loop(u_weights)
 
-    P = sample_lyap.get_model_weights(model)
-    V, Vdot = system.P_to_V(P, samples=train_x)
+    V, Vdot = system.P_to_V(P, samples=None)
     # test_model(model, system, V, Vdot, x=None)
     return V, Vdot, system
 
@@ -101,7 +118,7 @@ def verify_via_equality(system, V0):
     V = symbolic_verifier.levelset_sos(system, V0, do_balance=False)
     end = time.time()
     print('equlity constrained time %s' % (end - start))
-    plot_funnel(V, system, slice_idx = system.slice, add_title=' - Equality ' +
+    plot_funnel(V, system, slice_idx=system.slice, add_title=' - Equality ' +
                 'Constrainted Result')
 
 
@@ -130,7 +147,7 @@ def verify_via_variety(system, V, init_root_threads=1):
         # (variety, 1)))
         samples = np.vstack((samples, new_sample))
     print(rho)
-    plot_funnel(V / rho, system, slice_idx = system.slice, add_title=' - Sampling Variety '
+    plot_funnel(V / rho, system, slice_idx=system.slice, add_title=' - Sampling Variety '
                 + 'Result')
     return rho
 
@@ -152,7 +169,8 @@ def verify_via_bilinear(system, **kwargs):
         system.sym_x, V0, system.sym_f, S, A, **options)
     end = time.time()
     print('bilinear time %s' % (end - start))
-    plot_funnel(V, system, slice_idx = system.slice, add_title=' - Bilinear Result')
+    plot_funnel(V, system, slice_idx=system.slice,
+                add_title=' - Bilinear Result')
     return system, V
 
 
@@ -168,8 +186,8 @@ def cvx_V(sys_name, degFeatures, remove_one=False):
     file_path = model_dir + '/train_for_v_features_' + tag + '.npz'
 
     if os.path.exists(file_path):
-        loaded = np.load(file_path)
-        features = [loaded['phi'], loaded['eta']]
+        l = np.load(file_path)
+        features = [l['phi'], l['eta']]
     else:
         features = system.features_at_x(train_x)
         np.savez_compressed(file_path, phi=features[0], eta=features[1])
@@ -182,29 +200,37 @@ def cvx_V(sys_name, degFeatures, remove_one=False):
 
 
 # sys_name = 'VanderPol'
-sys_name = 'Pendubot'
+# sys_name = 'Pendubot'
+sys_name = 'PendulumTrig'
+
+
 train_or_load = 'Train'
 # train_or_load = 'Load'
 
 degFeatures = 3
-init_root_threads = 100
+degU = 2
 epochs = 3
 remove_one = True
 
-system = get_system(sys_name, degFeatures, remove_one=remove_one)
+init_root_threads = 100
+
+
+system = get_system(sys_name, degFeatures, degU, remove_one=remove_one)
 # stableSamples = system.sample_stable_inits(d=1, num_grid=10)
 
 V, Vdot, system = get_V(system, train_or_load, epochs=epochs,
                         verbose=True, validation_split=0, shuffle=True)
 
-# [plot_funnel(V, sys_name, slice_idx=i) for i in system.all_slices]
-# [plot3d(V, i, level_sets=True) for i in system.all_slices]
-# [plot3d(Vdot, i, level_sets=False, r_max=1.6)
-#  for i in system.all_slices]
+verify_via_equality(system, V)
 
+[plot3d(V, i, level_sets=True) for i in system.all_slices]
+[plot3d(Vdot, i, level_sets=False, r_max=1.6)
+ for i in system.all_slices]
 
-verify_via_bilinear(system, V0=V)
-# verify_via_equality(system, V)
+initial = np.random.uniform(-np.pi, np.pi, (4, 2))
+plot_traj(initial, system, int_horizon=20, slice_idx=0)
+
+# verify_via_bilinear(system, V0=V)
 # verify_via_variety(system, V, init_root_threads=init_root_threads)
 
 ############

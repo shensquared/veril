@@ -48,7 +48,7 @@ class ClosedLoopSys(object):
         self.sym_x = prog.NewIndeterminates(self.num_states, "x")
         self.sym_f = self.polynomial_dynamics()
 
-    def set_syms(self, deg, remove_one=True):
+    def set_syms(self, deg, degU, remove_one=True):
         self.degFeatures = deg
         self.degV = 2 * deg
         self.sym_phi = get_monomials(self.sym_x, deg, remove_one=remove_one)
