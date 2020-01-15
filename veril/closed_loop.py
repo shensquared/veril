@@ -130,19 +130,28 @@ class ClosedLoopSys(object):
     def set_Vdot(self, V):
         return V.Jacobian(self.sym_x)@self.sym_f
 
-    def sim_stable_samples(self, x=None, **kwargs):
-        event = self.event
+    def forward_sim(self, x, **kwargs):
+        event = kwargs['event'] if 'event' in kwargs else self.event
+        int_horizon = kwargs['int_horizon'] if 'int_horizon' in kwargs else \
+            self.int_horizon
 
+        sol = integrate.solve_ivp(self.fx, [0, int_horizon], i,
+                                  events=event)
+        return sol
+
+    def sample_stable_inits(self, x=None, **kwargs):
+        event = self.event
         if x is None:
             x = self.get_x(**kwargs)
-
         stableSamples = []
         for i in x:
             # start = time.time()
-            sol = integrate.solve_ivp(self.fx, [0, self.int_horizon], i,
-                                      events=event)
+            sol = self.forward_sim(x, **kwargs)
             # if sol.status == 1:
             # print('event stopping')
+            if sol.status != 1:
+                print('init %s' % i)
+                print('final %s' % sol.y[:, -1])
             if sol.status != -1 and self.is_at_fixed_pt(sol.y[:, -1]):
                 stableSamples.append(i)
             # end = time.time()
@@ -153,10 +162,9 @@ class ClosedLoopSys(object):
         else:
             return stableSamples
 
-    def sim_stable_samples_for_all_slices(self, d, num_grid):
+    def sample_stable_inits_for_all_slices(self, **kwargs):
         for i in self.all_slices:
-            samples = self.sim_stable_samples(
-                d=d, num_grid=num_grid, slice_idx=i)
+            samples = self.sample_stable_inits(slice_idx=i, **kwargs)
             name = '../data/' + self.name + '/stableSamplesSlice' + \
                 str(i[0] + 1) + str(i[1] + 1) + '.npy'
             np.save(name, samples)

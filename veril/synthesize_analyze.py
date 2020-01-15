@@ -94,7 +94,7 @@ remove_one = True
 system = get_system(sys_name, degFeatures, degU)
 V, Vdot, system = getUV(system, train_or_load, epochs=epochs, verbose=True,
                         validation_split=0, shuffle=True)
-stableSamples = system.sim_stable_samples(d=np.pi, num_grid=100)
+stableSamples = system.sample_stable_inits(d=1, num_grid=10)
 np.save('stableSamples', stableSamples)
 scatterSamples(stableSamples, system, slice_idx = system.slice_idx)
 
