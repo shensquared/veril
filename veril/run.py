@@ -28,7 +28,7 @@ def get_V(system, train_or_load, **kwargs):
     if is_cl_sys:
         tag = str(degFeatures)
         if remove_one:
-            tag = '_remove_one' + tag
+            tag = tag + '_rm'
     else:
         tag = '_degV' + str(2 * degFeatures) + 'degU' + str(degU)
 
