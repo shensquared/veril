@@ -8,13 +8,13 @@ from keras.layers import Input
 from keras.callbacks import ModelCheckpoint, EarlyStopping
 import h5py
 
-from veril import symbolic_verifier, closed_loop, sample_lyap, sample_variety
+from veril import symbolic_verifier, systems, sample_lyap, sample_variety
 from veril.util.plots import *
 # from util.samples import withinLevelSet
 
 
 def get_system(sys_name, degFeatures, remove_one=True):
-    system = closed_loop.get(sys_name)
+    system = systems.get(sys_name)
     system.set_syms(degFeatures, remove_one=remove_one)
     return system
 
@@ -22,10 +22,16 @@ def get_system(sys_name, degFeatures, remove_one=True):
 def get_V(system, train_or_load, **kwargs):
     sys_name = system.name
     degFeatures = system.degFeatures
-    tag = str(degFeatures)
     remove_one = system.remove_one
-    if remove_one:
-        tag = '_remove_one' + tag
+    is_cl_sys = system.loop_closed
+
+    if is_cl_sys:
+        tag = str(degFeatures)
+        if remove_one:
+            tag = '_remove_one' + tag
+    else:
+        tag = '_degV' + str(2 * degFeatures) + 'degU' + str(degU)
+
 
     if train_or_load is 'Train':
         nx = system.num_states
@@ -186,6 +192,8 @@ epochs = 3
 remove_one = True
 
 system = get_system(sys_name, degFeatures, remove_one=remove_one)
+# stableSamples = system.sample_stable_inits(d=1, num_grid=10)
+
 V, Vdot, system = get_V(system, train_or_load, epochs=epochs,
                         verbose=True, validation_split=0, shuffle=True)
 

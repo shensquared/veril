@@ -5,7 +5,7 @@ from keras.models import load_model
 
 from veril import plants_via_RNN
 from veril.custom_layers import JanetController
-from veril.closed_loop import ClosedLoopSys
+from veril.systems import ClosedLoopSys
 
 
 options = {
@@ -27,8 +27,8 @@ options = {
 
 def sim_RNN_stable_samples(**options):
     old_sampels = np.load('DIsamples.npy')
-    model, file_name = closed_loop.get_NNorCL(NNorCL='NN', **options)
-    samples = closed_loop.sample_stable_inits(
+    model, file_name = systems.get_NNorCL(NNorCL='NN', **options)
+    samples = systems.sample_stable_inits(
         model, 20000, 1000, lb=-1.5, ub=1.5)
     np.save('DIsamples', np.vstack([old_sampels, samples]))
 
@@ -374,8 +374,8 @@ def originalSysInitialV(CL):
 ############
 # Dirty code below, but may be useful for refrence
 # def verify_RNN_CL(max_deg=2):
-#     CL, file_name = closed_loop.get_NNorCL(**options)
-#     system = closed_loop.PolyRNNCL(CL, file_name, taylor_approx=True)
+#     CL, file_name = systems.get_NNorCL(**options)
+#     system = systems.PolyRNNCL(CL, file_name, taylor_approx=True)
 #     system.set_syms(max_deg)
 #     samples = system.sample_init_states_w_tanh(30000, lb=-.01, ub=.01)
 #     [phi, dphidx, f] = system.features_at_x(samples)

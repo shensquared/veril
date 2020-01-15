@@ -8,13 +8,13 @@ from keras.layers import Input
 from keras.callbacks import ModelCheckpoint, EarlyStopping
 import h5py
 
-from veril import symbolic_verifier, closed_loop, sample_lyap, sample_variety
+from veril import symbolic_verifier, systems, sample_lyap, sample_variety
 from veril.util.plots import *
 # from util.samples import withinLevelSet
 
 
 def get_system(sys_name, degFeatures, degU, remove_one=True):
-    system = closed_loop.get(sys_name)
+    system = systems.get(sys_name)
     system.set_syms(degFeatures, degU, remove_one=remove_one)
     return system
 
