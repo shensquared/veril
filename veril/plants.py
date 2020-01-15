@@ -84,20 +84,21 @@ class S4CV_Plants(closed_loop.ClosedLoopSys):
         if self.remove_one:
             basis = basis[1:]
         numerical_u_basis = np.array(basis[::-1])
+        # print(numerical_u_basis.shape)
         u = (numerical_u_basis@self.u_weights).T
-        # u = (2 * 9.81 * .5 * np.sin(y[0] + np.pi)).reshape((1, 1))
-        # env = dict(zip(self.sym_x, y))
-        # sym_sol = np.array([j.Evaluate(env) for j in self.u])
+        # theta = y@np.array([1,0])
+        # u = (9.81* np.sin(theta + np.pi)).reshape((1,))
+        env = dict(zip(self.sym_x, y))
+        sym_sol = np.array([j.Evaluate(env) for j in self.u])
         # print(u - sym_sol)
-
         num_sol = self.gx(y) + self.ctrl_B@u
         return num_sol
 
     def close_the_loop(self, u_weights):
         self.loop_closed = True
         self.u_weights = u_weights
-        u = (self.sym_ubasis@u_weights).T
-        self.sym_f = self.sym_g + self.ctrl_B@u
+        self.u = (self.sym_ubasis@u_weights).T
+        self.sym_f = self.sym_g + self.ctrl_B@self.u
 
 
 class PendulumTrig(S4CV_Plants):
@@ -124,9 +125,9 @@ class PendulumTrig(S4CV_Plants):
         self.init_x_g_B()
 
         self.at_fixed_pt_tol = 1e-3
-        self.int_stop_ub = 1e20
+        self.int_stop_ub = 1e10
         self.int_stop_lb = self.at_fixed_pt_tol
-        self.int_horizon = 20
+        self.int_horizon = 10
         self.d = 2
         self.num_grid = 100
 
