@@ -76,7 +76,10 @@ def plot_traj(initial, system, **kwargs):
     for i, c in zip(initial, color):
         sol = system.forward_sim(i, **kwargs)
         if sol.status != 1:
-            [plt.plot(j, c=c) for j in sol.y]
+            if 'slice_idx' in kwargs:
+                plt.plot(sol.y[kwargs['slice_idx']],c=c)
+            else:
+                [plt.plot(j, c=c) for j in sol.y]
     plt.xlabel('time')
     # plt.ylabel(ylab)
     plt.title(sys_name + ' Simulation ' + add_title)
