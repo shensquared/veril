@@ -139,7 +139,7 @@ def model_V(system):
     return model
 
 
-def get_model_weights(model):
+def get_model_weights(model, is_cl_sys):
     names = [weight.name for layer in model.layers for weight in layer.weights]
     weights = model.get_weights()
     u_weights, gram_weights = [], []
@@ -154,9 +154,10 @@ def get_model_weights(model):
     else:
         L = np.linalg.multi_dot(gram_weights)
 
-    if len(u_weights)==0:
-        return L@L.T
-    elif len(u_weights)==1:
+    if len(u_weights) == 0:
+        assert is_cl_sys
+        return L@L.T, None
+    elif len(u_weights) == 1:
         return L@L.T, u_weights[0]
     else:
         return L@L.T, np.linalg.multi_dot(u_weights)

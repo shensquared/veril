@@ -74,12 +74,10 @@ def get_V(system, train_or_load, **kwargs):
         # TODO: decide if should save the model or directly save V
         train_x = None
         model = sample_lyap.get_V_model(sys_name, tag)
-    if is_cl_sys:
-        P = sample_lyap.get_model_weights(model)
-    else:
-        P, u_weights = sample_lyap.get_model_weights(model)
-        system.close_the_loop(u_weights)
 
+    P, u_weights = sample_lyap.get_model_weights(model, is_cl_sys)
+    if not is_cl_sys:
+        system.close_the_loop(u_weights)
     V, Vdot = system.P_to_V(P, samples=None)
     # test_model(model, system, V, Vdot, x=None)
     return V, Vdot, system
