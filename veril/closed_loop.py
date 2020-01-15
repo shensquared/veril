@@ -144,7 +144,7 @@ class ClosedLoopSys(object):
         stableSamples = []
         for i in x:
             # start = time.time()
-            sol = self.forward_sim(x, **kwargs)
+            sol = self.forward_sim(i, **kwargs)
             # if sol.status == 1:
             # print('event stopping')
             if sol.status != 1:
