@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from . import samples
 from mpl_toolkits.mplot3d import Axes3D
 import os
+from matplotlib.pyplot import cm
 
 
 def plot_params(system, **kwargs):
@@ -62,7 +63,23 @@ def scatterSamples(samples, system, **kwargs):
     plt.xlabel(xlab)
     plt.ylabel(ylab)
     plt.legend()
-    plt.title(sys_name + ' ' + add_title)
+    plt.title(sys_name + add_title)
+    plt.show()
+
+
+def plot_traj(initial, system, **kwargs):
+    sys_name = system.name
+    add_title = kwargs['add_title'] if 'add_title' in kwargs else ''
+
+    n = initial.shape[0]
+    color = cm.rainbow(np.linspace(0, 1, n))
+    for i, c in zip(initial, color):
+        sol = system.forward_sim(i, **kwargs)
+        if sol.status != 1:
+            [plt.plot(j, c=c) for j in sol.y]
+    plt.xlabel('time')
+    # plt.ylabel(ylab)
+    plt.title(sys_name + ' Simulation ' + add_title)
     plt.show()
 
 
