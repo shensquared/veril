@@ -23,7 +23,7 @@ def getUV(system, train_or_load, **kwargs):
     sys_name = system.name
     degFeatures = system.degFeatures
     degU = system.degU
-    tag = '_degV' + str(2*degFeatures) + 'degU' + str(degU)
+    tag = '_degV' + str(2 * degFeatures) + 'degU' + str(degU)
     system = get_system(sys_name, degFeatures, degU, remove_one=remove_one)
 
     if train_or_load is 'Train':
@@ -52,10 +52,9 @@ def getUV(system, train_or_load, **kwargs):
         model = sample_lyap.get_V_model(sys_name, tag)
 
     P, u_weights = sample_lyap.get_model_weights(model)
-    closed_system = plants.plant_to_closedloop(system, u_weights)
-    V, Vdot = closed_system.P_to_V(P, samples=None)
-
-    return V, Vdot, closed_system
+    system.close_the_loop(u_weights)
+    V, Vdot = system.P_to_V(P, samples=None)
+    return V, Vdot, system
 
 
 def eval_model(model, system, x, features=None):
