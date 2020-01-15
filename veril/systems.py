@@ -56,7 +56,7 @@ class ClosedLoopSys(object):
         self.sym_eta = sym_dphidx@self.sym_f
         self.remove_one = remove_one
 
-    def features_at_x(self, x):  # x: (num_samples, sys_dim)
+    def features_at_x(self, x, file_path):  # x: (num_samples, sys_dim)
         n_samples = x.shape[0]
         phi, eta = [], []
         for i in range(n_samples):
@@ -64,9 +64,8 @@ class ClosedLoopSys(object):
             phi.append([j.Evaluate(env) for j in self.sym_phi])
             eta.append([j.Evaluate(env) for j in self.sym_eta])
         features = [np.array(phi), np.array(eta)]
-        model_dir = '../data/' + self.name + '/features_degV'
-        file_path = model_dir + str(self.degV) + '.npz'
-        np.savez_compressed(file_path, phi=features[0], eta=features[1])
+        if file_path is not None:
+            np.savez_compressed(file_path, phi=features[0], eta=features[1])
         return features
 
     def set_sample_variety_features(self, V):
@@ -226,7 +225,7 @@ class S4CV_Plants(ClosedLoopSys):
         self.sym_ubasis = get_monomials(self.sym_x, degU,
                                         remove_one=remove_one)
 
-    def features_at_x(self, x=None):  # x: (num_samples, sys_dim)
+    def features_at_x(self, x, file_path):  # x: (num_samples, sys_dim)
         if x is None:
             x = self.get_x()
         g = self.dynamic_without_control(sample_states=x)
@@ -239,11 +238,9 @@ class S4CV_Plants(ClosedLoopSys):
                            self.sym_dphidx])
             ubasis.append([j.Evaluate(env) for j in self.sym_ubasis])
         features = [g, np.array(phi), np.array(dphidx), np.array(ubasis)]
-        model_dir = '../data/' + self.name + '/features_degV'
-        file_path = model_dir + str(self.degV) + 'degU' + str(self.degU) + \
-            '.npz'
-        np.savez_compressed(file_path, g=features[0], phi=features[1],
-                            dphidx=features[2], ubasis=features[3])
+        if file_path is not None:
+            np.savez_compressed(file_path, g=features[0], phi=features[1],
+                                dphidx=features[2], ubasis=features[3])
         return features
 
     def fx(self, t, y):

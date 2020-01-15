@@ -19,6 +19,15 @@ def get_system(sys_name, degFeatures, degU, remove_one=True):
     return system
 
 
+def load_features_dataset(file_path, is_cl_sys):
+    l = np.load(file_path)
+    if is_cl_sys:
+        features = [l['phi'], l['eta']]
+    else:
+        features = [l['g'], l['phi'], l['dphidx'], l['ubasis']]
+    return features
+
+
 def get_V(system, train_or_load, **kwargs):
     degFeatures = system.degFeatures
     remove_one = system.remove_one
@@ -40,24 +49,15 @@ def get_V(system, train_or_load, **kwargs):
             n_samples = train_x.shape[0]
             assert(train_x.shape[1] == nx)
             print('x size %s' % str(train_x.shape))
+        else:
+            train_x = None
 
         file_path = model_dir + '/features' + tag + '.npz'
         if os.path.exists(file_path):
-            l = np.load(file_path)
-            if is_cl_sys:
-                features = [l['phi'], l['eta']]
-                assert(features[0].shape[0] == n_samples)
-            else:
-                features = [l['g'], l['phi'], l['dphidx'], l['ubasis']]
+            features = load_features_dataset(file_path, is_cl_sys)
         else:
-            if is_cl_sys:
-                features = system.features_at_x(train_x)
-                np.savez_compressed(file_path, phi=features[
-                                    0], eta=features[1])
-            else:
-                features = system.features_at_x()
-                np.savez_compressed(file_path, g=features[0], phi=features[1],
-                                    dphidx=features[2], ubasis=features[3])
+            features = system.features_at_x(train_x, file_path)
+
         n_samples = features[0].shape[0]
         y = - np.ones((n_samples,))
         model = sample_lyap.model_V(system)
