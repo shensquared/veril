@@ -63,35 +63,11 @@ class ClosedLoopSys(object):
             env = dict(zip(self.sym_x, x[i, :]))
             phi.append([j.Evaluate(env) for j in self.sym_phi])
             eta.append([j.Evaluate(env) for j in self.sym_eta])
-        return [np.array(phi), np.array(eta)]
-
-    # def levelset_features(self, V, sigma_deg):
-    #     self.sym_V = V
-    #     self.sym_Vdot = self.sym_V.Jacobian(self.sym_x) @ self.sym_f
-    #     self.degVdot = Polynomial(self.sym_Vdot, self.sym_x).TotalDegree()
-    #     deg = int(np.floor((sigma_deg + self.degVdot - self.degV) / 2))
-    #     self.sym_xxd = (self.sym_x.T@self.sym_x)**(deg)
-    #     self.sym_sigma = get_monomials(self.sym_x, sigma_deg)
-    #     psi_deg = int(np.floor(max(2 * deg + self.degV, sigma_deg +
-    #                                self.degVdot) / 2))
-    #     self.sym_psi = get_monomials(self.sym_x, psi_deg, remove_one=False)
-
-    # def get_levelset_features(self, x):
-    #     # x: (num_samples, sys_dim)
-    #     n_samples = x.shape[0]
-    #     V = np.zeros((n_samples, 1))
-    #     Vdot = np.zeros((n_samples, 1))
-    #     xxd = np.zeros((n_samples, 1))
-    #     psi = np.zeros((n_samples, self.sym_psi.shape[0]))
-    #     sigma = np.zeros((n_samples, self.sym_sigma.shape[0]))
-    #     for i in range(n_samples):
-    #         env = dict(zip(self.sym_x, x[i, :]))
-    #         V[i, :] = self.sym_V.Evaluate(env)
-    #         Vdot[i, :] = self.sym_Vdot.Evaluate(env)
-    #         xxd[i, :] = self.sym_xxd.Evaluate(env)
-    #         psi[i, :] = [i.Evaluate(env) for i in self.sym_psi]
-    #         sigma[i, :] = [i.Evaluate(env) for i in self.sym_sigma]
-    #     return [V, Vdot, xxd, psi, sigma]
+        features = [np.array(phi), np.array(eta)]
+        model_dir = '../data/' + self.name + '/features_degV'
+        file_path = model_dir + str(self.degV) + '.npz'
+        np.savez_compressed(file_path, phi=features[0], eta=features[1])
+        return features
 
     def set_sample_variety_features(self, V):
         # this requires far lower degreed multiplier xxd and consequentially
@@ -207,8 +183,11 @@ class ClosedLoopSys(object):
 
     def event(self, t, x):
         norm = np.linalg.norm(x)
-        out_ = norm - self.int_stop_ub
         in_ = norm - self.int_stop_lb
+        if self.int_stop_ub is None:
+            out_ = False
+        else:
+            out_ = norm - self.int_stop_ub
         return out_ or in_
     event.terminal = True
 
@@ -293,3 +272,30 @@ class Pendubot(ClosedLoopSys):
                          1 * x4,
                          279 * x1 * x3**2 - 1425 * x1 - 257 * x2 + 273 * x3**3
                          - 1249 * x3 - 171 * x4])
+    # def levelset_features(self, V, sigma_deg):
+    #     self.sym_V = V
+    #     self.sym_Vdot = self.sym_V.Jacobian(self.sym_x) @ self.sym_f
+    #     self.degVdot = Polynomial(self.sym_Vdot, self.sym_x).TotalDegree()
+    #     deg = int(np.floor((sigma_deg + self.degVdot - self.degV) / 2))
+    #     self.sym_xxd = (self.sym_x.T@self.sym_x)**(deg)
+    #     self.sym_sigma = get_monomials(self.sym_x, sigma_deg)
+    #     psi_deg = int(np.floor(max(2 * deg + self.degV, sigma_deg +
+    #                                self.degVdot) / 2))
+    #     self.sym_psi = get_monomials(self.sym_x, psi_deg, remove_one=False)
+
+    # def get_levelset_features(self, x):
+    #     # x: (num_samples, sys_dim)
+    #     n_samples = x.shape[0]
+    #     V = np.zeros((n_samples, 1))
+    #     Vdot = np.zeros((n_samples, 1))
+    #     xxd = np.zeros((n_samples, 1))
+    #     psi = np.zeros((n_samples, self.sym_psi.shape[0]))
+    #     sigma = np.zeros((n_samples, self.sym_sigma.shape[0]))
+    #     for i in range(n_samples):
+    #         env = dict(zip(self.sym_x, x[i, :]))
+    #         V[i, :] = self.sym_V.Evaluate(env)
+    #         Vdot[i, :] = self.sym_Vdot.Evaluate(env)
+    #         xxd[i, :] = self.sym_xxd.Evaluate(env)
+    #         psi[i, :] = [i.Evaluate(env) for i in self.sym_psi]
+    #         sigma[i, :] = [i.Evaluate(env) for i in self.sym_sigma]
+    #     return [V, Vdot, xxd, psi, sigma]
