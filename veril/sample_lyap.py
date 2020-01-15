@@ -90,37 +90,49 @@ def model_V(system):
     degFeatures = system.degFeatures
     remove_one = system.remove_one
 
-    monomial_dim = get_dim(sys_dim, degFeatures)
-    if remove_one:
-        monomial_dim = monomial_dim - 1
-
+    monomial_dim = get_dim(sys_dim, degFeatures, remove_one)
     phi = Input(shape=(monomial_dim,), name='phi')
-    eta = Input(shape=(monomial_dim,), name='eta')
-
     layers = [
         Dense(monomial_dim, use_bias=False),
         # Dense((monomial_dim * 2), use_bias=False),
     ]
-
     gram_factor = Sequential(layers, name='gram_factorization')
     phiL = gram_factor(phi)  # (None, monomial_dim)
-    # V # TODO: need to avoid 0 in the denominator (by adding a strictly
-    # positive scalar to V)
     V = Dot(1, name='V')([phiL, phiL])  # (None,1)
+
+    is_cl_sys = system.loop_closed
+    # depending on if the loop is closed, only eta term would differ
+    if not is_cl_sys:
+        B = system.ctrl_B.T
+        u_dim = system.num_inputs
+        degU = system.degU
+        ubasis_dim = get_dim(sys_dim, degU, remove_one)
+        ubasis = Input(shape=(ubasis_dim,), name='ubasis')
+        u = Dense(u_dim, use_bias=False, name='u')(ubasis)
+        g = Input(shape=(sys_dim,), name='open_loop_dynamics')
+        Bu = DotKernel(B, name='Bu')(u)
+        f_cl = Add(name='closed_loop_dynamics')([g, Bu])
+        dphidx = Input(shape=(monomial_dim, sys_dim), name='dphidx')
+        eta = Dot(-1, name='eta')([dphidx, f_cl])
+        features = [g, phi, dphidx, ubasis]
+
+    else:
+        eta = Input(shape=(monomial_dim,), name='eta')
+        features = [phi, eta]
+
     # Vdot
     etaL = gram_factor(eta)  # (None, monomial_dim)
     Vdot = Dot(1, name='Vdot')([phiL, etaL])  # (None,1)
 
-    Vsqured = Power(2, name='Vsqured')(V)  # (None,1)
+    # Vsqured = Power(2, name='Vsqured')(V)  # (None,1)
 
     # Vdot_sign = Sign(name='Vdot_sign')(Vdot)
     # V_signed = Dot(1, name='Vsigned')([V, Vdot_sign])
     # min_pos = Min_Positive(name='V-flipped')(rate)
     # diff = Subtract()([rate, min_pos])
     # rectified_V = ReLu(name = 'rectified_V')(V)
-
     rate = Divide(name='rate')([Vdot, V])
-    model = Model(inputs=[phi, eta], outputs=rate)
+    model = Model(inputs=features, outputs=rate)
     model.compile(loss=mean_pos, metrics=[max_pred, mean_pred, neg_percent],
                   optimizer='adam')
     print(model.summary())
@@ -162,104 +174,100 @@ def get_V_model(sys_name, tag):
     return model
 
 
-def model_UV(plant):
-    # assuming control affine
-    B = plant.ctrl_B.T
-    u_dim = plant.num_inputs
-    sys_dim = plant.num_states
-    degFeatures = plant.degFeatures
-    degU = plant.degU
-    remove_one = plant.remove_one
+# def model_UV(plant):
+#     # assuming control affine
+#     B = plant.ctrl_B.T
+#     u_dim = plant.num_inputs
+#     sys_dim = plant.num_states
+#     degFeatures = plant.degFeatures
+#     degU = plant.degU
+#     remove_one = plant.remove_one
 
-    monomial_dim = get_dim(sys_dim, degFeatures)
-    ubasis_dim = get_dim(sys_dim, degU)
-    if remove_one:
-        monomial_dim = monomial_dim - 1
-        ubasis_dim = ubasis_dim - 1
+#     monomial_dim = get_dim(sys_dim, degFeatures, remove_one)
+#     ubasis_dim = get_dim(sys_dim, degU, remove_one)
 
-    phi = Input(shape=(monomial_dim,), name='phi')
-    layers = [
-        Dense(monomial_dim, use_bias=False),
-        # Dense((monomial_dim * 2), use_bias=False),
-        # Dense(monomial_dim, use_bias=False),
-    ]
-    gram_factor = Sequential(layers, name='gram_factorization')
-    phiL = gram_factor(phi)  # (None, monomial_dim)
-    V = Dot(1, name='V')([phiL, phiL])  # (None,1)
+#     phi = Input(shape=(monomial_dim,), name='phi')
+#     layers = [
+#         Dense(monomial_dim, use_bias=False),
+#         # Dense((monomial_dim * 2), use_bias=False),
+#         # Dense(monomial_dim, use_bias=False),
+#     ]
+#     gram_factor = Sequential(layers, name='gram_factorization')
+#     phiL = gram_factor(phi)  # (None, monomial_dim)
+#     V = Dot(1, name='V')([phiL, phiL])  # (None,1)
 
-    # # need to avoid 0 in the denominator (by adding a strictly positive scalar
-    # # to V)
-    ubasis = Input(shape=(ubasis_dim,), name='ubasis')
-    u = Dense(u_dim, use_bias=False, name='u')(ubasis)
-    g = Input(shape=(sys_dim,), name='open_loop_dynamics')
+#     # # need to avoid 0 in the denominator (by adding a strictly positive scalar
+#     # # to V)
+#     ubasis = Input(shape=(ubasis_dim,), name='ubasis')
+#     u = Dense(u_dim, use_bias=False, name='u')(ubasis)
+#     g = Input(shape=(sys_dim,), name='open_loop_dynamics')
 
-    Bu = DotKernel(B, name='Bu')(u)
-    f_cl = Add(name='closed_loop_dynamics')([g, Bu])
+#     Bu = DotKernel(B, name='Bu')(u)
+#     f_cl = Add(name='closed_loop_dynamics')([g, Bu])
 
-    dphidx = Input(shape=(monomial_dim, sys_dim), name='dphidx')
-    eta = Dot(-1, name='eta')([dphidx, f_cl])
-    etaL = gram_factor(eta)  # (None, monomial_dim)
-    Vdot = Dot(1, name='Vdot')([phiL, etaL])  # (None,1)
-    rate = Divide(name='ratio')([Vdot, V])
+#     dphidx = Input(shape=(monomial_dim, sys_dim), name='dphidx')
+#     eta = Dot(-1, name='eta')([dphidx, f_cl])
+#     etaL = gram_factor(eta)  # (None, monomial_dim)
+#     Vdot = Dot(1, name='Vdot')([phiL, etaL])  # (None,1)
+#     rate = Divide(name='ratio')([Vdot, V])
 
-    features = [g, phi, dphidx, ubasis]
-    model = Model(inputs=features, outputs=rate)
-    model.compile(loss=max_pred, metrics=[mean_pred, max_pred, neg_percent],
-                  optimizer='adam')
-    print(model.summary())
-    return model
+#     features = [g, phi, dphidx, ubasis]
+#     model = Model(inputs=features, outputs=rate)
+#     model.compile(loss=max_pred, metrics=[mean_pred, max_pred, neg_percent],
+#                   optimizer='adam')
+#     print(model.summary())
+#     return model
 
+# def gram_decomp_model_for_levelsetpoly(sys_dim, sigma_deg, psi_deg):
+#     psi_dim = get_dim(sys_dim, psi_deg)
+#     psi = Input(shape=(psi_dim,), name='psi')
+#     layers = [
+#         Dense(psi_dim, use_bias=False),
+#         # Dense(math.floor(psi_dim / 2), use_bias=False),
+#         # Dense(10, use_bias=False),
+#         # Dense(4, use_bias=False),
+#     ]
+#     layers = layers + [TransLayer(i) for i in layers[::-1]]
+#     psiLL = Sequential(layers, name='Gram')(psi)  # (None,
+#     # monomial_dim)
+#     candidateSOS = Dot(1)([psiLL, psi])  # (None,1)
 
-def gram_decomp_model_for_levelsetpoly(sys_dim, sigma_deg, psi_deg):
-    psi_dim = get_dim(sys_dim, psi_deg)
-    psi = Input(shape=(psi_dim,), name='psi')
-    layers = [
-        Dense(psi_dim, use_bias=False),
-        # Dense(math.floor(psi_dim / 2), use_bias=False),
-        # Dense(10, use_bias=False),
-        # Dense(4, use_bias=False),
-    ]
-    layers = layers + [TransLayer(i) for i in layers[::-1]]
-    psiLL = Sequential(layers, name='Gram')(psi)  # (None,
-    # monomial_dim)
-    candidateSOS = Dot(1)([psiLL, psi])  # (None,1)
+#     xxd = Input(shape=(1,), name='xxd')
+#     V = Input(shape=(1,), name='V')
+#     Vdot = Input(shape=(1,), name='Vdot')
 
-    xxd = Input(shape=(1,), name='xxd')
-    V = Input(shape=(1,), name='V')
-    Vdot = Input(shape=(1,), name='Vdot')
+#     xxdV = Dot(-1)([xxd, V])
 
-    xxdV = Dot(-1)([xxd, V])
+#     sigma_dim = get_dim(sys_dim + sigma_deg)
+#     sigma = Input(shape=(sigma_dim,), name='sigma')
 
-    sigma_dim = get_dim(sys_dim + sigma_deg)
-    sigma = Input(shape=(sigma_dim,), name='sigma')
+#     multiplierLayers = [
+#         # Dense(sigma_dim, use_bias=False),
+#         # Dense(4, use_bias=False),
+#         Dense(1, use_bias=False),
+#     ]
+#     L1 = Sequential(multiplierLayers, name='multiplier')(sigma)
+#     L1Vdot = Dot(-1, name='L1Vdot')([L1, Vdot])
 
-    multiplierLayers = [
-        # Dense(sigma_dim, use_bias=False),
-        # Dense(4, use_bias=False),
-        Dense(1, use_bias=False),
-    ]
-    L1 = Sequential(multiplierLayers, name='multiplier')(sigma)
-    L1Vdot = Dot(-1, name='L1Vdot')([L1, Vdot])
+#     rholayer = [Dense(1, use_bias=False, kernel_regularizer=rho_reg)]
+#     # kernel_regularizer=rho_reg
+#     rholayer = rholayer + [TransLayer(i) for i in rholayer[::-1]]
 
-    rholayer = [Dense(1, use_bias=False, kernel_regularizer=rho_reg)]
-    # kernel_regularizer=rho_reg
-    rholayer = rholayer + [TransLayer(i) for i in rholayer[::-1]]
-
-    # residual = sos - (xxdV-xxdrho+L1Vdot)
-    # if use xxd(V-rho)
-    # xxdrho = Sequential(rholayer, name='rho')(xxd)
-    # vminusrho = Subtract()([xxdV, xxdrho])
-    # if use xxd(rho*V - 1)
-    xxdVrho = Sequential(rholayer, name='rho')(xxdV)
-    vminusrho = Subtract()([xxdVrho, xxd])
-    vminusrhoplusvdot = Add()([vminusrho, L1Vdot])
-    ratio = Divide()([vminusrhoplusvdot, candidateSOS])
-    # outputs = Dot(-1)([ratio, xxdrho])
-    model = Model(inputs=[V, Vdot, xxd, psi, sigma], outputs=ratio)
-    model.compile(loss='mse', metrics=[mean_pred, 'mse'],
-                  optimizer='adam')
-    print(model.summary())
-    return model
+#     # residual = sos - (xxdV-xxdrho+L1Vdot)
+#     # if use xxd(V-rho)
+#     # xxdrho = Sequential(rholayer, name='rho')(xxd)
+#     # vminusrho = Subtract()([xxdV, xxdrho])
+#     # if use xxd(rho*V - 1)
+#     xxdVrho = Sequential(rholayer, name='rho')(xxdV)
+#     vminusrho = Subtract()([xxdVrho, xxd])
+#     vminusrhoplusvdot = Add()([vminusrho, L1Vdot])
+#     ratio = Divide()([vminusrhoplusvdot, candidateSOS])
+#     # outputs = Dot(-1)([ratio, xxdrho])
+#     model = Model(inputs=[V, Vdot, xxd, psi, sigma], outputs=ratio)
+#     model.compile(loss='mse', metrics=[mean_pred, 'mse'],
+#                   optimizer='adam')
+#     print(model.summary())
+#     return model
 
 
 # def linear_model_for_V(sys_dim, A):
@@ -284,8 +292,11 @@ def gram_decomp_model_for_levelsetpoly(sys_dim, sigma_deg, psi_deg):
 #     return model
 
 
-def get_dim(num_var, deg):
-    return fact(num_var + deg) // fact(num_var) // fact(deg)
+def get_dim(num_var, deg, remove_one):
+    if remove_one:
+        return fact(num_var + deg) // fact(num_var) // fact(deg) - 1
+    else:
+        return fact(num_var + deg) // fact(num_var) // fact(deg)
 # def get_gram_trans_for_levelset_poly(model):
 #     names = [weight.name for layer in model.layers for weight in layer.weights]
 #     weights = model.get_weights()

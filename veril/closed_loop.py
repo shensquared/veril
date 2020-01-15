@@ -197,6 +197,7 @@ class VanderPol(ClosedLoopSys):
 
     def __init__(self):
         self.name = 'VanderPol'
+        self.loop_closed = True
         self.num_states = 2
         self.slice = [0, 1]
         self.all_slices = [[0, 1]]
@@ -229,6 +230,7 @@ class Pendubot(ClosedLoopSys):
 
     def __init__(self):
         self.name = 'Pendubot'
+        self.loop_closed = True
         self.num_states = 4
         self.slice = [0, 2]
         self.all_slices = list(

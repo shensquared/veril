@@ -40,7 +40,7 @@ def getUV(system, train_or_load, **kwargs):
                                 dphidx=features[2], ubasis=features[3])
         n_samples = features[0].shape[0]
         y = - np.ones((n_samples,))
-        model = sample_lyap.model_UV(system)
+        model = sample_lyap.model_V(system)
         history = model.fit(features, y, **kwargs)
         model_file_name = model_dir + '/V_model' + tag + '.h5'
         model.save(model_file_name)
