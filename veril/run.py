@@ -41,10 +41,8 @@ def get_V(system, train_or_load, **kwargs):
             n_samples = train_x.shape[0]
             assert(train_x.shape[1] == nx)
             print('x size %s' % str(train_x.shape))
-            file_path = model_dir + '/train_for_v_features' + tag + '.npz'
-        else:
-            file_path = model_dir + '/features' + tag + '.npz'
 
+        file_path = model_dir + '/features' + tag + '.npz'
         if os.path.exists(file_path):
             l = np.load(file_path)
             if is_cl_sys:
@@ -183,7 +181,7 @@ def cvx_V(sys_name, degFeatures, remove_one=False):
     assert(train_x.shape[1] == system.num_states)
     print('x size %s' % str(train_x.shape))
 
-    file_path = model_dir + '/train_for_v_features_' + tag + '.npz'
+    file_path = model_dir + '/features_' + tag + '.npz'
 
     if os.path.exists(file_path):
         l = np.load(file_path)
