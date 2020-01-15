@@ -20,12 +20,12 @@ def get_system(sys_name, degFeatures, degU, remove_one=True):
 
 
 def get_V(system, train_or_load, **kwargs):
-    sys_name = system.name
     degFeatures = system.degFeatures
     remove_one = system.remove_one
     is_cl_sys = system.loop_closed
 
     tag = '_degV' + str(2 * degFeatures)
+    model_dir = '../data/' + system.name
 
     if is_cl_sys and remove_one:
         tag = tag + '_rm'
@@ -34,7 +34,6 @@ def get_V(system, train_or_load, **kwargs):
 
     if train_or_load is 'Train':
         nx = system.num_states
-        model_dir = '../data/' + sys_name
 
         if is_cl_sys:
             train_x = np.load(model_dir + '/stableSamples.npy')
@@ -73,7 +72,7 @@ def get_V(system, train_or_load, **kwargs):
     elif train_or_load is 'Load':
         # TODO: decide if should save the model or directly save V
         train_x = None
-        model = sample_lyap.get_V_model(sys_name, tag)
+        model = sample_lyap.get_V_model(model_dir, tag)
 
     P, u_weights = sample_lyap.get_model_weights(model, is_cl_sys)
     if not is_cl_sys:

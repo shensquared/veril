@@ -163,8 +163,7 @@ def get_model_weights(model, is_cl_sys):
         return L@L.T, np.linalg.multi_dot(u_weights)
 
 
-def get_V_model(sys_name, tag):
-    model_dir = os.path.dirname(__file__) + '/../data/' + sys_name
+def get_V_model(model_dir, tag):
     file_name = model_dir + '/V_model' + tag + '.h5'
 
     with CustomObjectScope({'Divide': Divide, 'DotKernel': DotKernel,
