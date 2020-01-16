@@ -335,8 +335,8 @@ class PendulumRecast(S4CV_Plants):
         self.I = .25
         self.g = 9.81
 
-        self.slice = [0, 2]
-        self.all_slices = [[0, 2]]
+        self.slice = [1, 2]
+        self.all_slices = itertools.combinations(range(self.num_states), 2)
 
         self.x0 = np.array([0, -1, 0])  # theta=pi, thetadot=0
         self.x0dot = np.zeros((self.num_states,))
