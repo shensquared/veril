@@ -147,6 +147,9 @@ class ClosedLoopSys(object):
         sol = integrate.solve_ivp(self.fx, [0, int_horizon], x, events=event)
         return sol
 
+    def random_sample(self, n):
+        return np.random.randn(n, self.num_states)
+
     def sample_stable_inits(self, x=None, **kwargs):
         event = self.event
         if x is None:
@@ -374,6 +377,11 @@ class PendulumRecast(S4CV_Plants):
         else:
             y = np.arctan2(x[0], x[1])
             return np.isclose(y, 0, atol=self.at_fixed_pt_tol)
+
+    def random_sample(self, n):
+        x1, x2 = np.random.randn(n,), np.random.randn(n,)
+        x = np.array([np.sin(x1), np.cos(x1), x2]).T  # (n,3)
+        return x
 
 # plant = get('PendulumTrig')
 # plant.set_syms(3,1)
