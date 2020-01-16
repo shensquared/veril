@@ -2,74 +2,11 @@ import os
 import time
 import numpy as np
 # import argparse
-from keras.callbacks import ModelCheckpoint, EarlyStopping
 from veril.systems import get_system
+from veril.sample_lyap import get_V
 
-from veril import symbolic_verifier, sample_lyap, sample_variety
+from veril import symbolic_verifier, sample_variety
 from veril.util.plots import *
-
-
-def load_features_dataset(file_path, loop_closed):
-    l = np.load(file_path)
-    if loop_closed:
-        features = [l['phi'], l['eta']]
-    else:
-        features = [l['g'], l['phi'], l['dphidx'], l['ubasis']]
-    return features
-
-
-def get_V(system, train_or_load, **kwargs):
-    degFeatures = system.degFeatures
-    remove_one = system.remove_one
-    loop_closed = system.loop_closed
-
-    tag = '_degV' + str(2 * degFeatures)
-    model_dir = '../data/' + system.name
-
-    if loop_closed and remove_one:
-        tag = tag + '_rm'
-    if not loop_closed:
-        tag = tag + 'degU' + str(degU)
-
-    if train_or_load is 'Train':
-        nx = system.num_states
-
-        if loop_closed:
-            train_x = np.load(model_dir + '/stableSamples.npy')
-            n_samples = train_x.shape[0]
-            assert(train_x.shape[1] == nx)
-            print('x size %s' % str(train_x.shape))
-        else:
-            train_x = None
-
-        file_path = model_dir + '/features' + tag + '.npz'
-        if os.path.exists(file_path):
-            features = load_features_dataset(file_path, loop_closed)
-        else:
-            features = system.features_at_x(train_x, file_path)
-
-        n_samples = features[0].shape[0]
-        y = - np.ones((n_samples,))
-        model = sample_lyap.model_V(system)
-        history = model.fit(features, y, **kwargs)
-        # assert (history.history['loss'][-1] <= 0)
-        # bad_samples, bad_predictions = eval_model(
-        #     model, system, train_x, features=features)
-        model_file_name = model_dir + '/V_model' + tag + '.h5'
-        model.save(model_file_name)
-        print('Saved model ' + model_file_name + ' to disk')
-
-    elif train_or_load is 'Load':
-        # TODO: decide if should save the model or directly save V
-        train_x = None
-        model = sample_lyap.get_V_model(model_dir, tag)
-
-    P, u_weights = sample_lyap.get_model_weights(model, loop_closed)
-    if not loop_closed:
-        system.close_the_loop(u_weights)
-    V, Vdot = system.P_to_V(P, samples=None)
-    # test_model(model, system, V, Vdot, x=None)
-    return V, Vdot, system
 
 
 def eval_model(model, system, x, features=None):
