@@ -10,6 +10,7 @@ from veril.util.plots import *
 
 
 def verify_via_variety(system, V, init_root_threads=1):
+    assert system.loop_closed
     system.set_sample_variety_features(V)
     Vdot = system.sym_Vdot
     variety = multi_to_univariate(Vdot)

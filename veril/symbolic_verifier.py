@@ -14,6 +14,7 @@ import time
 
 
 def verify_via_equality(system, V0):
+    assert system.loop_closed
     if V0 is None:
         A, S, V0 = system.linearized_quadractic_V()
     start = time.time()
@@ -25,6 +26,7 @@ def verify_via_equality(system, V0):
 
 
 def verify_via_bilinear(system, **kwargs):
+    assert system.loop_closed
     sys_name = system.name
     degV = system.degV
     degf = system.degf
