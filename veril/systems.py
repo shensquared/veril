@@ -277,7 +277,7 @@ class PendulumTrig(S4CV_Plants):
         self.slice = [0, 1]
         self.all_slices = [[0, 1]]
 
-        self.x0 = np.array([np.pi, 0])  # theta=pi, thetadot=0
+        self.x0 = np.array([0, 0])  # theta=pi, thetadot=0
         self.x0dot = np.zeros((self.num_states,))
         self.init_x_g_B()
 
