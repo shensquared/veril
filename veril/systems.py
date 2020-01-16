@@ -260,6 +260,7 @@ class S4CV_Plants(ClosedLoopSys):
         self.u_weights = u_weights
         self.u = (self.sym_ubasis@u_weights).T
         self.sym_f = self.sym_g + self.ctrl_B@self.u
+        # TODO: fix self.degf
 
 
 class PendulumTrig(S4CV_Plants):
@@ -279,7 +280,6 @@ class PendulumTrig(S4CV_Plants):
 
         self.slice = [0, 1]
         self.all_slices = [[0, 1]]
-        self.degf = 1
 
         self.x0 = np.array([np.pi, 0])  # theta=pi, thetadot=0
         self.x0dot = np.zeros((self.num_states,))
