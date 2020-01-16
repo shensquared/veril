@@ -124,7 +124,7 @@ class ClosedLoopSys(object):
         V0 = self.sym_phi.T@P@self.sym_phi
         Vdot0 = self.set_Vdot(V0)
         H = Jacobian(Vdot0.Jacobian(self.sym_x).T, self.sym_x)
-        env = dict(zip(self.sym_x, np.zeros(self.num_states)))
+        env = dict(zip(self.sym_x, self.x0))
         H = np.array([[i.Evaluate(env) for i in j]for j in H])
         print('eig of Hessian of Vdot0 %s' % (eig(H)[0]))
         # assert (np.all(eig(H)[0] <= 0))
@@ -186,7 +186,7 @@ class ClosedLoopSys(object):
         x1, x2 = np.meshgrid(x0, x0)
         x1, x2 = x1.ravel(), x2.ravel()
         x = np.array([x1, x2]).T  # (num_grid**2,2)
-        return x[~np.all(x == 0, axis=1)]
+        return x[~np.all(x == self.x0, axis=1)]
 
     def is_at_fixed_pt(self, x):
         # return np.linalg.norm(x) <= self.at_fixed_pt_tol
@@ -294,7 +294,7 @@ class PendulumTrig(S4CV_Plants):
         x1, x2 = np.meshgrid(x1, x2)
         x1, x2 = x1.ravel(), x2.ravel()
         x = np.array([x1, x2]).T  # (num_grid**2,2)
-        return x[~np.all(x == 0, axis=1)]
+        return x[~np.all(x == self.x0, axis=1)]
 
     def gx(self, x):
         # m l² θ̈=u-m g l sin θ-b θ̇
@@ -351,9 +351,8 @@ class PendulumRecast(S4CV_Plants):
         x2 = np.linspace(-d, d, num_grid)
         x1, x2 = np.meshgrid(x1, x2)
         x1, x2 = x1.ravel(), x2.ravel()
-        x = np.array([x1, x2]).T  # (num_grid**2,2)
-        x = x[~np.all(x == 0, axis=1)]
-        return np.array([np.sin(x[0]), np.cos(x[0]), x[1]])
+        x = np.array([np.sin(x1), np.cos(x1), x2]).T  # (num_grid**2,3)
+        return x[~np.all(x == self.x0, axis=1)]
 
     def gx(self, x):
         # m l² θ̈=u-m g l sin θ-b θ̇
@@ -451,7 +450,7 @@ class Pendubot(ClosedLoopSys):
             x1, x2, x3, x4 = np.meshgrid(x0, x0, x0, x0)
             x1, x2, x3, x4 = x1.ravel(), x2.ravel(), x3.ravel(), x4.ravel()
             x = np.array([x1, x2, x3, x4]).T  # (num_grid**4,4)
-        return x[~np.all(x == 0, axis=1)]
+        return x[~np.all(x == self.x0, axis=1)]
 
     def fx(self, t, y):
         [x1, x2, x3, x4] = y

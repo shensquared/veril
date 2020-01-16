@@ -173,7 +173,7 @@ def levelset_sos(sys, V0, do_balance=False, write_to_file=False):
     # print('equality-constrained SDP size is %s' % psi_dim)
 
     H = Jacobian(Vdot.Jacobian(x).T, x)
-    env = dict(zip(x, np.zeros(x.shape)))
+    env = dict(zip(x, sys.x0))
     H = .5 * np.array([[i.Evaluate(env) for i in j]for j in H])
     # print('eig of Hessian of Vdot %s' % (eig(H)[0]))
     # assert (np.all(eig(H)[0] <= 0))
