@@ -43,24 +43,3 @@ plot_traj(initial, system, int_horizon=20, slice_idx=0)
 # verify_via_bilinear(system, V0=V)
 # verify_via_variety(system, V, init_root_threads=init_root_threads)
 
-############
-# Dirty code below, but may be useful for refrence
-# def SGDLevelSetGramCandidate(V, vdp, degFeatures=3):
-#     sym_x = vdp.sym_x
-#     train_x = vdp.get_x(d=10).T
-#     train_y = np.ones((train_x.shape[0], 1))
-#     vdp.set_syms(degFeatures)
-#     sigma_deg = 8
-#     psi_deg = 8
-#     vdp.levelset_features(V, sigma_deg)
-#     [V, Vdot, xxd, psi, sigma] = vdp.get_levelset_features(train_x)
-#     verifyModel = sample_lyap.gram_decomp_model_for_levelsetpoly(
-#         vdp.num_states, sigma_deg, psi_deg)
-#     history = verifyModel.fit([V, Vdot, xxd, psi, sigma], train_y, epochs=100,
-#                               shuffle=True)
-#     return verifyModel
-# verifyModel = SGDLevelSetGramCandidate(V, vdp)
-# [gram, g, rho, L] = sample_lyap.get_gram_trans_for_levelset_poly(verifyModel)
-# # x = np.array([-1.2, 2]).reshape((1, 2))
-# # pp = vdp.get_levelset_features(x)
-# # print(verifyModel.predict(pp))
