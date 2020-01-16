@@ -20,15 +20,18 @@ def get(system_name):
         return globals()[identifier]()
 
 
-def get_monomials(x, deg, remove_one=False):
-    # y = list(itertools.combinations_with_replacement(np.append(pow(x[0], 0),
-    # x),deg))
-    # basis = [np.prod(j) for j in y]
-    # return np.stack(basis)
+def get_monomials(x, deg, remove_one=True):
+    c = 1 if isinstance(x[0], float) else Expression(1)
+    _ = itertools.combinations_with_replacement(np.append(c, x), deg)
+    basis = [np.prod(j) for j in _]
     if remove_one:
-        return np.array([i.ToExpression() for i in MonomialBasis(x, deg)[:-1]])
-    else:
-        return np.array([i.ToExpression() for i in MonomialBasis(x, deg)])
+        basis = basis[1:]
+    # if remove_one:
+    #     print(np.array([i.ToExpression() for i in MonomialBasis(x, deg)[:-1]]))
+    # else:
+    #     print(np.array([i.ToExpression() for i in MonomialBasis(x, deg)]))
+    # print(basis[::-1])
+    return np.array(basis[::-1])
 
 
 class ClosedLoopSys(object):
@@ -244,14 +247,9 @@ class S4CV_Plants(ClosedLoopSys):
         return features
 
     def fx(self, t, y):
-        _ = list(itertools.combinations_with_replacement(np.append(1, y),
-                                                         self.degU))
-        basis = [np.prod(j) for j in _]
-        if self.remove_one:
-            basis = basis[1:]
-        numerical_u_basis = np.array(basis[::-1])
-        # print(numerical_u_basis.shape)
-        u = (numerical_u_basis@self.u_weights).T
+        u_basis = get_monomials(y, self.degU, remove_one=self.remove_one)
+        # print(u_basis.shape)
+        u = (u_basis@self.u_weights).T
         # theta = y@np.array([1,0])
         # u = (9.81* np.sin(theta + np.pi)).reshape((1,))
         # env = dict(zip(self.sym_x, y))
