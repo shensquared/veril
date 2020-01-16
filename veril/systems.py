@@ -19,6 +19,10 @@ def get(system_name):
         identifier = str(system_name)
         return globals()[identifier]()
 
+def get_system(sys_name, degFeatures, degU, remove_one=True):
+    system = get(sys_name)
+    system.set_syms(degFeatures, degU, remove_one=remove_one)
+    return system
 
 def get_monomials(x, deg, remove_one=True):
     c = 1 if isinstance(x[0], float) else Expression(1)
