@@ -6,6 +6,37 @@ from pydrake.all import (Polynomial, Variable, Evaluate, Substitute,
 import numpy as np
 from numpy.linalg import eig, inv
 import time
+from veril.util.plots import *
+
+
+def verify_via_variety(system, V, init_root_threads=1):
+    system.set_sample_variety_features(V)
+    Vdot = system.sym_Vdot
+    variety = multi_to_univariate(Vdot)
+
+    is_vanishing = False
+
+    samples = sample_on_variety(variety, init_root_threads)
+
+    while not is_vanishing:
+        samples_monomial, Tinv = sample_monomials(
+            system, samples, variety)
+        start = time.time()
+        V, rho, P = solve_SDP_on_samples(
+            system, samples_monomial)
+        is_vanishing, new_sample = check_vanishing(
+            system, variety, rho, P, Tinv)
+        end = time.time()
+        print('sampling variety time %s' % (end - start))
+
+        # samples = [np.vstack(i) for i in zip(samples, new_sample)]
+        # samples = np.vstack((samples, sample_on_variety
+        # (variety, 1)))
+        samples = np.vstack((samples, new_sample))
+    print(rho)
+    plot_funnel(V / rho, system, slice_idx=system.slice,
+                add_title=' - Sampling Variety ' + 'Result')
+    return rho
 
 
 def multi_to_univariate(variety):
@@ -200,7 +231,7 @@ def check_genericity(all_samples):
     sub_samples = all_samples
 
     c = np.power(sub_samples@sub_samples.T, 2)  # c = q'*q
-    print('c shape is %s' %str(c.shape))
+    print('c shape is %s' % str(c.shape))
     s = abs(np.linalg.eig(c)[0])
     tol = max(c.shape) * np.spacing(max(s)) * 1e3
     sample_rank = sum(s > tol)

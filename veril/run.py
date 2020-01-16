@@ -5,6 +5,7 @@ from veril.systems import get_system
 from veril.sample_lyap import get_V
 
 from veril.symbolic_verifier import verify_via_equality, verify_via_bilinear
+from veril.sample_variety import verify_via_variety
 from veril.util.plots import *
 
 
@@ -32,34 +33,6 @@ def test_model(model, system, V, Vdot, x=None):
     return [test_prediction, test_V, test_Vdot]
 
 
-def verify_via_variety(system, V, init_root_threads=1):
-    system.set_sample_variety_features(V)
-    Vdot = system.sym_Vdot
-    variety = sample_variety.multi_to_univariate(Vdot)
-
-    is_vanishing = False
-
-    samples = sample_variety.sample_on_variety(variety, init_root_threads)
-
-    while not is_vanishing:
-        samples_monomial, Tinv = sample_variety.sample_monomials(
-            system, samples, variety)
-        start = time.time()
-        V, rho, P = sample_variety.solve_SDP_on_samples(
-            system, samples_monomial)
-        is_vanishing, new_sample = sample_variety.check_vanishing(
-            system, variety, rho, P, Tinv)
-        end = time.time()
-        print('sampling variety time %s' % (end - start))
-
-        # samples = [np.vstack(i) for i in zip(samples, new_sample)]
-        # samples = np.vstack((samples, sample_variety.sample_on_variety
-        # (variety, 1)))
-        samples = np.vstack((samples, new_sample))
-    print(rho)
-    plot_funnel(V / rho, system, slice_idx=system.slice, add_title=' - Sampling Variety '
-                + 'Result')
-    return rho
 
 
 sys_name = 'VanderPol'
