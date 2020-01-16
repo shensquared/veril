@@ -87,14 +87,21 @@ def plot_traj(initial, system, **kwargs):
     fig, axs = plt.subplots(1, len(slice_idx), sharey=True, figsize=(9, 3))
     [j.set_ylabel('x' + str(i + 1)) for (i, j) in zip(slice_idx, axs)]
 
+    plotV = False
+    if 'V' in kwargs:
+        fig2, axs2 = plt.subplots()
+        plotV = True
+
     for i, c in zip(initial, color):
         sol = system.forward_sim(i, **kwargs)
         if sol.status != -1:
             [j.plot(sol.y[i], c=c) for (i, j) in zip(slice_idx, axs)]
-            if 'V' in kwargs:
+            if plotV:
                 Vtraj = system.get_v_values(sol.y.T, V=kwargs['V'])
-                plt.plot(Vtraj)
+                axs2.plot(Vtraj, c=c)
+                print('final V value is %s' % Vtraj[-1])
     # plt.xlabel('time')
+    axs2.set_title('V trajectory')
     fig.suptitle(sys_name + ' Simulation ' + add_title)
     plt.show()
 
