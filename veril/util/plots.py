@@ -75,25 +75,25 @@ def plot_traj(initial, system, **kwargs):
 
     n = initial.shape[0]
     color = cm.rainbow(np.linspace(0, 1, n))
-    markers = ['o', 'P', 'X', 0, 'v', 'h', '^', '.', ',', '<', '>', '1', '2',
-               '3', '4', '8', 's', 'p', '*',  'H', '+', 'x', 'D', 'd', '|',
-               '_', 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 'None', None, ' ', '']
-    markers = markers[:nx]
-    handles = [mlines.Line2D([], [], marker=markers[i], linestyle='None',
-                             markersize=8, label='x' + str(i + 1)) for i in
-               range(nx)]
-    plt.legend(handles=handles)
+    # markers = ['o', 'P', 'X', 0, 'v', 'h', '^', '.', ',', '<', '>', '1', '2',
+    #            '3', '4', '8', 's', 'p', '*',  'H', '+', 'x', 'D', 'd', '|',
+    #            '_', 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 'None', None, ' ', '']
+    # markers = markers[:nx]
+    # handles = [mlines.Line2D([], [], marker=markers[i], linestyle='None',
+    #                          markersize=8, label='x' + str(i + 1)) for i in
+    #            range(nx)]
+    # plt.legend(handles=handles)
+    slice_idx = kwargs['slice_idx'] if 'slice_idx' in kwargs else range(nx)
+    fig, axs = plt.subplots(1, len(slice_idx), sharey=True, figsize=(9, 3))
+    [j.set_ylabel('x' + str(i + 1)) for (i, j) in zip(slice_idx, axs)]
 
     for i, c in zip(initial, color):
         sol = system.forward_sim(i, **kwargs)
         if sol.status != -1:
-            if 'slice_idx' in kwargs:
-                plt.plot(sol.y[kwargs['slice_idx']], c=c)
-            else:
-                [plt.plot(j, c=c, marker=m) for (j, m) in zip(sol.y, markers)]
-    plt.xlabel('time')
+            [j.plot(sol.y[i], c=c) for (i, j) in zip(slice_idx, axs)]
+    # plt.xlabel('time')
     # plt.ylabel(ylab)
-    plt.title(sys_name + ' Simulation ' + add_title)
+    fig.suptitle(sys_name + ' Simulation ' + add_title)
     plt.show()
 
 
