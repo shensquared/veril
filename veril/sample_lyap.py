@@ -100,9 +100,9 @@ def model_V(system):
     phiL = gram_factor(phi)  # (None, monomial_dim)
     V = Dot(1, name='V')([phiL, phiL])  # (None,1)
 
-    is_cl_sys = system.loop_closed
+    loop_closed = system.loop_closed
     # depending on if the loop is closed, only eta term would differ
-    if not is_cl_sys:
+    if not loop_closed:
         B = system.ctrl_B.T
         u_dim = system.num_inputs
         degU = system.degU
@@ -139,7 +139,7 @@ def model_V(system):
     return model
 
 
-def get_model_weights(model, is_cl_sys):
+def get_model_weights(model, loop_closed):
     names = [weight.name for layer in model.layers for weight in layer.weights]
     weights = model.get_weights()
     u_weights, gram_weights = [], []
@@ -155,7 +155,7 @@ def get_model_weights(model, is_cl_sys):
         L = np.linalg.multi_dot(gram_weights)
 
     if len(u_weights) == 0:
-        assert is_cl_sys
+        assert loop_closed
         return L@L.T, None
     elif len(u_weights) == 1:
         return L@L.T, u_weights[0]

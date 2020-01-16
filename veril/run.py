@@ -19,9 +19,9 @@ def get_system(sys_name, degFeatures, degU, remove_one=True):
     return system
 
 
-def load_features_dataset(file_path, is_cl_sys):
+def load_features_dataset(file_path, loop_closed):
     l = np.load(file_path)
-    if is_cl_sys:
+    if loop_closed:
         features = [l['phi'], l['eta']]
     else:
         features = [l['g'], l['phi'], l['dphidx'], l['ubasis']]
@@ -31,20 +31,20 @@ def load_features_dataset(file_path, is_cl_sys):
 def get_V(system, train_or_load, **kwargs):
     degFeatures = system.degFeatures
     remove_one = system.remove_one
-    is_cl_sys = system.loop_closed
+    loop_closed = system.loop_closed
 
     tag = '_degV' + str(2 * degFeatures)
     model_dir = '../data/' + system.name
 
-    if is_cl_sys and remove_one:
+    if loop_closed and remove_one:
         tag = tag + '_rm'
-    if not is_cl_sys:
+    if not loop_closed:
         tag = tag + 'degU' + str(degU)
 
     if train_or_load is 'Train':
         nx = system.num_states
 
-        if is_cl_sys:
+        if loop_closed:
             train_x = np.load(model_dir + '/stableSamples.npy')
             n_samples = train_x.shape[0]
             assert(train_x.shape[1] == nx)
@@ -54,7 +54,7 @@ def get_V(system, train_or_load, **kwargs):
 
         file_path = model_dir + '/features' + tag + '.npz'
         if os.path.exists(file_path):
-            features = load_features_dataset(file_path, is_cl_sys)
+            features = load_features_dataset(file_path, loop_closed)
         else:
             features = system.features_at_x(train_x, file_path)
 
@@ -74,8 +74,8 @@ def get_V(system, train_or_load, **kwargs):
         train_x = None
         model = sample_lyap.get_V_model(model_dir, tag)
 
-    P, u_weights = sample_lyap.get_model_weights(model, is_cl_sys)
-    if not is_cl_sys:
+    P, u_weights = sample_lyap.get_model_weights(model, loop_closed)
+    if not loop_closed:
         system.close_the_loop(u_weights)
     V, Vdot = system.P_to_V(P, samples=None)
     # test_model(model, system, V, Vdot, x=None)
