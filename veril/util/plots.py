@@ -5,6 +5,7 @@ from . import samples
 from mpl_toolkits.mplot3d import Axes3D
 import os
 from matplotlib.pyplot import cm
+import matplotlib.lines as mlines
 
 
 def plot_params(system, **kwargs):
@@ -69,17 +70,27 @@ def scatterSamples(samples, system, **kwargs):
 
 def plot_traj(initial, system, **kwargs):
     sys_name = system.name
+    nx = system.num_states
     add_title = kwargs['add_title'] if 'add_title' in kwargs else ''
 
     n = initial.shape[0]
     color = cm.rainbow(np.linspace(0, 1, n))
+    markers = ['o', 'P', 'X', 0, 'v', 'h', '^', '.', ',', '<', '>', '1', '2',
+               '3', '4', '8', 's', 'p', '*',  'H', '+', 'x', 'D', 'd', '|',
+               '_', 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 'None', None, ' ', '']
+    markers = markers[:nx]
+    handles = [mlines.Line2D([], [], marker=markers[i], linestyle='None',
+                             markersize=8, label='x' + str(i + 1)) for i in
+               range(nx)]
+    plt.legend(handles=handles)
+
     for i, c in zip(initial, color):
         sol = system.forward_sim(i, **kwargs)
-        if sol.status != 1:
+        if sol.status != -1:
             if 'slice_idx' in kwargs:
-                plt.plot(sol.y[kwargs['slice_idx']],c=c)
+                plt.plot(sol.y[kwargs['slice_idx']], c=c)
             else:
-                [plt.plot(j, c=c) for j in sol.y]
+                [plt.plot(j, c=c, marker=m) for (j, m) in zip(sol.y, markers)]
     plt.xlabel('time')
     # plt.ylabel(ylab)
     plt.title(sys_name + ' Simulation ' + add_title)
