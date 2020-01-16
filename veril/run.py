@@ -9,32 +9,6 @@ from veril.sample_variety import verify_via_variety
 from veril.util.plots import *
 
 
-def eval_model(model, system, x, features=None):
-    if features is None:
-        features = system.features_at_x(x)
-    predicted = model.predict(features)
-    bad_samples = x[predicted.ravel() > 0]
-    bad_predictions = predicted[predicted.ravel() > 0]
-    [scatterSamples(bad_samples, system, slice_idx=i)
-     for i in system.all_slices]
-    return bad_samples, bad_predictions
-
-
-def test_model(model, system, V, Vdot, x=None):
-    if x is None:
-        n_tests = 3
-        test_x = np.random.randn(n_tests, system.num_states)
-    else:
-        test_x = x
-    test_features = system.features_at_x(test_x)
-    test_prediction = model.predict(test_features)
-    test_V = system.get_v_values(test_x, V=V)
-    test_Vdot = system.get_v_values(test_x, V=Vdot)
-    return [test_prediction, test_V, test_Vdot]
-
-
-
-
 sys_name = 'VanderPol'
 # sys_name = 'Pendubot'
 # sys_name = 'PendulumTrig'
