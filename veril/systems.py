@@ -316,6 +316,66 @@ class PendulumTrig(S4CV_Plants):
             y = np.arctan2(np.sin(x[0]), np.cos(x[0]))
             return np.isclose(y, 0, atol=self.at_fixed_pt_tol)
 
+
+class PendulumRecast(S4CV_Plants):
+
+    def __init__(self):
+        self.name = 'PendulumRecast'
+        self.loop_closed = False
+        self.num_states = 3
+        self.num_inputs = 1
+        # parameters
+        self.m = 1
+        self.l = .5
+        self.b = 0.1
+        self.lc = .5
+        self.I = .25
+        self.g = 9.81
+
+        self.slice = [0, 2]
+        self.all_slices = [[0, 2]]
+
+        self.x0 = np.array([0, -1, 0])  # theta=pi, thetadot=0
+        self.x0dot = np.zeros((self.num_states,))
+        self.init_x_g_B()
+
+        self.at_fixed_pt_tol = 1e-3
+        self.int_stop_ub = 1e10
+        self.int_stop_lb = self.at_fixed_pt_tol
+        self.int_horizon = 10
+        self.d = 2
+        self.num_grid = 100
+
+    def get_x(self, d=2, num_grid=200, slice_idx=None):
+        x1 = np.linspace(-np.pi, np.pi, num_grid)
+        x2 = np.linspace(-d, d, num_grid)
+        x1, x2 = np.meshgrid(x1, x2)
+        x1, x2 = x1.ravel(), x2.ravel()
+        x = np.array([x1, x2]).T  # (num_grid**2,2)
+        x = x[~np.all(x == 0, axis=1)]
+        return np.array([np.sin(x[0]), np.cos(x[0]), x[1]])
+
+    def gx(self, x):
+        # m l² θ̈=u-m g l sin θ-b θ̇
+        [s, c, thetadot] = x
+        # thetaddot = -self.b * x2 / self.I - self.g * np.sin(x1) / self.l
+        # put the origin at the top right
+        sdot = c * thetadot
+        cdot = -s * thetadot
+        thetaddot = -self.b * thetadot / self.I - self.g * s / self.l
+        return np.array([sdot, cdot, thetaddot])
+
+    def hx(self, x=None):
+        return np.array([[0], [0], [1 / self.I]])
+
+    def is_at_fixed_pt(self, x):
+        vel_close = np.isclose(x[-1], 0, atol=self.at_fixed_pt_tol)
+        if not vel_close:
+            return False
+        else:
+            y = np.arctan2(x[0], x[1])
+            return np.isclose(y, 0, atol=self.at_fixed_pt_tol)
+
 # plant = get('PendulumTrig')
 # plant.set_syms(3,1)
 # plant.features_at_x()
