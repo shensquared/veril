@@ -391,6 +391,7 @@ class VanderPol(ClosedLoopSys):
         self.all_slices = [[0, 1]]
         self.trueROA = True
         self.degf = 3
+        self.x0 = np.zeros((self.num_states,))
         self.init_x_f()
 
         self.at_fixed_pt_tol = 1e-3
@@ -424,6 +425,7 @@ class Pendubot(ClosedLoopSys):
         self.all_slices = list(
             itertools.combinations(range(self.num_states), 2))
         self.degf = 3
+        self.x0 = np.zeros((self.num_states,))
         self.init_x_f()
 
         self.at_fixed_pt_tol = 1e-3
