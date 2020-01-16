@@ -91,8 +91,10 @@ def plot_traj(initial, system, **kwargs):
         sol = system.forward_sim(i, **kwargs)
         if sol.status != -1:
             [j.plot(sol.y[i], c=c) for (i, j) in zip(slice_idx, axs)]
+            if 'V' in kwargs:
+                Vtraj = system.get_v_values(sol.y.T, V=kwargs['V'])
+                plt.plot(Vtraj)
     # plt.xlabel('time')
-    # plt.ylabel(ylab)
     fig.suptitle(sys_name + ' Simulation ' + add_title)
     plt.show()
 
@@ -103,21 +105,18 @@ def plot3d(V, slice_idx, r_max=2, level_sets=False):
     n = thetas.shape[0]
     raddi = np.linspace(.001, r_max, 100)
     CS = np.vstack((np.cos(thetas), np.sin(thetas)))
-    x = 0
-    y = 0
-    z0 = samples.evaluate(np.zeros((1,)), np.vstack((0, 0)), V, sym_x,
-                          slice_idx)
-    z = z0
+
+    x, y, z = [], [], []
     for i in raddi:
         r = i * np.ones(thetas.shape)
-        z = np.append(z, samples.evaluate(r, CS, V, sym_x, slice_idx).ravel())
-        x = np.append(x, (r * CS[0]).ravel())
-        y = np.append(y, (r * CS[1]).ravel())
+        z.append(samples.evaluate(r, CS, V, sym_x, slice_idx).ravel())
+        x.append((r * CS[0]).ravel())
+        y.append((r * CS[1]).ravel())
 
     fig = plt.figure()
     ax = fig.gca(projection='3d')
-    X, Y, Z = x[1:], y[1:], z[1:]
-    ax.plot_trisurf(X, Y, Z, linewidth=0.2,
+    x, y, z = np.array(x).ravel(), np.array(y).ravel(), np.array(z).ravel()
+    ax.plot_trisurf(x, y, z, linewidth=0.2,
                     cmap=plt.cm.Spectral, antialiased=True)
 
     ax.set_xlabel('X' + str(slice_idx[0] + 1))
@@ -125,7 +124,7 @@ def plot3d(V, slice_idx, r_max=2, level_sets=False):
     # ax.set_ylim(-r_max, r_max)
     ax.set_zlabel('V')
     if level_sets:
-        levels = np.linspace(1, np.max(np.abs(Z)), 5)
+        levels = np.linspace(1, np.max(np.abs(z)), 5)
         for i in levels:
             xx = samples.levelsetData(V / i, slice_idx)[0]
             ax.plot(xx[:, 0], xx[:, 1], zs=0, zdir='z', label='levels')
