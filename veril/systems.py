@@ -193,7 +193,7 @@ class ClosedLoopSys(object):
 
     def is_at_fixed_pt(self, x):
         # return np.linalg.norm(x) <= self.at_fixed_pt_tol
-        return np.allclose(x, 0, atol=self.at_fixed_pt_tol)
+        return np.allclose(x, self.x0, atol=self.at_fixed_pt_tol)
 
     def event(self, t, x):
         norm = np.linalg.norm(x)
