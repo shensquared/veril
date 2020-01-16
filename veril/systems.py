@@ -370,13 +370,13 @@ class PendulumRecast(S4CV_Plants):
     def hx(self, x=None):
         return np.array([[0], [0], [1 / self.I]])
 
-    def is_at_fixed_pt(self, x):
-        vel_close = np.isclose(x[-1], 0, atol=self.at_fixed_pt_tol)
-        if not vel_close:
-            return False
-        else:
-            y = np.arctan2(x[0], x[1])
-            return np.isclose(y, 0, atol=self.at_fixed_pt_tol)
+    # def is_at_fixed_pt(self, x):
+    #     vel_close = np.isclose(x[-1], 0, atol=self.at_fixed_pt_tol)
+    #     if not vel_close:
+    #         return False
+    #     else:
+    #         y = np.arctan2(x[0], x[1])
+    #         return np.isclose(y, np.pi, atol=self.at_fixed_pt_tol)
 
     def random_sample(self, n):
         x1, x2 = np.random.randn(n,), np.random.randn(n,)
