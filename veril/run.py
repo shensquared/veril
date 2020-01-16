@@ -1,11 +1,10 @@
-import os
 import time
 import numpy as np
 # import argparse
 from veril.systems import get_system
 from veril.sample_lyap import get_V
 
-from veril import symbolic_verifier, sample_variety
+from veril.symbolic_verifier import verify_via_equality, verify_via_bilinear
 from veril.util.plots import *
 
 
@@ -31,17 +30,6 @@ def test_model(model, system, V, Vdot, x=None):
     test_V = system.get_v_values(test_x, V=V)
     test_Vdot = system.get_v_values(test_x, V=Vdot)
     return [test_prediction, test_V, test_Vdot]
-
-
-def verify_via_equality(system, V0):
-    if V0 is None:
-        A, S, V0 = system.linearized_quadractic_V()
-    start = time.time()
-    V = symbolic_verifier.levelset_sos(system, V0, do_balance=False)
-    end = time.time()
-    print('equlity constrained time %s' % (end - start))
-    plot_funnel(V, system, slice_idx=system.slice, add_title=' - Equality ' +
-                'Constrainted Result')
 
 
 def verify_via_variety(system, V, init_root_threads=1):
@@ -74,67 +62,20 @@ def verify_via_variety(system, V, init_root_threads=1):
     return rho
 
 
-def verify_via_bilinear(system, **kwargs):
-    sys_name = system.name
-    degV = system.degV
-    degf = system.degf
-    degL = degV - 1 + degf
-    options = {'degV': degV, 'do_balance': False, 'degL1': degL, 'degL2': degL,
-               'converged_tol': 1e-2, 'max_iterations': 20}
-
-    start = time.time()
-    A, S, V0 = system.linearized_quadractic_V()
-
-    if 'V0' in kwargs:
-        V0 = kwargs['V0']
-    V = symbolic_verifier.bilinear(
-        system.sym_x, V0, system.sym_f, S, A, **options)
-    end = time.time()
-    print('bilinear time %s' % (end - start))
-    plot_funnel(V, system, slice_idx=system.slice,
-                add_title=' - Bilinear Result')
-    return system, V
-
-
-def cvx_V(sys_name, degFeatures, remove_one=False):
-    tag = str(degFeatures)
-    system = get_system(sys_name, degFeatures, remove_one=remove_one)
-    model_dir = '../data/' + sys_name
-    # train_x = np.load(model_dir + '/stableSamples.npy')
-    num_samples = train_x.shape[0]
-    assert(train_x.shape[1] == system.num_states)
-    print('x size %s' % str(train_x.shape))
-
-    file_path = model_dir + '/features_' + tag + '.npz'
-
-    if os.path.exists(file_path):
-        l = np.load(file_path)
-        features = [l['phi'], l['eta']]
-    else:
-        features = system.features_at_x(train_x)
-        np.savez_compressed(file_path, phi=features[0], eta=features[1])
-    assert(features[0].shape[0] == num_samples)
-    P = symbolic_verifier.convexly_search_for_V_on_samples(features)
-    cvx_P_filename = model_dir + '/cvx_P_' + str(degFeatures) + '.npy'
-    np.save(cvx_P_filename, P)
-    V, Vdot = system.P_to_V(P)
-    return V, Vdot, system
-
-
-# sys_name = 'VanderPol'
+sys_name = 'VanderPol'
 # sys_name = 'Pendubot'
-sys_name = 'PendulumTrig'
+# sys_name = 'PendulumTrig'
+# sys_name = 'PendulumRecast'
 
-
-train_or_load = 'Train'
-# train_or_load = 'Load'
+# train_or_load = 'Train'
+train_or_load = 'Load'
 
 degFeatures = 3
 degU = 2
-epochs = 3
+epochs = 10
 remove_one = True
 
-init_root_threads = 100
+init_root_threads = 25
 
 
 system = get_system(sys_name, degFeatures, degU, remove_one=remove_one)

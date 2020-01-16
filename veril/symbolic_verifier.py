@@ -9,6 +9,67 @@ import numpy as np
 from numpy.linalg import eig, inv
 import cvxpy as cp
 from math import factorial as fact
+from veril.util.plots import *
+import time
+
+
+def verify_via_equality(system, V0):
+    if V0 is None:
+        A, S, V0 = system.linearized_quadractic_V()
+    start = time.time()
+    V = levelset_sos(system, V0, do_balance=False)
+    end = time.time()
+    print('equlity constrained time %s' % (end - start))
+    plot_funnel(V, system, slice_idx=system.slice, add_title=' - Equality ' +
+                'Constrainted Result')
+
+
+def verify_via_bilinear(system, **kwargs):
+    sys_name = system.name
+    degV = system.degV
+    degf = system.degf
+    degL = degV - 1 + degf
+    options = {'degV': degV, 'do_balance': False, 'degL1': degL, 'degL2': degL,
+               'converged_tol': 1e-2, 'max_iterations': 20}
+
+    start = time.time()
+    A, S, V0 = system.linearized_quadractic_V()
+
+    if 'V0' in kwargs:
+        V0 = kwargs['V0']
+    V = bilinear(
+        system.sym_x, V0, system.sym_f, S, A, **options)
+    end = time.time()
+    print('bilinear time %s' % (end - start))
+    plot_funnel(V, system, slice_idx=system.slice,
+                add_title=' - Bilinear Result')
+    return system, V
+
+
+def cvx_V(sys_name, degFeatures, remove_one=False):
+    tag = str(degFeatures)
+    system = get_system(sys_name, degFeatures, remove_one=remove_one)
+    model_dir = '../data/' + sys_name
+    # train_x = np.load(model_dir + '/stableSamples.npy')
+    num_samples = train_x.shape[0]
+    assert(train_x.shape[1] == system.num_states)
+    print('x size %s' % str(train_x.shape))
+
+    file_path = model_dir + '/features_' + tag + '.npz'
+
+    if os.path.exists(file_path):
+        l = np.load(file_path)
+        features = [l['phi'], l['eta']]
+    else:
+        features = system.features_at_x(train_x)
+        np.savez_compressed(file_path, phi=features[0], eta=features[1])
+    assert(features[0].shape[0] == num_samples)
+    P = convexly_search_for_V_on_samples(features)
+    cvx_P_filename = model_dir + '/cvx_P_' + str(degFeatures) + '.npy'
+    np.save(cvx_P_filename, P)
+    V, Vdot = system.P_to_V(P)
+    return V, Vdot, system
+
 
 def bilinear(x, V0, f, S0, A, **kwargs):
     V = V0
@@ -225,7 +286,7 @@ def convexly_search_for_V_on_samples(sampled_quantities, use_cvx=True,
         constraints += [one_vec.T@P@one_vec == 1]
 
         for i in range(num_samples):
-            this_vdot = phi[i, :].T@P@eta[i,:]
+            this_vdot = phi[i, :].T@P@eta[i, :]
             constraints += [this_vdot <= slack]
 
         prob = cp.Problem(cp.Minimize(slack), constraints)
@@ -244,7 +305,7 @@ def convexly_search_for_V_on_samples(sampled_quantities, use_cvx=True,
                 # reduces to an LP
                 this_v = phi[i, :].T@P@phi[i, :]
                 prog.AddConstraint(this_v >= 0)
-            this_vdot = phi[i, :].T@P@phi[i, :].T@P@eta[i,:]
+            this_vdot = phi[i, :].T@P@phi[i, :].T@P@eta[i, :]
             prog.AddConstraint(this_vdot <= slack)
 
         prog.AddConstraint(one_vec.T@P@one_vec == 1)
