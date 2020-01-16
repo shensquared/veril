@@ -245,13 +245,9 @@ class S4CV_Plants(ClosedLoopSys):
 
     def fx(self, t, y):
         u_basis = get_monomials(y, self.degU, remove_one=self.remove_one)
-        # print(u_basis.shape)
         u = (u_basis@self.u_weights).T
-        # theta = y@np.array([1,0])
-        # u = (9.81* np.sin(theta + np.pi)).reshape((1,))
-        # env = dict(zip(self.sym_x, y))
-        # sym_sol = np.array([j.Evaluate(env) for j in self.u])
-        # print(u - sym_sol)
+        # u = (9.81* np.sin(y[0] + np.pi)).reshape((1,))
+        # u = np.zeros((self.num_inputs))
         num_sol = self.gx(y) + self.ctrl_B@u
         return num_sol
 
