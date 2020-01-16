@@ -51,13 +51,21 @@ class ClosedLoopSys(object):
         self.sym_x = prog.NewIndeterminates(self.num_states, "x")
         self.sym_f = self.polynomial_dynamics()
 
-    def set_syms(self, deg, degU, remove_one=True):
-        self.degFeatures = deg
-        self.degV = 2 * deg
-        self.sym_phi = get_monomials(self.sym_x, deg, remove_one=remove_one)
-        sym_dphidx = Jacobian(self.sym_phi, self.sym_x)
-        self.sym_eta = sym_dphidx@self.sym_f
+    def set_syms(self, degFeatures, degU, remove_one=True):
         self.remove_one = remove_one
+        self.degFeatures = degFeatures
+        self.degV = 2 * degFeatures
+        self.sym_phi = get_monomials(self.sym_x, degFeatures,
+                                     remove_one=remove_one)
+        sym_dphidx = Jacobian(self.sym_phi, self.sym_x)
+
+        if self.loop_closed:
+            self.sym_eta = sym_dphidx@self.sym_f
+        else:
+            self.degU = degU
+            self.sym_dphidx = sym_dphidx
+            self.sym_ubasis = get_monomials(self.sym_x, degU,
+                                            remove_one=remove_one)
 
     def features_at_x(self, x, file_path):  # x: (num_samples, sys_dim)
         n_samples = x.shape[0]
@@ -216,17 +224,6 @@ class S4CV_Plants(ClosedLoopSys):
             x = sample_states.T
             gx = self.gx(x).T
         return gx
-
-    def set_syms(self, degFeatures, degU, remove_one=True):
-        self.remove_one = remove_one
-        self.degFeatures = degFeatures
-        self.degV = 2 * degFeatures
-        self.degU = degU
-        self.sym_phi = get_monomials(
-            self.sym_x, degFeatures, remove_one=remove_one)
-        self.sym_dphidx = Jacobian(self.sym_phi, self.sym_x)
-        self.sym_ubasis = get_monomials(self.sym_x, degU,
-                                        remove_one=remove_one)
 
     def features_at_x(self, x, file_path):  # x: (num_samples, sys_dim)
         if x is None:
