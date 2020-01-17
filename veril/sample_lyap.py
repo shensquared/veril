@@ -93,7 +93,8 @@ def model_V(system):
     monomial_dim = get_dim(sys_dim, deg_ftrs, rm_one)
     phi = Input(shape=(monomial_dim,), name='phi')
     layers = [
-        Dense(monomial_dim*2, use_bias=False),
+        Dense(monomial_dim * 2, use_bias=False,
+              kernel_regularizer=regularizers.l1(0.)),
         # Dense((monomial_dim * 2), use_bias=False),
     ]
     gram_factor = Sequential(layers, name='gram_factorization')
@@ -108,7 +109,8 @@ def model_V(system):
         deg_u = system.deg_u
         ubasis_dim = get_dim(sys_dim, deg_u, rm_one)
         ubasis = Input(shape=(ubasis_dim,), name='ubasis')
-        u = Dense(u_dim, use_bias=False, name='u')(ubasis)
+        u = Dense(u_dim, use_bias=False, name='u',
+                  kernel_regularizer=regularizers.l1(0.))(ubasis)
         g = Input(shape=(sys_dim,), name='open_loop_dynamics')
         Bu = DotKernel(B, name='Bu')(u)
         f_cl = Add(name='closed_loop_dynamics')([g, Bu])
