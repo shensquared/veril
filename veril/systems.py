@@ -346,8 +346,10 @@ class PendulumRecast(S4CV_Plants):
 
         self.slice = [1, 2]
         self.all_slices = itertools.combinations(range(self.num_states), 2)
+        self.original_coordinate()
 
-        self.x0 = np.array([0, -1, 0])  # theta=pi, thetadot=0
+        self.x0 = np.array([np.sin(self.xo0[0]), np.cos(self.xo0[0]),
+                            self.xo0[1]])
         self.x0dot = np.zeros((self.num_states,))
         self.init_x_g_B()
 
@@ -357,7 +359,6 @@ class PendulumRecast(S4CV_Plants):
         self.int_horizon = 10
         self.d = 2
         self.num_grid = 100
-        self.original_coordinate()
 
     def original_coordinate(self):
         prog = MathematicalProgram()
@@ -400,8 +401,7 @@ class PendulumRecast(S4CV_Plants):
 
     def poly_to_orig(self):
         t = self.xo
-        env = dict(zip(self.sym_x, [np.sin(1 * t[0]), np.cos(1 * t
-                                                             [0]), t[1]]))
+        env = dict(zip(self.sym_x, [np.sin(1 * t[0]), np.cos(1 * t[0]), t[1]]))
         return env
 
     def VdotHessian(self, Vdot):
