@@ -106,33 +106,35 @@ def plot_traj(initial, system, **kwargs):
     plt.show()
 
 
-def plot3d(V, slice_idx, r_max=2, level_sets=False):
-    thetas = np.linspace(-np.pi, np.pi, 100)
-    sym_x = list(V.GetVariables())
-    n = thetas.shape[0]
-    raddi = np.linspace(.001, r_max, 100)
-    CS = np.vstack((np.cos(thetas), np.sin(thetas)))
-    x, y, z = [], [], []
-    for i in raddi:
-        r = i * np.ones(thetas.shape)
-        z.append(samples.evaluate(r, CS, V, sym_x, slice_idx))
-        x.append((r * CS[0]))
-        y.append((r * CS[1]))
-    x, y, z = np.array(x), np.array(y), np.array(z)
+def plot3d(V, system, r_max=[3, 3], slice_idx=[0, 1], in_xo=True):
+    if in_xo and hasattr(system, 'poly_to_orig'):
+        V, _ = system.poly_to_orig(V)
+        sym_x = system.xo
+    else:
+        sym_x = system.sym_x
+
+    nq = 151
+    nqd = 151
+    x = np.linspace(-r_max[0], r_max[0], nq)
+    y = np.linspace(-r_max[1], r_max[1], nqd)
+    X, Y = np.meshgrid(x, y)
+    Z = X.copy()
+    for i in range(nq):
+        for j in range(nqd):
+            env = dict(zip(sym_x, [X[i, j], Y[i, j]]))
+            Z[i, j] = V.Evaluate(env)
 
     fig = plt.figure()
     ax = fig.gca(projection='3d')
-    ax.plot_surface(x, y, z, linewidth=0.2, cmap=cm.Spectral, antialiased=True)
+    ax.plot_surface(X, Y, Z, linewidth=0.2, cmap=cm.Spectral, antialiased=True)
     ax.set_xlabel('X' + str(slice_idx[0] + 1))
     ax.set_ylabel('X' + str(slice_idx[1] + 1))
     ax.set_zlabel('V')
 
-    if level_sets:
-        fig2, ax2 = plt.subplots()
-        ax2.contour(x, y, z, levels=30, cmap=cm.rainbow)
+    fig2, ax2 = plt.subplots()
+    ax2.contour(X, Y, Z, levels=30, cmap=cm.Spectral)
 
     plt.show()
-
 
 # def phase_portrait(self, ax, ax_max):
 #     num = 60
