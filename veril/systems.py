@@ -19,10 +19,12 @@ def get(system_name):
         identifier = str(system_name)
         return globals()[identifier]()
 
+
 def get_system(sys_name, degFeatures, degU, remove_one=True):
     system = get(sys_name)
     system.set_syms(degFeatures, degU, remove_one=remove_one)
     return system
+
 
 def get_monomials(x, deg, remove_one=True):
     c = 1 if isinstance(x[0], float) else Expression(1)
@@ -127,11 +129,7 @@ class ClosedLoopSys(object):
     def P_to_V(self, P, samples=None):
         V0 = self.sym_phi.T@P@self.sym_phi
         Vdot0 = self.set_Vdot(V0)
-        H = Jacobian(Vdot0.Jacobian(self.sym_x).T, self.sym_x)
-        env = dict(zip(self.sym_x, self.x0))
-        H = np.array([[i.Evaluate(env) for i in j]for j in H])
-        print('eig of Hessian of Vdot0 %s' % (eig(H)[0]))
-        # assert (np.all(eig(H)[0] <= 0))
+        self.VdotHessian(Vdot0)
         if samples is not None:
             V_evals = self.get_v_values(samples, V=V0)
             m = np.percentile(V_evals, 75)
@@ -140,6 +138,13 @@ class ClosedLoopSys(object):
             V = V0
         Vdot = self.set_Vdot(V)
         return V, Vdot
+
+    def VdotHessian(self, Vdot):
+        H = Jacobian(Vdot.Jacobian(self.sym_x).T, self.sym_x)
+        env = dict(zip(self.sym_x, self.x0))
+        H = np.array([[i.Evaluate(env) for i in j]for j in H])
+        print('eig of Hessian of Vdot0 %s' % (eig(H)[0]))
+        # assert (np.all(eig(H)[0] <= 0))
 
     def set_Vdot(self, V):
         return V.Jacobian(self.sym_x)@self.sym_f
@@ -352,6 +357,12 @@ class PendulumRecast(S4CV_Plants):
         self.int_horizon = 10
         self.d = 2
         self.num_grid = 100
+        self.original_coordinate()
+
+    def original_coordinate(self):
+        prog = MathematicalProgram()
+        self.xo = prog.NewIndeterminates(2, "t")
+        self.xo0 = [np.pi, 0]
 
     def get_x(self, d=2, num_grid=200, slice_idx=None):
         x1 = np.linspace(-np.pi, np.pi, num_grid)
@@ -386,6 +397,21 @@ class PendulumRecast(S4CV_Plants):
         x1, x2 = np.random.randn(n,), np.random.randn(n,)
         x = np.array([np.sin(x1), np.cos(x1), x2]).T  # (n,3)
         return x
+
+    def poly_to_orig(self):
+        t = self.xo
+        env = dict(zip(self.sym_x, [np.sin(1 * t[0]), np.cos(1 * t
+                                                             [0]), t[1]]))
+        return env
+
+    def VdotHessian(self, Vdot):
+        env = self.poly_to_orig()
+        Vdot = Vdot.Substitute(env)
+        H = Jacobian(Vdot.Jacobian(self.xo).T, self.xo)
+        env = dict(zip(self.xo, self.xo0))
+        H = np.array([[i.Evaluate(env) for i in j]for j in H])
+        print('eig of Hessian of Vdot0 %s' % (eig(H)[0]))
+        # assert (np.all(eig(H)[0] <= 0))
 
 # plant = get('PendulumTrig')
 # plant.set_syms(3,1)
