@@ -256,11 +256,14 @@ class S4CV_Plants(ClosedLoopSys):
         return features
 
     def fx(self, t, y):
-        u_basis = get_monomials(y, self.degU, remove_one=self.remove_one)
+        u_basis = get_monomials(y - self.x0, self.degU,
+                                remove_one=self.remove_one)
         u = (u_basis@self.u_weights).T
         # u = (9.81* np.sin(y[0] + np.pi)).reshape((1,))
         # u = np.zeros((self.num_inputs))
         num_sol = self.gx(y) + self.ctrl_B@u
+        # print(num_sol-[i.Evaluate(dict(zip(self.sym_x,y))) for i in
+        #    self.sym_f])
         return num_sol
 
     def close_the_loop(self, u_weights):
