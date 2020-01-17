@@ -403,14 +403,17 @@ class PendulumRecast(S4CV_Plants):
         x = np.array([np.sin(x1), np.cos(x1), x2]).T  # (n,3)
         return x
 
-    def poly_to_orig(self):
+    def poly_to_orig(self, func=None):
         t = self.xo
         env = dict(zip(self.sym_x, [np.sin(1 * t[0]), np.cos(1 * t[0]), t[1]]))
-        return env
+        if func is not None:
+            func = func.Substitute(env)
+            return func, env
+        else:
+            return env
 
     def VdotHessian(self, Vdot):
-        env = self.poly_to_orig()
-        Vdot = Vdot.Substitute(env)
+        Vdot, _ = self.poly_to_orig(func=Vdot)
         H = Jacobian(Vdot.Jacobian(self.xo).T, self.xo)
         env = dict(zip(self.xo, self.xo0))
         H = np.array([[i.Evaluate(env) for i in j]for j in H])
