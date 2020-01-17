@@ -16,7 +16,7 @@ sys_name = 'PendulumRecast'
 deg_ftrs = 2
 deg_u = 1
 rm_one = True
-system = get_system(sys_name, deg_ftrs, deg_u, rm_one=rm_one)
+system = get_system(sys_name, deg_ftrs, deg_u, rm_one)
 # stableSamples = system.sample_stable_inits(d=1, num_grid=10)
 
 ####### ####### ####### ####### ####### ####### ####### ####### #######
