@@ -112,29 +112,25 @@ def plot3d(V, slice_idx, r_max=2, level_sets=False):
     n = thetas.shape[0]
     raddi = np.linspace(.001, r_max, 100)
     CS = np.vstack((np.cos(thetas), np.sin(thetas)))
-
     x, y, z = [], [], []
     for i in raddi:
         r = i * np.ones(thetas.shape)
-        z.append(samples.evaluate(r, CS, V, sym_x, slice_idx).ravel())
-        x.append((r * CS[0]).ravel())
-        y.append((r * CS[1]).ravel())
+        z.append(samples.evaluate(r, CS, V, sym_x, slice_idx))
+        x.append((r * CS[0]))
+        y.append((r * CS[1]))
+    x, y, z = np.array(x), np.array(y), np.array(z)
 
     fig = plt.figure()
     ax = fig.gca(projection='3d')
-    x, y, z = np.array(x).ravel(), np.array(y).ravel(), np.array(z).ravel()
-    ax.plot_trisurf(x, y, z, linewidth=0.2,
-                    cmap=plt.cm.Spectral, antialiased=True)
-
+    ax.plot_surface(x, y, z, linewidth=0.2, cmap=cm.Spectral, antialiased=True)
     ax.set_xlabel('X' + str(slice_idx[0] + 1))
     ax.set_ylabel('X' + str(slice_idx[1] + 1))
-    # ax.set_ylim(-r_max, r_max)
     ax.set_zlabel('V')
+
     if level_sets:
-        levels = np.linspace(1, np.max(np.abs(z)), 5)
-        for i in levels:
-            xx = samples.levelsetData(V / i, slice_idx)[0]
-            ax.plot(xx[:, 0], xx[:, 1], zs=0, zdir='z', label='levels')
+        fig2, ax2 = plt.subplots()
+        ax2.contour(x, y, z, levels=30, cmap=cm.rainbow)
+
     plt.show()
 
 
