@@ -13,10 +13,10 @@ from veril.util.plots import *
 # sys_name = 'Pendubot'
 # sys_name = 'PendulumTrig'
 sys_name = 'PendulumRecast'
-degFeatures = 1
-degU = 1
+deg_ftrs = 2
+deg_u = 1
 rm_one = True
-system = get_system(sys_name, degFeatures, degU, rm_one=rm_one)
+system = get_system(sys_name, deg_ftrs, deg_u, rm_one=rm_one)
 # stableSamples = system.sample_stable_inits(d=1, num_grid=10)
 
 ####### ####### ####### ####### ####### ####### ####### ####### #######

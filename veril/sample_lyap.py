@@ -87,13 +87,13 @@ def rho_reg(weight_matrix):
 
 def model_V(system):
     sys_dim = system.num_states
-    degFeatures = system.degFeatures
+    deg_ftrs = system.deg_ftrs
     rm_one = system.rm_one
 
-    monomial_dim = get_dim(sys_dim, degFeatures, rm_one)
+    monomial_dim = get_dim(sys_dim, deg_ftrs, rm_one)
     phi = Input(shape=(monomial_dim,), name='phi')
     layers = [
-        Dense(monomial_dim, use_bias=False),
+        Dense(monomial_dim*2, use_bias=False),
         # Dense((monomial_dim * 2), use_bias=False),
     ]
     gram_factor = Sequential(layers, name='gram_factorization')
@@ -105,8 +105,8 @@ def model_V(system):
     if not loop_closed:
         B = system.ctrl_B.T
         u_dim = system.num_inputs
-        degU = system.degU
-        ubasis_dim = get_dim(sys_dim, degU, rm_one)
+        deg_u = system.deg_u
+        ubasis_dim = get_dim(sys_dim, deg_u, rm_one)
         ubasis = Input(shape=(ubasis_dim,), name='ubasis')
         u = Dense(u_dim, use_bias=False, name='u')(ubasis)
         g = Input(shape=(sys_dim,), name='open_loop_dynamics')
@@ -140,15 +140,15 @@ def model_V(system):
 
 
 def get_V(system, train_or_load, **kwargs):
-    degFeatures = system.degFeatures
+    deg_ftrs = system.deg_ftrs
     rm_one = system.rm_one
     loop_closed = system.loop_closed
 
-    tag = '_degV' + str(2 * degFeatures)
+    tag = '_degV' + str(2 * deg_ftrs)
     model_dir = '../data/' + system.name
 
     if not loop_closed:
-        tag = tag + 'degU' + str(system.degU)
+        tag = tag + 'degU' + str(system.deg_u)
     if rm_one:
         tag = tag + '_rm'
 
@@ -264,12 +264,12 @@ def test_model(model, system, V, Vdot, x=None):
 #     B = plant.ctrl_B.T
 #     u_dim = plant.num_inputs
 #     sys_dim = plant.num_states
-#     degFeatures = plant.degFeatures
-#     degU = plant.degU
+#     deg_ftrs = plant.deg_ftrs
+#     deg_u = plant.deg_u
 #     rm_one = plant.rm_one
 
-#     monomial_dim = get_dim(sys_dim, degFeatures, rm_one)
-#     ubasis_dim = get_dim(sys_dim, degU, rm_one)
+#     monomial_dim = get_dim(sys_dim, deg_ftrs, rm_one)
+#     ubasis_dim = get_dim(sys_dim, deg_u, rm_one)
 
 #     phi = Input(shape=(monomial_dim,), name='phi')
 #     layers = [

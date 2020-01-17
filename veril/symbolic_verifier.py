@@ -48,9 +48,9 @@ def verify_via_bilinear(system, **kwargs):
     return system, V
 
 
-def cvx_V(sys_name, degFeatures, rm_one=False):
-    tag = str(degFeatures)
-    system = get_system(sys_name, degFeatures, rm_one=rm_one)
+def cvx_V(sys_name, deg_ftrs, rm_one=False):
+    tag = str(deg_ftrs)
+    system = get_system(sys_name, deg_ftrs, rm_one=rm_one)
     model_dir = '../data/' + sys_name
     # train_x = np.load(model_dir + '/stableSamples.npy')
     num_samples = train_x.shape[0]
@@ -67,7 +67,7 @@ def cvx_V(sys_name, degFeatures, rm_one=False):
         np.savez_compressed(file_path, phi=features[0], eta=features[1])
     assert(features[0].shape[0] == num_samples)
     P = convexly_search_for_V_on_samples(features)
-    cvx_P_filename = model_dir + '/cvx_P_' + str(degFeatures) + '.npy'
+    cvx_P_filename = model_dir + '/cvx_P_' + str(deg_ftrs) + '.npy'
     np.save(cvx_P_filename, P)
     V, Vdot = system.P_to_V(P)
     return V, Vdot, system

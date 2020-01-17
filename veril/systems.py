@@ -20,9 +20,9 @@ def get(system_name):
         return globals()[identifier]()
 
 
-def get_system(sys_name, degFeatures, degU, rm_one=True):
+def get_system(sys_name, deg_ftrs, deg_u, rm_one=True):
     system = get(sys_name)
-    system.set_syms(degFeatures, degU, rm_one=rm_one)
+    system.set_syms(deg_ftrs, deg_u, rm_one=rm_one)
     return system
 
 
@@ -57,21 +57,21 @@ class ClosedLoopSys(object):
         self.sym_x = prog.NewIndeterminates(self.num_states, "x")
         self.sym_f = self.polynomial_dynamics()
 
-    def set_syms(self, degFeatures, degU, rm_one=True):
+    def set_syms(self, deg_ftrs, deg_u, rm_one=True):
         self.rm_one = rm_one
-        self.degFeatures = degFeatures
-        self.degV = 2 * degFeatures
+        self.deg_ftrs = deg_ftrs
+        self.degV = 2 * deg_ftrs
         x = self.sym_x
         xbar = self.sym_x - self.x0
-        self.sym_phi = get_monomials(xbar, degFeatures, rm_one=rm_one)
+        self.sym_phi = get_monomials(xbar, deg_ftrs, rm_one=rm_one)
         sym_dphidx = Jacobian(self.sym_phi, x)
 
         if self.loop_closed:
             self.sym_eta = sym_dphidx@self.sym_f
         else:
-            self.degU = degU
+            self.deg_u = deg_u
             self.sym_dphidx = sym_dphidx
-            self.sym_ubasis = get_monomials(xbar, degU, rm_one=rm_one)
+            self.sym_ubasis = get_monomials(xbar, deg_u, rm_one=rm_one)
 
     def features_at_x(self, x, file_path):  # x: (num_samples, sys_dim)
         n_samples = x.shape[0]
@@ -257,14 +257,14 @@ class S4CV_Plants(ClosedLoopSys):
         return features
 
     def fx(self, t, y):
-        u_basis = get_monomials(y - self.x0, self.degU,
-                                rm_one=self.rm_one)
+        u_basis = get_monomials(y - self.x0, self.deg_u, rm_one=self.rm_one)
         u = (u_basis@self.u_weights).T
         # u = (9.81* np.sin(y[0] + np.pi)).reshape((1,))
         # u = np.zeros((self.num_inputs))
         num_sol = self.gx(y) + self.ctrl_B@u
         # print(num_sol-[i.Evaluate(dict(zip(self.sym_x,y))) for i in
         #    self.sym_f])
+        print(num_sol)
         return num_sol
 
     def close_the_loop(self, u_weights):
