@@ -25,8 +25,8 @@ system = get_system(sys_name, deg_ftrs, deg_u, rm_one)
 ####### model setup ####### ####### ####### ####### ####### ####### #######
 # train_or_load = 'Train'
 train_or_load = 'Load'
-epochs = 10
-V, Vdot, system = get_V(system, train_or_load, epochs=epochs,
+epochs = 20
+V, Vdot, system, model,P = get_V(system, train_or_load, epochs=epochs,
                         verbose=True, validation_split=0, shuffle=True)
 
 # [plot3d(V, i, r_max = 1, level_sets=True) for i in system.all_slices]

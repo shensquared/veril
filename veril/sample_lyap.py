@@ -190,7 +190,7 @@ def get_V(system, train_or_load, **kwargs):
         system.close_the_loop(u_weights)
     V, Vdot = system.P_to_V(P, samples=None)
     # test_model(model, system, V, Vdot, x=None)
-    return V, Vdot, system
+    return V, Vdot, system, model, P
 
 
 def get_model_weights(model, loop_closed):
