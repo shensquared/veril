@@ -61,17 +61,17 @@ class ClosedLoopSys(object):
         self.remove_one = remove_one
         self.degFeatures = degFeatures
         self.degV = 2 * degFeatures
-        self.sym_phi = get_monomials(self.sym_x, degFeatures,
-                                     remove_one=remove_one)
-        sym_dphidx = Jacobian(self.sym_phi, self.sym_x)
+        x = self.sym_x
+        xbar = self.sym_x - self.x0
+        self.sym_phi = get_monomials(xbar, degFeatures, remove_one=remove_one)
+        sym_dphidx = Jacobian(self.sym_phi, x)
 
         if self.loop_closed:
             self.sym_eta = sym_dphidx@self.sym_f
         else:
             self.degU = degU
             self.sym_dphidx = sym_dphidx
-            self.sym_ubasis = get_monomials(self.sym_x, degU,
-                                            remove_one=remove_one)
+            self.sym_ubasis = get_monomials(xbar, degU, remove_one=remove_one)
 
     def features_at_x(self, x, file_path):  # x: (num_samples, sys_dim)
         n_samples = x.shape[0]
@@ -89,14 +89,15 @@ class ClosedLoopSys(object):
         # this requires far lower degreed multiplier xxd and consequentially
         # lower degree psi, re-write both
         remove_one = self.remove_one
+        x = self.sym_x
+        xbar = self.sym_x - self.x0
         self.sym_V = V
         self.sym_Vdot = self.set_Vdot(V)
         self.degVdot = self.degV - 1 + self.degf
         deg = int(np.ceil((self.degVdot - self.degV) / 2))
-        self.sym_xxd = (self.sym_x.T@self.sym_x)**(deg)
+        self.sym_xxd = (xbar.T@xbar)**(deg)
         psi_deg = int(((2 * deg + self.degV) / 2))
-        self.sym_psi = get_monomials(
-            self.sym_x, psi_deg, remove_one=remove_one)
+        self.sym_psi = get_monomials(xbar, psi_deg, remove_one=remove_one)
 
     def get_sample_variety_features(self, samples):
         # samples: (num_samples, sys_dim)
@@ -212,7 +213,7 @@ class ClosedLoopSys(object):
         else:
             out_ = norm - self.int_stop_ub
         return out_ or in_
-    event.terminal = True
+    event.terminal = False
 
 
 class S4CV_Plants(ClosedLoopSys):
