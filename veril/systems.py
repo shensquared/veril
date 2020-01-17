@@ -20,19 +20,19 @@ def get(system_name):
         return globals()[identifier]()
 
 
-def get_system(sys_name, degFeatures, degU, remove_one=True):
+def get_system(sys_name, degFeatures, degU, rm_one=True):
     system = get(sys_name)
-    system.set_syms(degFeatures, degU, remove_one=remove_one)
+    system.set_syms(degFeatures, degU, rm_one=rm_one)
     return system
 
 
-def get_monomials(x, deg, remove_one=True):
+def get_monomials(x, deg, rm_one=True):
     c = 1 if isinstance(x[0], float) else Expression(1)
     _ = itertools.combinations_with_replacement(np.append(c, x), deg)
     basis = [np.prod(j) for j in _]
-    if remove_one:
+    if rm_one:
         basis = basis[1:]
-    # if remove_one:
+    # if rm_one:
     #     print(np.array([i.ToExpression() for i in MonomialBasis(x, deg)[:-1]]))
     # else:
     #     print(np.array([i.ToExpression() for i in MonomialBasis(x, deg)]))
@@ -57,13 +57,13 @@ class ClosedLoopSys(object):
         self.sym_x = prog.NewIndeterminates(self.num_states, "x")
         self.sym_f = self.polynomial_dynamics()
 
-    def set_syms(self, degFeatures, degU, remove_one=True):
-        self.remove_one = remove_one
+    def set_syms(self, degFeatures, degU, rm_one=True):
+        self.rm_one = rm_one
         self.degFeatures = degFeatures
         self.degV = 2 * degFeatures
         x = self.sym_x
         xbar = self.sym_x - self.x0
-        self.sym_phi = get_monomials(xbar, degFeatures, remove_one=remove_one)
+        self.sym_phi = get_monomials(xbar, degFeatures, rm_one=rm_one)
         sym_dphidx = Jacobian(self.sym_phi, x)
 
         if self.loop_closed:
@@ -71,7 +71,7 @@ class ClosedLoopSys(object):
         else:
             self.degU = degU
             self.sym_dphidx = sym_dphidx
-            self.sym_ubasis = get_monomials(xbar, degU, remove_one=remove_one)
+            self.sym_ubasis = get_monomials(xbar, degU, rm_one=rm_one)
 
     def features_at_x(self, x, file_path):  # x: (num_samples, sys_dim)
         n_samples = x.shape[0]
@@ -88,7 +88,7 @@ class ClosedLoopSys(object):
     def set_sample_variety_features(self, V):
         # this requires far lower degreed multiplier xxd and consequentially
         # lower degree psi, re-write both
-        remove_one = self.remove_one
+        rm_one = self.rm_one
         x = self.sym_x
         xbar = self.sym_x - self.x0
         self.sym_V = V
@@ -97,7 +97,7 @@ class ClosedLoopSys(object):
         deg = int(np.ceil((self.degVdot - self.degV) / 2))
         self.sym_xxd = (xbar.T@xbar)**(deg)
         psi_deg = int(((2 * deg + self.degV) / 2))
-        self.sym_psi = get_monomials(xbar, psi_deg, remove_one=remove_one)
+        self.sym_psi = get_monomials(xbar, psi_deg, rm_one=rm_one)
 
     def get_sample_variety_features(self, samples):
         # samples: (num_samples, sys_dim)
@@ -258,7 +258,7 @@ class S4CV_Plants(ClosedLoopSys):
 
     def fx(self, t, y):
         u_basis = get_monomials(y - self.x0, self.degU,
-                                remove_one=self.remove_one)
+                                rm_one=self.rm_one)
         u = (u_basis@self.u_weights).T
         # u = (9.81* np.sin(y[0] + np.pi)).reshape((1,))
         # u = np.zeros((self.num_inputs))
@@ -510,7 +510,7 @@ class Pendubot(ClosedLoopSys):
     #     self.sym_sigma = get_monomials(self.sym_x, sigma_deg)
     #     psi_deg = int(np.floor(max(2 * deg + self.degV, sigma_deg +
     #                                self.degVdot) / 2))
-    #     self.sym_psi = get_monomials(self.sym_x, psi_deg, remove_one=False)
+    #     self.sym_psi = get_monomials(self.sym_x, psi_deg, rm_one=False)
 
     # def get_levelset_features(self, x):
     #     # x: (num_samples, sys_dim)

@@ -88,9 +88,9 @@ def rho_reg(weight_matrix):
 def model_V(system):
     sys_dim = system.num_states
     degFeatures = system.degFeatures
-    remove_one = system.remove_one
+    rm_one = system.rm_one
 
-    monomial_dim = get_dim(sys_dim, degFeatures, remove_one)
+    monomial_dim = get_dim(sys_dim, degFeatures, rm_one)
     phi = Input(shape=(monomial_dim,), name='phi')
     layers = [
         Dense(monomial_dim, use_bias=False),
@@ -106,7 +106,7 @@ def model_V(system):
         B = system.ctrl_B.T
         u_dim = system.num_inputs
         degU = system.degU
-        ubasis_dim = get_dim(sys_dim, degU, remove_one)
+        ubasis_dim = get_dim(sys_dim, degU, rm_one)
         ubasis = Input(shape=(ubasis_dim,), name='ubasis')
         u = Dense(u_dim, use_bias=False, name='u')(ubasis)
         g = Input(shape=(sys_dim,), name='open_loop_dynamics')
@@ -141,16 +141,16 @@ def model_V(system):
 
 def get_V(system, train_or_load, **kwargs):
     degFeatures = system.degFeatures
-    remove_one = system.remove_one
+    rm_one = system.rm_one
     loop_closed = system.loop_closed
 
     tag = '_degV' + str(2 * degFeatures)
     model_dir = '../data/' + system.name
 
-    if loop_closed and remove_one:
-        tag = tag + '_rm'
     if not loop_closed:
         tag = tag + 'degU' + str(system.degU)
+    if rm_one:
+        tag = tag + '_rm'
 
     if train_or_load is 'Train':
         nx = system.num_states
@@ -266,10 +266,10 @@ def test_model(model, system, V, Vdot, x=None):
 #     sys_dim = plant.num_states
 #     degFeatures = plant.degFeatures
 #     degU = plant.degU
-#     remove_one = plant.remove_one
+#     rm_one = plant.rm_one
 
-#     monomial_dim = get_dim(sys_dim, degFeatures, remove_one)
-#     ubasis_dim = get_dim(sys_dim, degU, remove_one)
+#     monomial_dim = get_dim(sys_dim, degFeatures, rm_one)
+#     ubasis_dim = get_dim(sys_dim, degU, rm_one)
 
 #     phi = Input(shape=(monomial_dim,), name='phi')
 #     layers = [
@@ -377,8 +377,8 @@ def test_model(model, system, V, Vdot, x=None):
 #     return model
 
 
-def get_dim(num_var, deg, remove_one):
-    if remove_one:
+def get_dim(num_var, deg, rm_one):
+    if rm_one:
         return fact(num_var + deg) // fact(num_var) // fact(deg) - 1
     else:
         return fact(num_var + deg) // fact(num_var) // fact(deg)

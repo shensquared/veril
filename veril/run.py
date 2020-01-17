@@ -9,14 +9,14 @@ from veril.sample_variety import verify_via_variety
 from veril.util.plots import *
 
 ####### system setup ####### ####### ####### ####### ####### ####### #######
-sys_name = 'VanderPol'
+# sys_name = 'VanderPol'
 # sys_name = 'Pendubot'
 # sys_name = 'PendulumTrig'
-# sys_name = 'PendulumRecast'
-degFeatures = 3
-degU = 2
-remove_one = True
-system = get_system(sys_name, degFeatures, degU, remove_one=remove_one)
+sys_name = 'PendulumRecast'
+degFeatures = 1
+degU = 1
+rm_one = True
+system = get_system(sys_name, degFeatures, degU, rm_one=rm_one)
 # stableSamples = system.sample_stable_inits(d=1, num_grid=10)
 
 ####### ####### ####### ####### ####### ####### ####### ####### #######

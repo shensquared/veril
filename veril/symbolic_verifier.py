@@ -48,9 +48,9 @@ def verify_via_bilinear(system, **kwargs):
     return system, V
 
 
-def cvx_V(sys_name, degFeatures, remove_one=False):
+def cvx_V(sys_name, degFeatures, rm_one=False):
     tag = str(degFeatures)
-    system = get_system(sys_name, degFeatures, remove_one=remove_one)
+    system = get_system(sys_name, degFeatures, rm_one=rm_one)
     model_dir = '../data/' + sys_name
     # train_x = np.load(model_dir + '/stableSamples.npy')
     num_samples = train_x.shape[0]
