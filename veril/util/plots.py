@@ -121,18 +121,22 @@ def plot3d(V, system, r_max=[3, 3], slice_idx=[0, 1], in_xo=True):
     Z = X.copy()
     for i in range(nq):
         for j in range(nqd):
-            env = dict(zip(sym_x, [X[i, j], Y[i, j]]))
+            env = dict(zip(sym_x, np.zeros(system.num_states,)))
+            env1 = dict(zip(sym_x[[slice_idx]], [X[i, j], Y[i, j]]))
+            env.update(env1)
             Z[i, j] = V.Evaluate(env)
 
     fig = plt.figure()
     ax = fig.gca(projection='3d')
     ax.plot_surface(X, Y, Z, linewidth=0.2, cmap=cm.Spectral, antialiased=True)
-    ax.set_xlabel('X' + str(slice_idx[0] + 1))
-    ax.set_ylabel('X' + str(slice_idx[1] + 1))
-    ax.set_zlabel('V')
 
     fig2, ax2 = plt.subplots()
     ax2.contour(X, Y, Z, levels=30, cmap=cm.Spectral)
+    xlab = 'X' + str(slice_idx[0] + 1)
+    ylab = 'X' + str(slice_idx[0] + 2)
+    [i.set_xlabel(xlab) for i in [ax, ax2]]
+    [i.set_ylabel(ylab) for i in [ax, ax2]]
+    # ax.set_zlabel('V')
 
     plt.show()
 
