@@ -262,7 +262,7 @@ class S4CV_Plants(ClosedLoopSys):
         num_sol = self.gx(y) + self.ctrl_B@u
         # print(num_sol-[i.Evaluate(dict(zip(self.sym_x,y))) for i in
         #    self.sym_f])
-        print(num_sol)
+        # print(num_sol)
         return num_sol
 
     def close_the_loop(self, u_weights):
