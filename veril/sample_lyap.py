@@ -45,6 +45,10 @@ def mean_pos(y_true, y_pred):
     return K.maximum(y_pred, 0.)
 
 
+def mean_neg(y_true, y_pred):
+    return K.minimum(y_pred, 0.)
+
+
 def max_min(y_true, y_pred):
     # maximize the V value among all the samples such that Vdot is negative
     # return K.maximum((K.minimum(y_pred,5e-2)), 0.)
@@ -126,14 +130,14 @@ def model_V(system):
     etaL = gram_factor(eta)  # (None, monomial_dim)
     Vdot = Dot(1, name='Vdot')([phiL, etaL])  # (None,1)
 
-    # Vsqured = Power(2, name='Vsqured')(V)  # (None,1)
+    Vsqured = Power(2, name='Vsqured')(V)  # (None,1)
 
     # Vdot_sign = Sign(name='Vdot_sign')(Vdot)
     # V_signed = Dot(1, name='Vsigned')([V, Vdot_sign])
     # min_pos = Min_Positive(name='V-flipped')(rate)
     # diff = Subtract()([rate, min_pos])
     # rectified_V = ReLu(name = 'rectified_V')(V)
-    rate = Divide(name='rate')([Vdot, V])
+    rate = Divide(name='rate')([Vdot, Vsqured])
     model = Model(inputs=features, outputs=rate)
     model.compile(loss=max_pred, metrics=[max_pred, mean_pred, neg_percent],
                   optimizer='adam')
