@@ -56,7 +56,8 @@ def train_RNN_controller(pre_trained=None, **kwargs):
         out = Janet_layer(ext_in, initial_state=[init_x, init_c])
         model = Model([init_x, init_c, ext_in], out)
         model.compile(optimizer='adam', loss='mse', metrics=['mse'])
-        print(model.summary())
+        model.summary()
+        print(model.loss)
     else:
         model = pre_trained
 
@@ -93,7 +94,8 @@ def get_NNorCL(NNorCL='CL', **kwargs):
 
     with CustomObjectScope({'JanetController': JanetController}):
         model = load_model(file_name + '.h5')
-    print(model.summary())
+    model.summary()
+    print(model.loss)
     if NNorCL is 'NN':
         return model, file_name
     elif NNorCL is 'CL':

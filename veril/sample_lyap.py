@@ -141,7 +141,8 @@ def model_V(system):
     model = Model(inputs=features, outputs=rate)
     model.compile(loss=max_pred, metrics=[max_pred, mean_pred, neg_percent],
                   optimizer='adam')
-    print(model.summary())
+    model.summary()
+    print(model.loss)
     return model
 
 
@@ -231,8 +232,9 @@ def get_V_model(model_dir, tag):
                             'neg_percent': neg_percent, 'mean_pos': mean_pos,
                             'mean_neg': mean_neg}):
         model = load_model(file_name)
-    print(model.summary())
     print('Loaded model ' + file_name)
+    model.summary()
+    print(model.loss)
     return model
 
 
@@ -308,7 +310,7 @@ def test_model(model, system, V, Vdot, x=None):
 #     model = Model(inputs=features, outputs=rate)
 #     model.compile(loss=max_pred, metrics=[mean_pred, max_pred, neg_percent],
 #                   optimizer='adam')
-#     print(model.summary())
+#     model.summary())
 #     return model
 
 # def gram_decomp_model_for_levelsetpoly(sys_dim, sigma_deg, psi_deg):
@@ -359,7 +361,7 @@ def test_model(model, system, V, Vdot, x=None):
 #     model = Model(inputs=[V, Vdot, xxd, psi, sigma], outputs=ratio)
 #     model.compile(loss='mse', metrics=[mean_pred, 'mse'],
 #                   optimizer='adam')
-#     print(model.summary())
+#     model.summary())
 #     return model
 
 
@@ -381,7 +383,7 @@ def test_model(model, system, V, Vdot, x=None):
 #     rate = Divide()([Vdot, V])
 #     model = Model(inputs=x, outputs=rate)
 #     model.compile(loss=max_pred, optimizer='adam')
-#     print(model.summary())
+#     model.summary())
 #     return model
 
 
