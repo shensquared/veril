@@ -71,7 +71,7 @@ class ClosedLoopSys(object):
         else:
             self.deg_u = deg_u
             self.sym_dphidx = sym_dphidx
-            self.sym_ubasis = get_monomials(xbar, deg_u, rm_one)
+            self.sym_ubasis = get_monomials(xbar, deg_u, True)
 
     def features_at_x(self, x, file_path):  # x: (num_samples, sys_dim)
         n_samples = x.shape[0]
