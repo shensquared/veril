@@ -111,7 +111,7 @@ def model_V(system):
         B = system.ctrl_B.T
         u_dim = system.num_inputs
         deg_u = system.deg_u
-        ubasis_dim = get_dim(sys_dim, deg_u, rm_one)
+        ubasis_dim = get_dim(sys_dim, deg_u, True)
         ubasis = Input(shape=(ubasis_dim,), name='ubasis')
         u = Dense(u_dim, use_bias=False, name='u',
                   kernel_regularizer=regularizers.l1(0.))(ubasis)

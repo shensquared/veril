@@ -255,7 +255,7 @@ class S4CV_Plants(ClosedLoopSys):
         return features
 
     def fx(self, t, y):
-        u_basis = get_monomials(y - self.x0, self.deg_u, self.rm_one)
+        u_basis = get_monomials(y - self.x0, self.deg_u, True)
         u = (u_basis@self.u_weights).T
         # u = (9.81* np.sin(y[0] + np.pi)).reshape((1,))
         # u = np.zeros((self.num_inputs))
