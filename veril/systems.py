@@ -223,8 +223,6 @@ class S4CV_Plants(ClosedLoopSys):
 
     def init_x_g_B(self):
         prog = MathematicalProgram()
-        # sym_x is defined in the error frame, i.e. sym_x = xbar=x-x0 if using
-        # standard notation
         self.sym_x = prog.NewIndeterminates(self.num_states, "x")
         self.sym_g = self.dynamic_without_control()
         self.ctrl_B = self.hx()
@@ -352,8 +350,9 @@ class PendulumRecast(S4CV_Plants):
         self.all_slices = itertools.combinations(range(self.num_states), 2)
         self.original_coordinate()
 
-        self.x0 = np.array([np.sin(self.xo0[0]), np.cos(self.xo0[0]),
-                            self.xo0[1]])
+        # self.x0 = np.array([np.sin(self.xo0[0]), np.cos(self.xo0[0]),
+        #                     self.xo0[1]])
+        self.x0 = np.array([0, -1, 0])
         self.x0dot = np.zeros((self.num_states,))
         self.init_x_g_B()
 
