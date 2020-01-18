@@ -221,12 +221,14 @@ def get_model_weights(model, loop_closed):
 
 def get_V_model(model_dir, tag):
     file_name = model_dir + '/V_model' + tag + '.h5'
-
-    with CustomObjectScope({'Divide': Divide, 'DotKernel': DotKernel,
+    with CustomObjectScope({'Divide': Divide, 'DotKernel':
+                            DotKernel, 'Power': Power,
                             'max_pred': max_pred, 'mean_pred': mean_pred,
-                            'neg_percent': neg_percent, 'mean_pos': mean_pos}):
+                            'neg_percent': neg_percent, 'mean_pos': mean_pos,
+                            'mean_neg': mean_neg}):
         model = load_model(file_name)
     print(model.summary())
+    print('Loaded model ' + file_name)
     return model
 
 
