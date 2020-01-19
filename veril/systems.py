@@ -424,11 +424,6 @@ class PendulumRecast(S4CV_Plants):
         return np.array([get_monomials(base, self.deg_u, True)])
 
 
-# plant = get('PendulumTrig')
-# plant.set_syms(3,1)
-# plant.features_at_x()
-
-
 class VanderPol(ClosedLoopSys):
 
     def __init__(self):
@@ -508,6 +503,7 @@ class Pendubot(ClosedLoopSys):
                          1 * x4,
                          279 * x1 * x3**2 - 1425 * x1 - 257 * x2 + 273 * x3**3
                          - 1249 * x3 - 171 * x4])
+
     # def levelset_features(self, V, sigma_deg):
     #     self.sym_V = V
     #     self.sym_Vdot = self.sym_V.Jacobian(self.sym_x) @ self.sym_f
