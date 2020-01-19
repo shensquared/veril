@@ -419,6 +419,11 @@ class PendulumRecast(S4CV_Plants):
         print('eig of Hessian of Vdot0 %s' % (eig(H)[0]))
         # assert (np.all(eig(H)[0] <= 0))
 
+    def u_scaling_reg(self):
+        base = [1., 1., 100.]
+        return np.array([get_monomials(base, self.deg_u, True)])
+
+
 # plant = get('PendulumTrig')
 # plant.set_syms(3,1)
 # plant.features_at_x()

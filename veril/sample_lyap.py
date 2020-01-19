@@ -89,16 +89,26 @@ def rho_reg(weight_matrix):
 #     return K.sign(y_pred)
 
 
-def model_V(system):
+def model_V(system, over_para, reg, **kwargs):
     sys_dim = system.num_states
     deg_ftrs = system.deg_ftrs
     rm_one = system.rm_one
 
+    if reg is 'l1':
+        reg = regularizers.l1(0.)
+    elif reg is 'l2':
+        reg = regularizers.l2(0.)
+    elif reg is 'reg_u' and hasattr(system, 'u_scaling_reg'):
+        reg = reg_u(scaling=system.u_scaling_reg())
+    elif reg is None:
+        reg = None
+    else:
+        ValueError('Wrong regularizers')
+
     monomial_dim = get_dim(sys_dim, deg_ftrs, rm_one)
     phi = Input(shape=(monomial_dim,), name='phi')
     layers = [
-        Dense(monomial_dim * 2, use_bias=False,
-              kernel_regularizer=regularizers.l1(0.)),
+        Dense(monomial_dim * over_para, use_bias=False,)
         # Dense((monomial_dim * 2), use_bias=False),
     ]
     gram_factor = Sequential(layers, name='gram_factorization')
@@ -113,8 +123,7 @@ def model_V(system):
         deg_u = system.deg_u
         ubasis_dim = get_dim(sys_dim, deg_u, True)
         ubasis = Input(shape=(ubasis_dim,), name='ubasis')
-        u = Dense(u_dim, use_bias=False, name='u',
-                  kernel_regularizer=regularizers.l1(0.))(ubasis)
+        u = Dense(u_dim, use_bias=False, name='u')(ubasis)
         g = Input(shape=(sys_dim,), name='open_loop_dynamics')
         Bu = DotKernel(B, name='Bu')(u)
         f_cl = Add(name='closed_loop_dynamics')([g, Bu])
@@ -137,7 +146,7 @@ def model_V(system):
     # min_pos = Min_Positive(name='V-flipped')(rate)
     # diff = Subtract()([rate, min_pos])
     # rectified_V = ReLu(name = 'rectified_V')(V)
-    rate = Divide(name='rate')([Vdot, Vsqured])
+    rate = Divide(name='rate')([Vdot, V])
     model = Model(inputs=features, outputs=rate)
     model.compile(loss=max_pred, metrics=[max_pred, mean_pred, neg_percent],
                   optimizer='adam')
@@ -146,7 +155,7 @@ def model_V(system):
     return model
 
 
-def get_V(system, train_or_load, **kwargs):
+def get_V(system, train_or_load, over_para=2, reg=None, **kwargs):
     deg_ftrs = system.deg_ftrs
     rm_one = system.rm_one
     loop_closed = system.loop_closed
@@ -178,7 +187,7 @@ def get_V(system, train_or_load, **kwargs):
 
         n_samples = features[0].shape[0]
         y = - np.ones((n_samples,))
-        model = model_V(system)
+        model = model_V(system, over_para, reg, **kwargs)
         history = model.fit(features, y, **kwargs)
         # assert (history.history['loss'][-1] <= 0)
         # bad_samples, bad_predictions = eval_model(
@@ -197,7 +206,7 @@ def get_V(system, train_or_load, **kwargs):
         system.close_the_loop(u_weights)
     V, Vdot = system.P_to_V(P, samples=None)
     # test_model(model, system, V, Vdot, x=None)
-    return V, Vdot, system, model, P
+    return V, Vdot, system, model, P, u_weights
 
 
 def get_model_weights(model, loop_closed):
@@ -230,7 +239,7 @@ def get_V_model(model_dir, tag):
                             DotKernel, 'Power': Power,
                             'max_pred': max_pred, 'mean_pred': mean_pred,
                             'neg_percent': neg_percent, 'mean_pos': mean_pos,
-                            'mean_neg': mean_neg}):
+                            'mean_neg': mean_neg, 'reg_u': reg_u, 'reg_L': reg_L}):
         model = load_model(file_name)
     print('Loaded model ' + file_name)
     model.summary()
@@ -385,6 +394,49 @@ def test_model(model, system, V, Vdot, x=None):
 #     model.compile(loss=max_pred, optimizer='adam')
 #     model.summary())
 #     return model
+class reg_u(regularizers.Regularizer):
+    """Regularizer for scaled L1 and L2 regularization.
+    """
+
+    def __init__(self, scaling=None, l1=0.01, l2=0.):
+        self.l1 = K.cast_to_floatx(l1)
+        self.l2 = K.cast_to_floatx(l2)
+        self.scaling = scaling
+
+    def __call__(self, x):
+        regularization = 0.
+        scaled = K.dot(K.constant(self.scaling), x)
+        if self.l1:
+            regularization += K.sum(self.l1 * K.abs(scaled))
+        if self.l2:
+            regularization += K.sum(self.l2 * K.square(scaled))
+        return regularization
+
+    def get_config(self):
+        return {'l1': float(self.l1),
+                'l2': float(self.l2),
+                'scaling': self.scaling}
+
+
+class reg_L(regularizers.Regularizer):
+    """Regularizer for scaled L1 and L2 regularization.
+    """
+
+    def __init__(self, dim1, dim2, l2=0.01):
+        self.l2 = K.cast_to_floatx(l2)
+        scaling = np.zeros((dim1, dim2))
+        scaling[-1] = np.ones((dim2,))
+        self.scaling = scaling
+
+    def __call__(self, x):
+        regularization = 0.
+        scaled = K.constant(self.scaling) * x
+        regularization += K.sum(self.l2 * K.square(scaled))
+        return regularization
+
+    def get_config(self):
+        return {'l2': float(self.l2),
+                'scaling': self.scaling}
 
 
 def get_dim(num_var, deg, rm_one):
