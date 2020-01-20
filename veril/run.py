@@ -26,7 +26,7 @@ system = get_system(sys_name, deg_ftrs, deg_u, rm_one)
 # train_or_load = 'Train'
 train_or_load = 'Load'
 epochs = 50
-V, Vdot, system, model, P = get_V(system, train_or_load, epochs=epochs,
+V, Vdot, system, model, P, u_weights = get_V(system, train_or_load, epochs=epochs,
                                   verbose=True, validation_split=0,
                                   shuffle=True)
 
