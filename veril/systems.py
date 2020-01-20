@@ -423,6 +423,89 @@ class PendulumRecast(S4CV_Plants):
         return np.array([get_monomials(base, self.deg_u, True)])
 
 
+class VirtualDubins(ClosedLoopSys):
+
+    def __init__(self):
+        self.name = 'VirtualDubins'
+        self.loop_closed = True
+
+        # parameters
+        self.ldot = 1
+        self.kv = 0
+        self.dt = 1e-3
+
+        self.num_states = 6
+        self.init_x_f()
+
+        self.slice = [1, 2]
+        self.all_slices = itertools.combinations(range(self.num_states), 2)
+        self.x0 = np.zeros((self.num_states,))
+
+        self.at_fixed_pt_tol = 1e-3
+        self.int_stop_ub = 1e10
+        self.int_stop_lb = self.at_fixed_pt_tol
+        self.int_horizon = 10
+        self.d = 2
+        self.num_grid = 100
+        self.degf = 3
+
+    def init_x_f(self):
+        # TODO: unify with parent class
+        prog = MathematicalProgram()
+        x = prog.NewIndeterminates(3, "x")
+        c = prog.NewIndeterminates(3, "c")
+        self.sym_x = np.concatenate((x, c))
+        self.sym_f = self.polynomial_dynamics()
+
+    def controller_paras(self):
+        A = [[0.667296480803582, -1.30071114303233e-15, -0.169922173102605],
+             [2.36315072340782e-14, 0.765660350299141, -1.81433740398421e-13],
+             [-0.156887495801010, 7.80454115721781e-14, 0.0405628714680193]]
+
+        B = [[-0.00361904621810242, -5.81436260137465e-14, -0.133112254766150],
+             [-1.26904136863127e-13, 0.000321665900839647, -9.25777517950906e-14],
+             [0.00103648768038458, -2.42699791299319e-13, 0.0380092356423031]]
+
+        C = [[5.30474466434343e-14, -0.487960601890959, -3.90318131599281e-13],
+             [-0.534621938183623, -2.93540009334162e-14, 0.102770198642539]]
+
+        D = [[-2.63750218560237e-13, -0.000204505875506722, -1.85654985333980e-13],
+             [-0.00720909658962582, -1.36736538875163e-15, -0.259016984857200]]
+        A, B, C, D = np.array(A), np.array(B), np.array(C), np.array(D)
+        # TODO: generalize the hard-coded full-state feedback
+        return [A, B, C, D]
+
+    def hx(self, x):
+        [x1, x2, x3] = x
+        return np.array([[1], [x3], [-x2]])
+
+    def fx(self, t, y):
+        # the control law is:
+        # U = [V ; kb] = [ldot; kv] + uTilde,
+        # Where:
+        # c(k+1) = A*c(k) + B*x(k)
+        # uTilde(k) = C * c(k) + D*x(k)
+        # with x = [psi_E ; X_E; Y_E];
+        ldot = self.ldot
+        kv = self.kv
+        [A, B, C, D] = self.controller_paras()
+
+        [x1, x2, x3, c1, c2, c3] = y
+        x = [x1, x2, x3]
+        c = [c1, c2, c3]
+
+        c_plus = A@c + B@x
+        uTilde = C@c + D@x
+        U = np.array([ldot, kv]) + uTilde
+        [V, kb] = U
+
+        x1dot = V * kb - kv * ldot
+        x2dot = V * kb * x3 + V - ldot * np.cos(1 * x1)
+        x3dot = -V * kb * x2 + ldot * np.sin(1 * x1)
+        cdot = (c_plus - c) / self.dt
+        return np.concatenate([[x1dot], [x2dot], [x3dot], cdot])
+
+
 class VanderPol(ClosedLoopSys):
 
     def __init__(self):
