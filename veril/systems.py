@@ -225,7 +225,6 @@ class S4CV_Plants(ClosedLoopSys):
         prog = MathematicalProgram()
         self.sym_x = prog.NewIndeterminates(self.num_states, "x")
         self.sym_g = self.dynamic_without_control()
-        self.ctrl_B = self.hx()
 
     def dynamic_without_control(self, sample_states=None):
         if sample_states is None:
@@ -259,7 +258,7 @@ class S4CV_Plants(ClosedLoopSys):
         u = (u_basis@self.u_weights).T
         # u = (9.81* np.sin(y[0] + np.pi)).reshape((1,))
         # u = np.zeros((self.num_inputs))
-        num_sol = self.gx(y) + self.ctrl_B@u
+        num_sol = self.gx(y) + self.hx()@u
         # print(num_sol-[i.Evaluate(dict(zip(self.sym_x,y))) for i in
         #    self.sym_f])
         # print(num_sol)
@@ -269,7 +268,7 @@ class S4CV_Plants(ClosedLoopSys):
         self.loop_closed = True
         self.u_weights = u_weights
         self.u = (self.sym_ubasis@u_weights).T
-        self.sym_f = self.sym_g + self.ctrl_B@self.u
+        self.sym_f = self.sym_g + self.hx()@self.u
         # TODO: fix self.degf
 
 

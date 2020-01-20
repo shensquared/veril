@@ -118,7 +118,7 @@ def model_V(system, over_para, reg, **kwargs):
     loop_closed = system.loop_closed
     # depending on if the loop is closed, only eta term would differ
     if not loop_closed:
-        B = system.ctrl_B.T
+        B = system.hx().T
         u_dim = system.num_inputs
         deg_u = system.deg_u
         ubasis_dim = get_dim(sys_dim, deg_u, True)
