@@ -68,26 +68,6 @@ def flipped_relu(y_true, y_pred):
 def rho_reg(weight_matrix):
     return 0.001 * K.abs(K.sum(weight_matrix))
 
-# def test_idx(y_true,y_pred):
-    # return K.gather(y_pred,1)
-
-# def hinge_and_max(y_true, y_pred):
-#     return K.max(y_pred) + 10 * K.mean(K.maximum(1. - y_true * y_pred, 0.),
-#                                        axis=-1)
-
-
-# def guided_MSE(y_true, y_pred):
-#     # want slighty greater than one
-#     if K.sign(y_pred - y_true) is 1:
-#         return 0.1 * K.square(y_pred - y_true)
-#     else:
-#         return K.square(y_pred - y_true)
-
-# def max_and_sign(y_true, y_pred):
-#     # return K.cast(K.equal(y_true, K.sign(y_pred)), K.floatx()) +
-#     # .001*K.max(y_pred)
-#     return K.sign(y_pred)
-
 
 def model_V(system, over_para, reg, **kwargs):
     sys_dim = system.num_states
@@ -235,9 +215,8 @@ def get_model_weights(model, loop_closed):
 
 def get_V_model(model_dir, tag):
     file_name = model_dir + '/V_model' + tag + '.h5'
-    with CustomObjectScope({'Divide': Divide, 'DotKernel':
-                            DotKernel, 'Power': Power,
-                            'max_pred': max_pred, 'mean_pred': mean_pred,
+    with CustomObjectScope({'Divide': Divide, 'DotKernel': DotKernel, 'Power':
+                            Power, 'max_pred': max_pred, 'mean_pred': mean_pred,
                             'neg_percent': neg_percent, 'mean_pos': mean_pos,
                             'mean_neg': mean_neg, 'reg_u': reg_u, 'reg_L': reg_L}):
         model = load_model(file_name)
@@ -278,49 +257,59 @@ def test_model(model, system, V, Vdot, x=None):
     test_V = system.get_v_values(test_x, V=V)
     test_Vdot = system.get_v_values(test_x, V=Vdot)
     return [test_prediction, test_V, test_Vdot]
-# def model_UV(plant):
-#     # assuming control affine
-#     B = plant.ctrl_B.T
-#     u_dim = plant.num_inputs
-#     sys_dim = plant.num_states
-#     deg_ftrs = plant.deg_ftrs
-#     deg_u = plant.deg_u
-#     rm_one = plant.rm_one
 
-#     monomial_dim = get_dim(sys_dim, deg_ftrs, rm_one)
-#     ubasis_dim = get_dim(sys_dim, deg_u, rm_one)
 
-#     phi = Input(shape=(monomial_dim,), name='phi')
-#     layers = [
-#         Dense(monomial_dim, use_bias=False),
-#         # Dense((monomial_dim * 2), use_bias=False),
-#         # Dense(monomial_dim, use_bias=False),
-#     ]
-#     gram_factor = Sequential(layers, name='gram_factorization')
-#     phiL = gram_factor(phi)  # (None, monomial_dim)
-#     V = Dot(1, name='V')([phiL, phiL])  # (None,1)
+class reg_u(regularizers.Regularizer):
+    """Regularizer for scaled L1 and L2 regularization.
+    """
 
-#     # # need to avoid 0 in the denominator (by adding a strictly positive scalar
-#     # # to V)
-#     ubasis = Input(shape=(ubasis_dim,), name='ubasis')
-#     u = Dense(u_dim, use_bias=False, name='u')(ubasis)
-#     g = Input(shape=(sys_dim,), name='open_loop_dynamics')
+    def __init__(self, scaling=None, l1=0.01, l2=0.):
+        self.l1 = K.cast_to_floatx(l1)
+        self.l2 = K.cast_to_floatx(l2)
+        self.scaling = scaling
 
-#     Bu = DotKernel(B, name='Bu')(u)
-#     f_cl = Add(name='closed_loop_dynamics')([g, Bu])
+    def __call__(self, x):
+        regularization = 0.
+        scaled = K.dot(K.constant(self.scaling), x)
+        if self.l1:
+            regularization += K.sum(self.l1 * K.abs(scaled))
+        if self.l2:
+            regularization += K.sum(self.l2 * K.square(scaled))
+        return regularization
 
-#     dphidx = Input(shape=(monomial_dim, sys_dim), name='dphidx')
-#     eta = Dot(-1, name='eta')([dphidx, f_cl])
-#     etaL = gram_factor(eta)  # (None, monomial_dim)
-#     Vdot = Dot(1, name='Vdot')([phiL, etaL])  # (None,1)
-#     rate = Divide(name='ratio')([Vdot, V])
+    def get_config(self):
+        return {'l1': float(self.l1),
+                'l2': float(self.l2),
+                'scaling': self.scaling}
 
-#     features = [g, phi, dphidx, ubasis]
-#     model = Model(inputs=features, outputs=rate)
-#     model.compile(loss=max_pred, metrics=[mean_pred, max_pred, neg_percent],
-#                   optimizer='adam')
-#     model.summary())
-#     return model
+
+class reg_L(regularizers.Regularizer):
+    """Regularizer for scaled L1 and L2 regularization.
+    """
+
+    def __init__(self, dim1, dim2, l2=0.01):
+        self.l2 = K.cast_to_floatx(l2)
+        scaling = np.zeros((dim1, dim2))
+        scaling[-1] = np.ones((dim2,))
+        self.scaling = scaling
+
+    def __call__(self, x):
+        regularization = 0.
+        scaled = K.constant(self.scaling) * x
+        regularization += K.sum(self.l2 * K.square(scaled))
+        return regularization
+
+    def get_config(self):
+        return {'l2': float(self.l2),
+                'scaling': self.scaling}
+
+
+def get_dim(num_var, deg, rm_one):
+    if rm_one:
+        return fact(num_var + deg) // fact(num_var) // fact(deg) - 1
+    else:
+        return fact(num_var + deg) // fact(num_var) // fact(deg)
+
 
 # def gram_decomp_model_for_levelsetpoly(sys_dim, sigma_deg, psi_deg):
 #     psi_dim = get_dim(sys_dim, psi_deg)
@@ -394,56 +383,27 @@ def test_model(model, system, V, Vdot, x=None):
 #     model.compile(loss=max_pred, optimizer='adam')
 #     model.summary())
 #     return model
-class reg_u(regularizers.Regularizer):
-    """Regularizer for scaled L1 and L2 regularization.
-    """
-
-    def __init__(self, scaling=None, l1=0.01, l2=0.):
-        self.l1 = K.cast_to_floatx(l1)
-        self.l2 = K.cast_to_floatx(l2)
-        self.scaling = scaling
-
-    def __call__(self, x):
-        regularization = 0.
-        scaled = K.dot(K.constant(self.scaling), x)
-        if self.l1:
-            regularization += K.sum(self.l1 * K.abs(scaled))
-        if self.l2:
-            regularization += K.sum(self.l2 * K.square(scaled))
-        return regularization
-
-    def get_config(self):
-        return {'l1': float(self.l1),
-                'l2': float(self.l2),
-                'scaling': self.scaling}
 
 
-class reg_L(regularizers.Regularizer):
-    """Regularizer for scaled L1 and L2 regularization.
-    """
+# def test_idx(y_true,y_pred):
+    # return K.gather(y_pred,1)
 
-    def __init__(self, dim1, dim2, l2=0.01):
-        self.l2 = K.cast_to_floatx(l2)
-        scaling = np.zeros((dim1, dim2))
-        scaling[-1] = np.ones((dim2,))
-        self.scaling = scaling
+# def hinge_and_max(y_true, y_pred):
+#     return K.max(y_pred) + 10 * K.mean(K.maximum(1. - y_true * y_pred, 0.),
+#                                        axis=-1)
 
-    def __call__(self, x):
-        regularization = 0.
-        scaled = K.constant(self.scaling) * x
-        regularization += K.sum(self.l2 * K.square(scaled))
-        return regularization
+# def guided_MSE(y_true, y_pred):
+#     # want slighty greater than one
+#     if K.sign(y_pred - y_true) is 1:
+#         return 0.1 * K.square(y_pred - y_true)
+#     else:
+#         return K.square(y_pred - y_true)
 
-    def get_config(self):
-        return {'l2': float(self.l2),
-                'scaling': self.scaling}
+# def max_and_sign(y_true, y_pred):
+#     # return K.cast(K.equal(y_true, K.sign(y_pred)), K.floatx()) +
+#     # .001*K.max(y_pred)
+#     return K.sign(y_pred)
 
-
-def get_dim(num_var, deg, rm_one):
-    if rm_one:
-        return fact(num_var + deg) // fact(num_var) // fact(deg) - 1
-    else:
-        return fact(num_var + deg) // fact(num_var) // fact(deg)
 # def get_gram_trans_for_levelset_poly(model):
 #     names = [weight.name for layer in model.layers for weight in layer.weights]
 #     weights = model.get_weights()
