@@ -447,6 +447,13 @@ class VirtualDubins(ClosedLoopSys):
         x = np.array([i.ravel() for i in np.meshgrid(theta, x, x, x, x, x)]).T
         return x[~np.all(x == self.x0, axis=1)]
 
+    def random_sample(self, n):
+        u_init = np.zeros((3, n))
+        theta = np.random.uniform(low=-np.pi, high=np.pi, size=(1,n))
+        x1 = np.random.randn(2, n)
+        x = np.vstack((theta,x1,u_init)).T  # (n,6)
+        return x
+
 
 class VanderPol(ClosedLoopSys):
 
