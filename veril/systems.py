@@ -103,14 +103,14 @@ class ClosedLoopSys(object):
     def linearized_quadractic_V(self):
         x = self.sym_x
         f = self.sym_f
-        env = dict(zip(x, np.zeros(x.shape)))
+        env = dict(zip(x, self.x0))
         A = np.array([[i.Evaluate(env) for i in j]for j in Jacobian(f, x)])
         print('A  %s' % A)
         print('eig of the linearized A matrix %s' % (eig(A)[0]))
         P = solve_lyapunov(A.T, -np.eye(x.shape[0]))
         # print('P %s' % P)
         print('eig of P %s' % (eig(P)[0]))
-        V = self.sym_x.T@P@self.sym_x
+        V = (self.sym_x - self.x0).T@P@(self.sym_x - self.x0)
         return A, P, V
 
     def P_to_V(self, P, samples=None):
