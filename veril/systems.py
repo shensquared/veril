@@ -374,6 +374,12 @@ class PendulumRecast(S4CV_Plants):
         base = [1., 1., 100.]
         return np.array([get_monomials(base, self.deg_u, True)])
 
+    def debugging_V(self,V):
+        up = [np.array([0,-1,0])]
+        down =  np.array([np.array([0,1,0])])
+        print('up V value %s' % system.get_v_values(up,V))
+        print('down V value %s' % system.get_v_values(down,V))
+
 
 class VirtualDubins(ClosedLoopSys):
 
