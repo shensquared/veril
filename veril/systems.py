@@ -386,9 +386,9 @@ class VirtualDubins(ClosedLoopSys):
     def __init__(self):
         super().__init__('VirtualDubins', 6, idx=(1, 2))
         # parameters
-        self.ldot = 1
+        self.ldot = 2
         self.kv = 0
-        self.dt = 1e-3
+        self.dt = 4e-2
         self.init_x_f()
 
     def init_x_f(self):
