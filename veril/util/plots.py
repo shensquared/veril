@@ -99,9 +99,9 @@ def plot_traj(initial, system, **kwargs):
             if plotV:
                 Vtraj = system.get_v_values(sol.y.T, V=kwargs['V'])
                 axs2.plot(Vtraj, c=c)
+                axs2.set_title('V trajectory')
                 # print('final V value is %s' % Vtraj[-1])
-    # plt.xlabel('time')
-    axs2.set_title('V trajectory')
+
     fig.suptitle(sys_name + ' Simulation ' + add_title)
     plt.show()
 
