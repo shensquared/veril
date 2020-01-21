@@ -30,7 +30,6 @@ class ClosedLoopSys(object):
 
         self.at_fixed_pt_tol = 1e-3
         self.int_stop_ub = 1e10
-        self.int_stop_lb = self.at_fixed_pt_tol
         self.int_horizon = 10
         self.d = 2
         self.num_grid = 100
@@ -191,18 +190,15 @@ class ClosedLoopSys(object):
         return x[~np.all(x == self.x0, axis=1)]
 
     def is_at_fixed_pt(self, x):
-        # return np.linalg.norm(x) <= self.at_fixed_pt_tol
         return np.allclose(x, self.x0, atol=self.at_fixed_pt_tol)
 
     def event(self, t, x):
         norm = np.linalg.norm(x)
-        in_ = norm - self.int_stop_lb
-        if self.int_stop_ub is None:
-            out_ = False
-        else:
+        # in_ = x - self.x0
+        if self.int_stop_ub is not None:
             out_ = norm - self.int_stop_ub
-        return out_ or in_
-    event.terminal = False
+        return out_
+    event.terminal = True
 
 
 class S4CV_Plants(ClosedLoopSys):
