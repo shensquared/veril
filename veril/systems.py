@@ -16,16 +16,9 @@ from scipy import integrate
 
 class ClosedLoopSys(object):
 
-    def __init__(self):
+    def __init__(self, name, num_states, idx=(0, 1)):
         self.loop_closed = True
-        self.at_fixed_pt_tol = 1e-3
-        self.int_stop_ub = 1e10
-        self.int_stop_lb = self.at_fixed_pt_tol
-        self.int_horizon = 10
-        self.d = 2
-        self.num_grid = 100
 
-    def basic_props(self, name, num_states, num_inputs, idx=(0, 1)):
         self.name = name
         self.num_states = num_states
         self.slice = idx
@@ -34,8 +27,13 @@ class ClosedLoopSys(object):
         self.all_slices = list(itertools.combinations(range(num_states), 2))
         if hasattr(self, 'special_fixed_pt'):
             self.special_fixed_pt()
-        if not self.loop_closed:
-            self.num_inputs = num_inputs
+
+        self.at_fixed_pt_tol = 1e-3
+        self.int_stop_ub = 1e10
+        self.int_stop_lb = self.at_fixed_pt_tol
+        self.int_horizon = 10
+        self.d = 2
+        self.num_grid = 100
 
     def init_x_f(self):
         prog = MathematicalProgram()
@@ -209,8 +207,9 @@ class ClosedLoopSys(object):
 
 class S4CV_Plants(ClosedLoopSys):
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, name, num_states, num_inputs, idx=(0, 1)):
+        super().__init__(name, num_states, idx=idx)
+        self.num_inputs = num_inputs
         self.loop_closed = False
 
     def init_x_g_B(self):
@@ -267,7 +266,7 @@ class S4CV_Plants(ClosedLoopSys):
 class PendulumTrig(S4CV_Plants):
 
     def __init__(self):
-        super().__init__()
+        super().__init__('PendulumTrig', 2, 1)
         # parameters
         self.m = 1
         self.l = .5
@@ -275,7 +274,6 @@ class PendulumTrig(S4CV_Plants):
         self.lc = .5
         self.I = .25
         self.g = 9.81
-        self.basic_props('PendulumTrig', 2, 1)
         self.init_x_g_B()  # theta=pi, thetadot=0
 
     def get_x(self, d=2, num_grid=200, slice_idx=None):
@@ -291,9 +289,8 @@ class PendulumTrig(S4CV_Plants):
         [x1, x2] = x
         # thetaddot = -self.b * x2 / self.I - self.g * np.sin(x1) / self.l
         # put the origin at the top right
-        thetaddot = -self.b * x2 / self.I - \
-            self.g * np.sin(x1 + np.pi) / self.l
-        return np.array([1 * x2, thetaddot])
+        x2dot = -self.b * x2 / self.I - self.g * np.sin(x1 + np.pi) / self.l
+        return np.array([1 * x2, x2dot])
 
     def hx(self, x=None):
         return np.array([[0], [1 / self.I]])
@@ -310,7 +307,7 @@ class PendulumTrig(S4CV_Plants):
 class PendulumRecast(S4CV_Plants):
 
     def __init__(self):
-        super().__init__()
+        super().__init__('PendulumRecast', 3, 1, idx=(1, 2))
         # parameters
         self.m = 1
         self.l = .5
@@ -318,7 +315,6 @@ class PendulumRecast(S4CV_Plants):
         self.lc = .5
         self.I = .25
         self.g = 9.81
-        self.basic_props('PendulumRecast', 3, 1, idx=(1, 2))
         self.init_x_g_B()
 
     def special_fixed_pt(self):
@@ -386,14 +382,12 @@ class PendulumRecast(S4CV_Plants):
 class VirtualDubins(ClosedLoopSys):
 
     def __init__(self):
-        super().__init__()
+        super().__init__('VirtualDubins', 6, idx=(1, 2))
         # parameters
         self.ldot = 1
         self.kv = 0
         self.dt = 1e-3
-        self.basic_props('VirtualDubins', 6, 0, idx=(1, 2))
         self.init_x_f()
-        self.degf = 3
 
     def init_x_f(self):
         # TODO: unify with parent class
@@ -461,8 +455,7 @@ class VirtualDubins(ClosedLoopSys):
 class VanderPol(ClosedLoopSys):
 
     def __init__(self):
-        super().__init__()
-        self.basic_props('VanderPol', 2, 0)
+        super().__init__('VanderPol', 2)
         self.init_x_f()
         self.degf = 3
         self.int_stop_ub = 5
@@ -485,8 +478,7 @@ class VanderPol(ClosedLoopSys):
 class Pendubot(ClosedLoopSys):
 
     def __init__(self):
-        super().__init__()
-        self.basic_props('Pendubot', 4, 0, idx=(0, 2))
+        super().__init__('Pendubot', 4, idx=(0, 2))
         self.init_x_f()
         self.degf = 3
         self.int_stop_ub = 15
