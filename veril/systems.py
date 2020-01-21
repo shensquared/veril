@@ -418,8 +418,7 @@ class VirtualDubins(ClosedLoopSys):
         return [A, B, C, D]
 
     def fx(self, t, y):
-        # the control law is:
-        # U = [V ; kb] = [ldot; kv] + uTilde,
+        # the control law is: U = [V ; kb] = [ldot; kv] + uTilde,
         # Where:
         # c(k+1) = A*c(k) + B*x(k)
         # uTilde(k) = C * c(k) + D*x(k)
@@ -440,6 +439,7 @@ class VirtualDubins(ClosedLoopSys):
         x1dot = V * kb - kv * ldot
         x2dot = V * kb * x3 + V - ldot * np.cos(1 * x1)
         x3dot = -V * kb * x2 + ldot * np.sin(1 * x1)
+        # assuming forward Euler, turn the DT c_plus in to CT cdot
         cdot = (c_plus - c) / self.dt
         return np.concatenate([[x1dot], [x2dot], [x3dot], cdot])
 
@@ -451,9 +451,11 @@ class VirtualDubins(ClosedLoopSys):
 
     def random_sample(self, n):
         u_init = np.zeros((3, n))
-        theta = np.random.uniform(low=-np.pi, high=np.pi, size=(1,n))
-        x1 = np.random.randn(2, n)
-        x = np.vstack((theta,x1,u_init)).T  # (n,6)
+        m = np.pi / 20
+        theta = np.random.uniform(low=-m, high=m, size=(1, n))
+        # x1 = np.random.randn(2, n)
+        x1 = np.random.uniform(low=-.1, high=.1, size=(2, n))
+        x = np.vstack((theta, x1, u_init)).T  # (n,6)
         return x
 
 
