@@ -17,19 +17,34 @@ from scipy import integrate
 class ClosedLoopSys(object):
 
     def __init__(self):
-        pass
+        self.loop_closed = True
+        self.at_fixed_pt_tol = 1e-3
+        self.int_stop_ub = 1e10
+        self.int_stop_lb = self.at_fixed_pt_tol
+        self.int_horizon = 10
+        self.d = 2
+        self.num_grid = 100
 
-    def polynomial_dynamics(self, sample_states=None):
-        if sample_states is None:
-            x = self.sym_x
-        else:
-            x = sample_states.T
-        return self.fx(None, x)
+    def basic_props(self, name, num_states, num_inputs, idx=(0, 1)):
+        self.name = name
+        self.num_states = num_states
+        self.slice = idx
+        self.x0 = np.zeros((num_states,))
+        self.x0dot = np.zeros((num_states,))
+        self.all_slices = list(itertools.combinations(range(num_states), 2))
+        if hasattr(self, 'special_fixed_pt'):
+            self.special_fixed_pt()
+        if not self.loop_closed:
+            self.num_inputs = num_inputs
 
     def init_x_f(self):
         prog = MathematicalProgram()
         self.sym_x = prog.NewIndeterminates(self.num_states, "x")
         self.sym_f = self.polynomial_dynamics()
+
+    def polynomial_dynamics(self, sample_states=None):
+        x = self.sym_x if sample_states is None else sample_states.T
+        return self.fx(None, x)
 
     def set_syms(self, deg_ftrs, deg_u, rm_one):
         self.rm_one = rm_one
@@ -152,10 +167,12 @@ class ClosedLoopSys(object):
             # end = time.time()
             # print(end-start)
         stableSamples = np.array(stableSamples)
+        name = '../data/' + self.name + '/stableSamples'
         if 'slice_idx' in kwargs:
-            return stableSamples[:, kwargs['slice_idx']]
-        else:
-            return stableSamples
+            stableSamples = stableSamples[:, kwargs['slice_idx']]
+            name = name + 'Slice' + str(i[0] + 1) + str(i[1] + 1) + '.npy'
+        np.save(name, stableSamples)
+        return stableSamples
 
     def sample_stable_inits_for_all_slices(self, **kwargs):
         for i in self.all_slices:
@@ -192,8 +209,9 @@ class ClosedLoopSys(object):
 
 class S4CV_Plants(ClosedLoopSys):
 
-    def __init__():
-        pass
+    def __init__(self):
+        super().__init__()
+        self.loop_closed = False
 
     def init_x_g_B(self):
         prog = MathematicalProgram()
@@ -249,10 +267,7 @@ class S4CV_Plants(ClosedLoopSys):
 class PendulumTrig(S4CV_Plants):
 
     def __init__(self):
-        self.name = 'PendulumTrig'
-        self.loop_closed = False
-        self.num_states = 2
-        self.num_inputs = 1
+        super().__init__()
         # parameters
         self.m = 1
         self.l = .5
@@ -260,20 +275,8 @@ class PendulumTrig(S4CV_Plants):
         self.lc = .5
         self.I = .25
         self.g = 9.81
-
-        self.slice = [0, 1]
-        self.all_slices = [[0, 1]]
-
-        self.x0 = np.array([0, 0])  # theta=pi, thetadot=0
-        self.x0dot = np.zeros((self.num_states,))
-        self.init_x_g_B()
-
-        self.at_fixed_pt_tol = 1e-3
-        self.int_stop_ub = 1e10
-        self.int_stop_lb = self.at_fixed_pt_tol
-        self.int_horizon = 10
-        self.d = 2
-        self.num_grid = 100
+        self.basic_props('PendulumTrig', 2, 1)
+        self.init_x_g_B()  # theta=pi, thetadot=0
 
     def get_x(self, d=2, num_grid=200, slice_idx=None):
         x1 = np.linspace(-np.pi, np.pi, num_grid)
@@ -307,10 +310,7 @@ class PendulumTrig(S4CV_Plants):
 class PendulumRecast(S4CV_Plants):
 
     def __init__(self):
-        self.name = 'PendulumRecast'
-        self.loop_closed = False
-        self.num_states = 3
-        self.num_inputs = 1
+        super().__init__()
         # parameters
         self.m = 1
         self.l = .5
@@ -318,28 +318,14 @@ class PendulumRecast(S4CV_Plants):
         self.lc = .5
         self.I = .25
         self.g = 9.81
-
-        self.slice = [1, 2]
-        self.all_slices = itertools.combinations(range(self.num_states), 2)
-        self.original_coordinate()
-
-        # self.x0 = np.array([np.sin(self.xo0[0]), np.cos(self.xo0[0]),
-        #                     self.xo0[1]])
-        self.x0 = np.array([0, -1, 0])
-        self.x0dot = np.zeros((self.num_states,))
+        self.basic_props('PendulumRecast', 3, 1, idx=(1, 2))
         self.init_x_g_B()
 
-        self.at_fixed_pt_tol = 1e-3
-        self.int_stop_ub = 1e10
-        self.int_stop_lb = self.at_fixed_pt_tol
-        self.int_horizon = 10
-        self.d = 2
-        self.num_grid = 100
-
-    def original_coordinate(self):
+    def special_fixed_pt(self):
         prog = MathematicalProgram()
         self.xo = prog.NewIndeterminates(2, "t")
         self.xo0 = [np.pi, 0]
+        self.x0 = np.array([0, -1, 0])
 
     def get_x(self, d=2, num_grid=200, slice_idx=None):
         x1 = np.linspace(-np.pi, np.pi, num_grid)
@@ -400,27 +386,13 @@ class PendulumRecast(S4CV_Plants):
 class VirtualDubins(ClosedLoopSys):
 
     def __init__(self):
-        self.name = 'VirtualDubins'
-        self.loop_closed = True
-
+        super().__init__()
         # parameters
         self.ldot = 1
         self.kv = 0
         self.dt = 1e-3
-
-        self.num_states = 6
+        self.basic_props('VirtualDubins', 6, 0, idx=(1, 2))
         self.init_x_f()
-
-        self.slice = [1, 2]
-        self.all_slices = itertools.combinations(range(self.num_states), 2)
-        self.x0 = np.zeros((self.num_states,))
-
-        self.at_fixed_pt_tol = 1e-3
-        self.int_stop_ub = 1e10
-        self.int_stop_lb = self.at_fixed_pt_tol
-        self.int_horizon = 10
-        self.d = 2
-        self.num_grid = 100
         self.degf = 3
 
     def init_x_f(self):
@@ -479,26 +451,22 @@ class VirtualDubins(ClosedLoopSys):
         cdot = (c_plus - c) / self.dt
         return np.concatenate([[x1dot], [x2dot], [x3dot], cdot])
 
+    def get_x(self, d=.5, num_grid=100):
+        theta = np.linspace(-np.pi, np.pi, num_grid)
+        x = np.linspace(-d, d, num_grid)
+        x = np.array([i.ravel() for i in np.meshgrid(theta, x, x, x, x, x)]).T
+        return x[~np.all(x == self.x0, axis=1)]
+
 
 class VanderPol(ClosedLoopSys):
 
     def __init__(self):
-        self.name = 'VanderPol'
-        self.loop_closed = True
-        self.num_states = 2
-        self.slice = [0, 1]
-        self.all_slices = [[0, 1]]
-        self.trueROA = True
-        self.degf = 3
-        self.x0 = np.zeros((self.num_states,))
+        super().__init__()
+        self.basic_props('VanderPol', 2, 0)
         self.init_x_f()
-
-        self.at_fixed_pt_tol = 1e-3
+        self.degf = 3
         self.int_stop_ub = 5
-        self.int_stop_lb = self.at_fixed_pt_tol
         self.int_horizon = 20
-        self.d = 2
-        self.num_grid = 100
 
     def knownROA(self):
         x = self.sym_x
@@ -517,23 +485,12 @@ class VanderPol(ClosedLoopSys):
 class Pendubot(ClosedLoopSys):
 
     def __init__(self):
-        self.name = 'Pendubot'
-        self.loop_closed = True
-        self.num_states = 4
-        self.slice = [0, 2]
-        self.all_slices = list(
-            itertools.combinations(range(self.num_states), 2))
-        self.degf = 3
-        self.x0 = np.zeros((self.num_states,))
+        super().__init__()
+        self.basic_props('Pendubot', 4, 0, idx=(0, 2))
         self.init_x_f()
-
-        self.at_fixed_pt_tol = 1e-3
+        self.degf = 3
         self.int_stop_ub = 15
-        self.int_stop_lb = self.at_fixed_pt_tol
         self.int_horizon = 20
-
-        self.d = 2
-        self.num_grid = 100
 
     def get_x(self, **kwargs):
         d = kwargs['d'] if 'd' in kwargs else self.d
