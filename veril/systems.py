@@ -14,32 +14,6 @@ from scipy.linalg import solve_lyapunov, solve_discrete_lyapunov
 from scipy import integrate
 
 
-def get(system_name):
-    if isinstance(system_name, six.string_types):
-        identifier = str(system_name)
-        return globals()[identifier]()
-
-
-def get_system(sys_name, deg_ftrs, deg_u, rm_one):
-    system = get(sys_name)
-    system.set_syms(deg_ftrs, deg_u, rm_one)
-    return system
-
-
-def get_monomials(x, deg, rm_one):
-    c = 1 if isinstance(x[0], float) else Expression(1)
-    _ = itertools.combinations_with_replacement(np.append(c, x), deg)
-    basis = [np.prod(j) for j in _]
-    if rm_one:
-        basis = basis[1:]
-    # if rm_one:
-    #     print(np.array([i.ToExpression() for i in MonomialBasis(x, deg)[:-1]]))
-    # else:
-    #     print(np.array([i.ToExpression() for i in MonomialBasis(x, deg)]))
-    # print(basis[::-1])
-    return np.array(basis[::-1])
-
-
 class ClosedLoopSys(object):
 
     def __init__(self):
@@ -585,6 +559,32 @@ class Pendubot(ClosedLoopSys):
                          1 * x4,
                          279 * x1 * x3**2 - 1425 * x1 - 257 * x2 + 273 * x3**3
                          - 1249 * x3 - 171 * x4])
+
+
+def get(system_name):
+    if isinstance(system_name, six.string_types):
+        identifier = str(system_name)
+        return globals()[identifier]()
+
+
+def get_system(sys_name, deg_ftrs, deg_u, rm_one):
+    system = get(sys_name)
+    system.set_syms(deg_ftrs, deg_u, rm_one)
+    return system
+
+
+def get_monomials(x, deg, rm_one):
+    c = 1 if isinstance(x[0], float) else Expression(1)
+    _ = itertools.combinations_with_replacement(np.append(c, x), deg)
+    basis = [np.prod(j) for j in _]
+    if rm_one:
+        basis = basis[1:]
+    # if rm_one:
+    #     print(np.array([i.ToExpression() for i in MonomialBasis(x, deg)[:-1]]))
+    # else:
+    #     print(np.array([i.ToExpression() for i in MonomialBasis(x, deg)]))
+    # print(basis[::-1])
+    return np.array(basis[::-1])
 
     # def levelset_features(self, V, sigma_deg):
     #     self.sym_V = V
