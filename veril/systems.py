@@ -29,7 +29,7 @@ class ClosedLoopSys(object):
             self.special_fixed_pt()
 
         self.at_fixed_pt_tol = 1e-3
-        self.int_stop_ub = 1e10
+        self.int_stop_ub = 1e5
         self.int_horizon = 10
         self.d = 2
         self.num_grid = 100
