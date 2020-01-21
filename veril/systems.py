@@ -417,10 +417,6 @@ class VirtualDubins(ClosedLoopSys):
         # TODO: generalize the hard-coded full-state feedback
         return [A, B, C, D]
 
-    def hx(self, x):
-        [x1, x2, x3] = x
-        return np.array([[1], [x3], [-x2]])
-
     def fx(self, t, y):
         # the control law is:
         # U = [V ; kb] = [ldot; kv] + uTilde,
