@@ -108,7 +108,7 @@ class ClosedLoopSys(object):
         print('A  %s' % A)
         print('eig of the linearized A matrix %s' % (eig(A)[0]))
         P = solve_lyapunov(A.T, -np.eye(x.shape[0]))
-        # print('P %s' % P)
+        assert (np.all(eig(P)[0] <= 0))
         print('eig of P %s' % (eig(P)[0]))
         V = (self.sym_x - self.x0).T@P@(self.sym_x - self.x0)
         return A, P, V
