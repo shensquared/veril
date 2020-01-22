@@ -37,11 +37,7 @@ class ClosedLoopSys(object):
     def init_x_f(self):
         prog = MathematicalProgram()
         self.sym_x = prog.NewIndeterminates(self.num_states, "x")
-        self.sym_f = self.polynomial_dynamics()
-
-    def polynomial_dynamics(self, sample_states=None):
-        x = self.sym_x if sample_states is None else sample_states.T
-        return self.fx(None, x)
+        self.sym_f = self.fx(None, self.sym_x)
 
     def set_syms(self, deg_ftrs, deg_u, rm_one):
         self.rm_one = rm_one
@@ -394,7 +390,7 @@ class VirtualDubins(ClosedLoopSys):
         x = prog.NewIndeterminates(3, "x")
         c = prog.NewIndeterminates(3, "c")
         self.sym_x = np.concatenate((x, c))
-        self.sym_f = self.polynomial_dynamics()
+        self.sym_f = self.fx(None, self.sym_x)
 
     def controller_paras(self):
         A = [[0.667296480803582, -1.30071114303233e-15, -0.169922173102605],
