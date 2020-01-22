@@ -96,11 +96,12 @@ def plot_traj(initial, system, **kwargs):
         sol = system.forward_sim(i, **kwargs)
         if sol.status != -1:
             [j.plot(sol.y[i], c=c) for (i, j) in zip(slice_idx, axs)]
+            print('final states is %s' % sol.y[:,-1])
             if plotV:
                 Vtraj = system.get_v_values(sol.y.T, V=kwargs['V'])
                 axs2.plot(Vtraj, c=c)
                 axs2.set_title('V trajectory')
-                # print('final V value is %s' % Vtraj[-1])
+                print('final V value is %s' % Vtraj[-1])
 
     fig.suptitle(sys_name + ' Simulation ' + add_title)
     plt.show()
