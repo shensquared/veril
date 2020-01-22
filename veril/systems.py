@@ -467,7 +467,8 @@ class VirtualDubins3d(ClosedLoopSys):
         self.ldot = 2
         self.kv = 0
         self.init_x_f()
-        self.at_fixed_pt_tol = 5e-3
+        self.at_fixed_pt_tol = 5e-2
+        self.int_horizon = 100
 
     def open_loop(self, x, u):
         ldot = self.ldot
@@ -490,7 +491,7 @@ class VirtualDubins3d(ClosedLoopSys):
         u = np.array([V, kb])
         return self.open_loop(y, u)
 
-    def get_x(self, d=.5, num_grid=100):
+    def get_x(self, d=.5, num_grid=200):
         theta = np.linspace(-np.pi, np.pi, num_grid)
         x = np.linspace(-d, d, num_grid)
         x = np.array([i.ravel() for i in np.meshgrid(theta, x, x)]).T
