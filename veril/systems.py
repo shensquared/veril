@@ -466,8 +466,8 @@ class VirtualDubins3d(ClosedLoopSys):
         # parameters
         self.ldot = 2
         self.kv = 0
-        self.dt = 4e-2
         self.init_x_f()
+        self.at_fixed_pt_tol = 5e-3
 
     def open_loop(self, x, u):
         ldot = self.ldot
@@ -503,6 +503,14 @@ class VirtualDubins3d(ClosedLoopSys):
         x1 = np.random.uniform(low=-20, high=20, size=(2, n))
         x = np.vstack((theta, x1)).T  # (n,6)
         return x
+
+    def is_at_fixed_pt(self, x):
+        vel_close = np.isclose(x[-2:], 0, atol=self.at_fixed_pt_tol)
+        if not np.all(vel_close):
+            return False
+        else:
+            y = np.arctan2(np.sin(x[0]), np.cos(x[0]))
+            return np.isclose(y, 0, atol=self.at_fixed_pt_tol)
 
 
 class VanderPol(ClosedLoopSys):
