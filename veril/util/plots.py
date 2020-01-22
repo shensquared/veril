@@ -91,20 +91,23 @@ def plot_traj(initial, system, **kwargs):
     if 'V' in kwargs:
         fig2, axs2 = plt.subplots()
         plotV = True
-
+    final_states = []
+    final_Vs = []
     for i, c in zip(initial, color):
         sol = system.forward_sim(i, **kwargs)
         if sol.status != -1:
             [j.plot(sol.y[i], c=c) for (i, j) in zip(slice_idx, axs)]
-            print('final states is %s' % sol.y[:,-1])
+            final_states.append(sol.y[:,-1])
             if plotV:
                 Vtraj = system.get_v_values(sol.y.T, V=kwargs['V'])
                 axs2.plot(Vtraj, c=c)
                 axs2.set_title('V trajectory')
                 print('final V value is %s' % Vtraj[-1])
+                final_Vs.append(Vtraj[-1])
 
     fig.suptitle(sys_name + ' Simulation ' + add_title)
     plt.show()
+    return final_states, final_Vs
 
 
 def plot3d(V, system, r_max=[3, 3], slice_idx=[0, 1], in_xo=True):
