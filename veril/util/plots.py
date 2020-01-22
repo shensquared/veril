@@ -97,7 +97,7 @@ def plot_traj(initial, system, **kwargs):
         sol = system.forward_sim(i, **kwargs)
         if sol.status != -1:
             [j.plot(sol.y[i], c=c) for (i, j) in zip(slice_idx, axs)]
-            final_states.append(sol.y[:,-1])
+            final_states.append(sol.y[:, -1])
             if plotV:
                 Vtraj = system.get_v_values(sol.y.T, V=kwargs['V'])
                 axs2.plot(Vtraj, c=c)
@@ -110,7 +110,7 @@ def plot_traj(initial, system, **kwargs):
     return final_states, final_Vs
 
 
-def plot3d(V, system, r_max=[3, 3], slice_idx=[0, 1], in_xo=True):
+def plot3d(V, system, r_max=[3, 3], slice_idx=(0, 1), in_xo=True):
     if in_xo and hasattr(system, 'poly_to_orig'):
         V, _ = system.poly_to_orig(V)
         sym_x = system.xo
@@ -126,7 +126,7 @@ def plot3d(V, system, r_max=[3, 3], slice_idx=[0, 1], in_xo=True):
     for i in range(nq):
         for j in range(nqd):
             env = dict(zip(sym_x, np.zeros(system.num_states,)))
-            env1 = dict(zip(sym_x[[slice_idx]], [X[i, j], Y[i, j]]))
+            env1 = {sym_x[slice_idx[0]]: X[i, j], sym_x[slice_idx[1]]: Y[i, j]}
             env.update(env1)
             Z[i, j] = V.Evaluate(env)
 
