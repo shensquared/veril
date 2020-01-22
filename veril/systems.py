@@ -460,6 +460,7 @@ class VirtualDubins3d(ClosedLoopSys):
         self.ldot = 2
         self.kv = 0
         self.init_x_f()
+        self.degf=4
         self.at_fixed_pt_tol = 5e-2
         self.int_horizon = 100
 
@@ -469,8 +470,12 @@ class VirtualDubins3d(ClosedLoopSys):
         [x1, x2, x3] = x
         [V, kb] = u
         x1dot = V * kb - kv * ldot
-        x2dot = V * kb * x3 + V - ldot * np.cos(1 * x1)
-        x3dot = -V * kb * x2 + ldot * np.sin(1 * x1)
+        # x2dot = V * kb * x3 + V - ldot * np.cos(1 * x1)
+        # x3dot = -V * kb * x2 + ldot * np.sin(1 * x1)
+        s = x1 - x1**3 / 6
+        c = 1 - x1**2 / 2
+        x2dot = V * kb * x3 + V - ldot * c
+        x3dot = -V * kb * x2 + ldot * s
         return np.concatenate([[x1dot], [x2dot], [x3dot]])
 
     def fx(self, t, y):
@@ -485,26 +490,26 @@ class VirtualDubins3d(ClosedLoopSys):
         return self.open_loop(y, u)
 
     def get_x(self, d=.5, num_grid=200):
-        theta = np.linspace(-np.pi, np.pi, num_grid)
+        theta = np.linspace(-np.pi/30, np.pi/30, num_grid)
         x = np.linspace(-d, d, num_grid)
         x = np.array([i.ravel() for i in np.meshgrid(theta, x, x)]).T
         return x[~np.all(x == self.x0, axis=1)]
 
     def random_sample(self, n):
-        m = np.pi
+        m = np.pi / 20
         theta = np.random.uniform(low=-m, high=m, size=(1, n))
         # x1 = np.random.randn(2, n)
-        x1 = np.random.uniform(low=-20, high=20, size=(2, n))
+        x1 = np.random.uniform(low=-.5, high=.5, size=(2, n))
         x = np.vstack((theta, x1)).T  # (n,6)
         return x
 
-    def is_at_fixed_pt(self, x):
-        vel_close = np.isclose(x[-2:], 0, atol=self.at_fixed_pt_tol)
-        if not np.all(vel_close):
-            return False
-        else:
-            y = np.arctan2(np.sin(x[0]), np.cos(x[0]))
-            return np.isclose(y, 0, atol=self.at_fixed_pt_tol)
+    # def is_at_fixed_pt(self, x):
+    #     vel_close = np.isclose(x[-2:], 0, atol=self.at_fixed_pt_tol)
+    #     if not np.all(vel_close):
+    #         return False
+    #     else:
+    #         y = np.arctan2(np.sin(x[0]), np.cos(x[0]))
+    #         return np.isclose(y, 0, atol=self.at_fixed_pt_tol)
 
 
 class VanderPol(ClosedLoopSys):
