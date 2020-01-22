@@ -211,21 +211,12 @@ class S4CV_Plants(ClosedLoopSys):
     def init_x_g_B(self):
         prog = MathematicalProgram()
         self.sym_x = prog.NewIndeterminates(self.num_states, "x")
-        self.sym_g = self.dynamic_without_control()
-
-    def dynamic_without_control(self, sample_states=None):
-        if sample_states is None:
-            x = self.sym_x
-            gx = self.gx(x)
-        else:
-            x = sample_states.T
-            gx = self.gx(x).T
-        return gx
+        self.sym_g = self.gx(self.sym_x)
 
     def features_at_x(self, x, file_path):  # x: (num_samples, sys_dim)
         if x is None:
             x = self.get_x()
-        g = self.dynamic_without_control(sample_states=x)
+        g = self.gx(x.T).T  # (just so 1st dim is # of samples)
         n_samples = x.shape[0]
         phi, dphidx, ubasis = [], [], []
         for i in range(n_samples):
