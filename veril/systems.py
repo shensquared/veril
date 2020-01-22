@@ -243,7 +243,6 @@ class S4CV_Plants(ClosedLoopSys):
     def fx(self, t, y):
         u_basis = get_monomials(y - self.x0, self.deg_u, True)
         u = (u_basis@self.u_weights).T
-        # u = (9.81* np.sin(y[0] + np.pi)).reshape((1,))
         # u = np.zeros((self.num_inputs))
         num_sol = self.gx(y) + self.hx()@u
         # print(num_sol-[i.Evaluate(dict(zip(self.sym_x,y))) for i in
@@ -298,6 +297,13 @@ class PendulumTrig(S4CV_Plants):
         else:
             y = np.arctan2(np.sin(x[0]), np.cos(x[0]))
             return np.isclose(y, 0, atol=self.at_fixed_pt_tol)
+
+    # for debugging only, comment out
+    # def fx(self, t, y):
+        # u = (9.81* np.sin(y[0] + np.pi)).reshape((1,))
+        # u=np.zeros((1,))
+        # num_sol = self.gx(y) + self.hx()@u
+        # return num_sol
 
 
 class PendulumRecast(S4CV_Plants):
