@@ -374,11 +374,11 @@ class PendulumRecast(S4CV_Plants):
         base = [1., 1., 100.]
         return np.array([get_monomials(base, self.deg_u, True)])
 
-    def debugging_V(self,V):
-        up = [np.array([0,-1,0])]
-        down =  np.array([np.array([0,1,0])])
-        print('up V value %s' % system.get_v_values(up,V))
-        print('down V value %s' % system.get_v_values(down,V))
+    def debugging_V(self, V):
+        up = [np.array([0, -1, 0])]
+        down = np.array([np.array([0, 1, 0])])
+        print('up V value %s' % system.get_v_values(up, V))
+        print('down V value %s' % system.get_v_values(down, V))
 
 
 class VirtualDubins(ClosedLoopSys):
@@ -456,6 +456,52 @@ class VirtualDubins(ClosedLoopSys):
         # x1 = np.random.randn(2, n)
         x1 = np.random.uniform(low=-.1, high=.1, size=(2, n))
         x = np.vstack((theta, x1, u_init)).T  # (n,6)
+        return x
+
+
+class VirtualDubins3d(ClosedLoopSys):
+
+    def __init__(self):
+        super().__init__('VirtualDubins3d', 3, idx=(1, 2))
+        # parameters
+        self.ldot = 2
+        self.kv = 0
+        self.dt = 4e-2
+        self.init_x_f()
+
+    def open_loop(self, x, u):
+        ldot = self.ldot
+        kv = self.kv
+        [x1, x2, x3] = x
+        [V, kb] = u
+        x1dot = V * kb - kv * ldot
+        x2dot = V * kb * x3 + V - ldot * np.cos(1 * x1)
+        x3dot = -V * kb * x2 + ldot * np.sin(1 * x1)
+        return np.concatenate([[x1dot], [x2dot], [x3dot]])
+
+    def fx(self, t, y):
+        [x1, x2, x3] = y
+        # # simpler controller:
+        # # U = [V;kb], where
+        # # V = ||[xE;yE]|| (or V = sqrt(xE^2 + yE^2) ), and
+        # # kb = -yE.
+        V = x2**2 + x3**2 + self.ldot
+        kb = -x3
+        u = np.array([V, kb])
+        return self.open_loop(y, u)
+
+    def get_x(self, d=.5, num_grid=100):
+        theta = np.linspace(-np.pi, np.pi, num_grid)
+        x = np.linspace(-d, d, num_grid)
+        x = np.array([i.ravel() for i in np.meshgrid(theta, x, x)]).T
+        return x[~np.all(x == self.x0, axis=1)]
+
+    def random_sample(self, n):
+        m = np.pi
+        theta = np.random.uniform(low=-m, high=m, size=(1, n))
+        # x1 = np.random.randn(2, n)
+        x1 = np.random.uniform(low=-20, high=20, size=(2, n))
+        x = np.vstack((theta, x1)).T  # (n,6)
         return x
 
 
