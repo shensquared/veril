@@ -463,6 +463,7 @@ class VirtualDubins3d(ClosedLoopSys):
         self.degf=4
         self.at_fixed_pt_tol = 5e-2
         self.int_horizon = 100
+        self.int_stop_ub = 1e2
 
     def open_loop(self, x, u):
         ldot = self.ldot
