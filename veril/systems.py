@@ -381,7 +381,6 @@ class VirtualDubins(ClosedLoopSys):
         # parameters
         self.ldot = 2
         self.kv = 0
-        self.dt = 4e-2
         self.init_x_f()
 
     def init_x_f(self):
@@ -393,29 +392,25 @@ class VirtualDubins(ClosedLoopSys):
         self.sym_f = self.fx(None, self.sym_x)
 
     def controller_paras(self):
-        A = [[0.667296480803582, -1.30071114303233e-15, -0.169922173102605],
-             [2.36315072340782e-14, 0.765660350299141, -1.81433740398421e-13],
-             [-0.156887495801010, 7.80454115721781e-14, 0.0405628714680193]]
+        A = [[-5.10497878620518, 1.55202248444586e-08, 10720.8082964261],
+             [9.82019782286421e-11, -4.08463276380658, 5.36820301819946e-07],
+             [-0.00020225192678231, 3.61384860187543e-11, -24.9338316399476]]
 
-        B = [[-0.00361904621810242, -5.81436260137465e-14, -0.133112254766150],
-             [-1.26904136863127e-13, 0.000321665900839647, -9.25777517950906e-14],
-             [0.00103648768038458, -2.42699791299319e-13, 0.0380092356423031]]
+        B = [[10.0727437123573, -3.9325123062356e-11, 4.7460442086702],
+             [3.47616559807745e-10, -1.06249843508111, 2.85319375555132e-09],
+             [0.21665920969022, 1.43593402212703e-11, 1.06860976714098]]
 
-        C = [[5.30474466434343e-14, -0.487960601890959, -3.90318131599281e-13],
-             [-0.534621938183623, -2.93540009334162e-14, 0.102770198642539]]
+        C = [[1.08557076610184e-13, 0.0297791141254415, -5.63585841597754e-09],
+             [0.00368360435364282, -1.17459038425304e-11, -7.85135434689545]]
 
-        D = [[-2.63750218560237e-13, -0.000204505875506722, -1.85654985333980e-13],
-             [-0.00720909658962582, -1.36736538875163e-15, -0.259016984857200]]
+        D = [
+            [-4.5885769930001e-12, -1.21070877556519e-05, -2.14675996305827e-11],
+            [-0.00484908128438563, 2.61735562903613e-15, -0.00364756231283482]]
+
         A, B, C, D = np.array(A), np.array(B), np.array(C), np.array(D)
-        # TODO: generalize the hard-coded full-state feedback
         return [A, B, C, D]
 
     def fx(self, t, y):
-        # the control law is: U = [V ; kb] = [ldot; kv] + uTilde,
-        # Where:
-        # c(k+1) = A*c(k) + B*x(k)
-        # uTilde(k) = C * c(k) + D*x(k)
-        # with x = [psi_E ; X_E; Y_E];
         ldot = self.ldot
         kv = self.kv
         [A, B, C, D] = self.controller_paras()
@@ -424,7 +419,7 @@ class VirtualDubins(ClosedLoopSys):
         x = [x1, x2, x3]
         c = [c1, c2, c3]
 
-        c_plus = A@c + B@x
+        cdot = A@c + B@x
         uTilde = C@c + D@x
         U = np.array([ldot, kv]) + uTilde
         [V, kb] = U
@@ -432,8 +427,7 @@ class VirtualDubins(ClosedLoopSys):
         x1dot = V * kb - kv * ldot
         x2dot = V * kb * x3 + V - ldot * np.cos(1 * x1)
         x3dot = -V * kb * x2 + ldot * np.sin(1 * x1)
-        # assuming forward Euler, turn the DT c_plus in to CT cdot
-        cdot = (c_plus - c) / self.dt
+
         return np.concatenate([[x1dot], [x2dot], [x3dot], cdot])
 
     def get_x(self, d=.5, num_grid=100):
@@ -444,10 +438,10 @@ class VirtualDubins(ClosedLoopSys):
 
     def random_sample(self, n):
         u_init = np.zeros((3, n))
-        m = np.pi / 20
+        m = np.pi
         theta = np.random.uniform(low=-m, high=m, size=(1, n))
         # x1 = np.random.randn(2, n)
-        x1 = np.random.uniform(low=-.1, high=.1, size=(2, n))
+        x1 = np.random.uniform(low=-1, high=1, size=(2, n))
         x = np.vstack((theta, x1, u_init)).T  # (n,6)
         return x
 
@@ -460,7 +454,7 @@ class VirtualDubins3d(ClosedLoopSys):
         self.ldot = 2
         self.kv = 0
         self.init_x_f()
-        self.degf=4
+        self.degf = 4
         self.at_fixed_pt_tol = 5e-2
         self.int_horizon = 100
         self.int_stop_ub = 1e2
@@ -491,7 +485,7 @@ class VirtualDubins3d(ClosedLoopSys):
         return self.open_loop(y, u)
 
     def get_x(self, d=.5, num_grid=200):
-        theta = np.linspace(-np.pi/30, np.pi/30, num_grid)
+        theta = np.linspace(-np.pi / 30, np.pi / 30, num_grid)
         x = np.linspace(-d, d, num_grid)
         x = np.array([i.ravel() for i in np.meshgrid(theta, x, x)]).T
         return x[~np.all(x == self.x0, axis=1)]
@@ -594,7 +588,7 @@ def get_monomials(x, deg, rm_one):
     # else:
     #     print(np.array([i.ToExpression() for i in MonomialBasis(x, deg)]))
     # print(basis[::-1])
-    return np.array(basis[::-1])
+    return np.array(basis[:: -1])
 
     # def levelset_features(self, V, sigma_deg):
     #     self.sym_V = V
