@@ -374,6 +374,69 @@ class PendulumRecast(S4CV_Plants):
         print('down V value %s' % system.get_v_values(down, V))
 
 
+class DubinsRecast(S4CV_Plants):
+
+    def __init__(self):
+        super().__init__('DubinsRecast', 4, 2, idx=(1, 2))
+        # parameters
+        self.ldot = 2
+        self.kv = 0
+        self.init_x_g_B()
+
+    def special_fixed_pt(self):
+        prog = MathematicalProgram()
+        self.xo = prog.NewIndeterminates(3, "t")
+        self.xo0 = np.zeros((3,))
+        self.x0 = np.array([0, 1, 0, 0])
+
+    def get_x(self, d=2, num_grid=200, slice_idx=None):
+        x1 = np.linspace(-np.pi, np.pi, num_grid)
+        x2 = np.linspace(-d, d, num_grid)
+        x1, x2 = np.meshgrid(x1, x2)
+        x1, x2 = x1.ravel(), x2.ravel()
+        x = np.array([np.sin(x1), np.cos(x1), x2, x2]).T  # (num_grid**2,4)
+        return x[~np.all(x == self.x0, axis=1)]
+
+    def gx(self, x):
+        [s, c, xe, ye] = x
+        ldot = self.ldot
+        kv = self.kv
+
+        thetadot = - kv * ldot
+        sdot = c * thetadot
+        cdot = -s * thetadot
+        xedot = - ldot * c
+        yedot = ldot * s
+        return np.array([sdot, cdot, xedot, yedot])
+
+    def hx(self, x):
+        [s, c, xe, ye] = x
+        return np.array([[c, 0], [-s, 0], [ye, 1], [-xe, 0]])
+
+    def random_sample(self, n):
+        x0 = np.random.randn(3, n)
+        x = np.array([np.sin(x0[0]), np.cos(x0[0]), x0[1], x0[2]]).T  # (n,4)
+        return x
+
+    def poly_to_orig(self, func=None):
+        t = self.xo
+        env = dict(zip(self.sym_x, [np.sin(1 * t[0]), np.cos(1 * t[0]), t
+                                    [1], t[2]]))
+        if func is not None:
+            func = func.Substitute(env)
+            return func, env
+        else:
+            return env
+
+    def VdotHessian(self, Vdot):
+        Vdot, _ = self.poly_to_orig(func=Vdot)
+        H = Jacobian(Vdot.Jacobian(self.xo).T, self.xo)
+        env = dict(zip(self.xo, self.xo0))
+        H = np.array([[i.Evaluate(env) for i in j]for j in H])
+        print('eig of Hessian of Vdot0 %s' % (eig(H)[0]))
+        # assert (np.all(eig(H)[0] <= 0))
+
+
 class VirtualDubins(ClosedLoopSys):
 
     def __init__(self):
