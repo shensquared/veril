@@ -42,6 +42,9 @@ def plot_funnel(V, system, **kwargs):
     plt.ylabel('X' + id2)
     leg = plt.legend()
     plt.title(sys_name + add_title)
+    plt.savefig(file_dir + '/plot.png', dpi=None, facecolor='w', edgecolor='w',
+            orientation='portrait', papertype=None, format=None,
+            transparent=False, bbox_inches=None, pad_inches=0.1)
     plt.show()
 
 
