@@ -250,7 +250,7 @@ class S4CV_Plants(ClosedLoopSys):
         self.loop_closed = True
         self.u_weights = u_weights
         self.u = (self.sym_ubasis@u_weights).T
-        self.sym_f = self.sym_g + self.hx(y)@self.u
+        self.sym_f = self.sym_g + self.hx(self.sym_x)@self.u
         # TODO: fix self.degf
 
 
