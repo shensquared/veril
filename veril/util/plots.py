@@ -140,7 +140,7 @@ def plot3d(V, system, r_max=[3, 3], slice_idx=(0, 1), in_xo=True):
     fig2, ax2 = plt.subplots()
     ax2.contour(X, Y, Z, levels=30, cmap=cm.Spectral)
     xlab = 'X' + str(slice_idx[0] + 1)
-    ylab = 'X' + str(slice_idx[0] + 2)
+    ylab = 'X' + str(slice_idx[1] + 1)
     [i.set_xlabel(xlab) for i in [ax, ax2]]
     [i.set_ylabel(ylab) for i in [ax, ax2]]
     # ax.set_zlabel('V')
