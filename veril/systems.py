@@ -231,7 +231,7 @@ class S4CV_Plants(ClosedLoopSys):
         u_basis = get_monomials(y - self.x0, self.deg_u, True)
         u = (u_basis@self.u_weights).T
         # u = np.zeros((self.num_inputs))
-        num_sol = self.gx(y) + self.hx()@u
+        num_sol = self.gx(y) + self.hx(y)@u
         # print(num_sol-[i.Evaluate(dict(zip(self.sym_x,y))) for i in
         #    self.sym_f])
         # print(num_sol)
@@ -241,7 +241,7 @@ class S4CV_Plants(ClosedLoopSys):
         self.loop_closed = True
         self.u_weights = u_weights
         self.u = (self.sym_ubasis@u_weights).T
-        self.sym_f = self.sym_g + self.hx()@self.u
+        self.sym_f = self.sym_g + self.hx(y)@self.u
         # TODO: fix self.degf
 
 
@@ -274,7 +274,7 @@ class PendulumTrig(S4CV_Plants):
         x2dot = -self.b * x2 / self.I - self.g * np.sin(x1 + np.pi) / self.l
         return np.array([1 * x2, x2dot])
 
-    def hx(self, x=None):
+    def hx(self, x):
         return np.array([[0], [1 / self.I]])
 
     def is_at_fixed_pt(self, x):
@@ -289,7 +289,7 @@ class PendulumTrig(S4CV_Plants):
     # def fx(self, t, y):
         # u = (9.81* np.sin(y[0] + np.pi)).reshape((1,))
         # u=np.zeros((1,))
-        # num_sol = self.gx(y) + self.hx()@u
+        # num_sol = self.gx(y) + self.hx(y)@u
         # return num_sol
 
 
@@ -330,7 +330,7 @@ class PendulumRecast(S4CV_Plants):
         thetaddot = -self.b * thetadot / self.I - self.g * s / self.l
         return np.array([sdot, cdot, thetaddot])
 
-    def hx(self, x=None):
+    def hx(self, x):
         return np.array([[0], [0], [1 / self.I]])
 
     # def is_at_fixed_pt(self, x):
