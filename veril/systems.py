@@ -214,17 +214,26 @@ class S4CV_Plants(ClosedLoopSys):
             x = self.get_x()
         g = self.gx(x.T).T  # (just so 1st dim is # of samples)
         n_samples = x.shape[0]
-        phi, dphidx, ubasis = [], [], []
+        B, phi, dphidx, ubasis = [], [], [], []
         for i in range(n_samples):
             env = dict(zip(self.sym_x, x[i]))
             phi.append([j.Evaluate(env) for j in self.sym_phi])
             dphidx.append([[j.Evaluate(env) for j in k]for k in
                            self.sym_dphidx])
             ubasis.append([j.Evaluate(env) for j in self.sym_ubasis])
+            if hasattr(self, 'B_noneConstant'):
+                B.append(self.hx(x[i]))
         features = [g, np.array(phi), np.array(dphidx), np.array(ubasis)]
         if file_path is not None:
-            np.savez_compressed(file_path, g=features[0], phi=features[1],
-                                dphidx=features[2], ubasis=features[3])
+            if hasattr(self, 'B_noneConstant'):
+                np.savez_compressed(file_path, g=features[0], B=np.array(B),
+                                    phi=features[1], dphidx=features[2],
+                                    ubasis=features[3])
+                features = [g, np.array(B), np.array(phi), np.array(dphidx),
+                np.array(ubasis)]
+            else:
+                np.savez_compressed(file_path, g=features[0], phi=features[1],
+                                    dphidx=features[2], ubasis=features[3])
         return features
 
     def fx(self, t, y):

@@ -98,18 +98,25 @@ def model_V(system, over_para, reg, **kwargs):
     loop_closed = system.loop_closed
     # depending on if the loop is closed, only eta term would differ
     if not loop_closed:
-        B = system.hx().T
         u_dim = system.num_inputs
         deg_u = system.deg_u
         ubasis_dim = get_dim(sys_dim, deg_u, True)
         ubasis = Input(shape=(ubasis_dim,), name='ubasis')
         u = Dense(u_dim, use_bias=False, name='u')(ubasis)
         g = Input(shape=(sys_dim,), name='open_loop_dynamics')
-        Bu = DotKernel(B, name='Bu')(u)
+        if hasattr(system, 'B_noneConstant'):
+            B = Input(shape=(sys_dim,u_dim), name='B')
+            Bu = Dot(-1, name ='Bu')([B,u])
+        else:
+            B = system.hx(None).T
+            Bu = DotKernel(B, name='Bu')(u)
         f_cl = Add(name='closed_loop_dynamics')([g, Bu])
         dphidx = Input(shape=(monomial_dim, sys_dim), name='dphidx')
         eta = Dot(-1, name='eta')([dphidx, f_cl])
-        features = [g, phi, dphidx, ubasis]
+        if hasattr(system, 'B_noneConstant'):
+            features = [g, B, phi, dphidx, ubasis]
+        else:
+            features = [g, phi, dphidx, ubasis]
 
     else:
         eta = Input(shape=(monomial_dim,), name='eta')
@@ -231,7 +238,10 @@ def load_features_dataset(file_path, loop_closed):
     if loop_closed:
         features = [l['phi'], l['eta']]
     else:
-        features = [l['g'], l['phi'], l['dphidx'], l['ubasis']]
+        if len(l.files) ==5:
+            features = [l['g'], l['B'],l['phi'], l['dphidx'], l['ubasis']]
+        else:
+            features = [l['g'], l['phi'], l['dphidx'], l['ubasis']]
     return features
 
 
