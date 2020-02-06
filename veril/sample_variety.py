@@ -252,6 +252,7 @@ def solve_SDP_on_samples(system, sampled_quantities, write_to_file=False):
     [V, xxd, psi] = sampled_quantities
     # print('SDP V %s' % V)
     dim_psi = psi.shape[1]
+    print(dim_psi)
     P = prog.NewSymmetricContinuousVariables(dim_psi, "P")
     prog.AddPositiveSemidefiniteConstraint(P)
 
