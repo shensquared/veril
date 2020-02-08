@@ -423,7 +423,7 @@ class DubinsRecast(S4CV_Plants):
         thetadot = - kv * ldot
         sdot = c * thetadot
         cdot = -s * thetadot
-        xedot = - ldot * c
+        xedot = - ldot * c + self.ldot
         yedot = ldot * s
         return np.array([sdot, cdot, xedot, yedot])
 
