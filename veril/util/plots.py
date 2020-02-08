@@ -72,12 +72,14 @@ def scatterSamples(samples, system, **kwargs):
 
 
 def plot_traj(initial, system, **kwargs):
-    sys_name = system.name
+    [sys_name, slice_idx, file_dir, add_title, id1, id2, stable_samples] = \
+        plot_params(system, **kwargs)
+    # sys_name = system.name
     nx = system.num_states
-    add_title = kwargs['add_title'] if 'add_title' in kwargs else ''
+    # add_title = kwargs['add_title'] if 'add_title' in kwargs else ''
 
     n = initial.shape[0]
-    color = cm.rainbow(np.linspace(0, 1, n))
+    color = cm.coolwarm(np.linspace(0, 1, n))
     # markers = ['o', 'P', 'X', 0, 'v', 'h', '^', '.', ',', '<', '>', '1', '2',
     #            '3', '4', '8', 's', 'p', '*',  'H', '+', 'x', 'D', 'd', '|',
     #            '_', 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 'None', None, ' ', '']
@@ -87,7 +89,8 @@ def plot_traj(initial, system, **kwargs):
     #            range(nx)]
     # plt.legend(handles=handles)
     slice_idx = kwargs['slice_idx'] if 'slice_idx' in kwargs else range(nx)
-    fig, axs = plt.subplots(1, len(slice_idx), sharey=True, figsize=(9, 3))
+    fig, axs = plt.subplots(1, len(slice_idx), sharey=False,figsize=(9, 3))
+    st = fig.suptitle("\n" + sys_name + ' Simulation ' + add_title)
     [j.set_ylabel('x' + str(i + 1)) for (i, j) in zip(slice_idx, axs)]
 
     plotV = False
@@ -107,13 +110,17 @@ def plot_traj(initial, system, **kwargs):
                 axs2.set_title('V trajectory')
                 print('final V value is %s' % Vtraj[-1])
                 final_Vs.append(Vtraj[-1])
-
-    fig.suptitle(sys_name + ' Simulation ' + add_title)
+    fig.tight_layout()
+    st.set_y(0.95)
+    fig.subplots_adjust(top=0.8)
+    fig.savefig(file_dir + '/Sim.png')
     plt.show()
     return final_states, final_Vs
 
 
 def plot3d(V, system, r_max=[3, 3], slice_idx=(0, 1), in_xo=True):
+    [sys_name, slice_idx, file_dir, add_title, id1, id2, stable_samples] = \
+        plot_params(system, slice_idx=slice_idx)
     if in_xo and hasattr(system, 'poly_to_orig'):
         V, _ = system.poly_to_orig(V)
         sym_x = system.xo
@@ -135,7 +142,9 @@ def plot3d(V, system, r_max=[3, 3], slice_idx=(0, 1), in_xo=True):
 
     fig = plt.figure()
     ax = fig.gca(projection='3d')
-    ax.plot_surface(X, Y, Z, linewidth=0.2, cmap=cm.Spectral, antialiased=True)
+    ax.plot_surface(X, Y, Z, linewidth=0.2, cmap=cm.coolwarm, antialiased=True)
+    # ax.contour(X, Y, Z, zdir='z', offset=min(Z.ravel())-.25, cmap=cm.coolwarm)
+    # ax.set_zlim(min(Z.ravel())-.25, max(Z.ravel()))
 
     fig2, ax2 = plt.subplots()
     ax2.contour(X, Y, Z, levels=30, cmap=cm.Spectral)
@@ -143,7 +152,12 @@ def plot3d(V, system, r_max=[3, 3], slice_idx=(0, 1), in_xo=True):
     ylab = 'X' + str(slice_idx[1] + 1)
     [i.set_xlabel(xlab) for i in [ax, ax2]]
     [i.set_ylabel(ylab) for i in [ax, ax2]]
-    # ax.set_zlabel('V')
+    fig.savefig(file_dir + '/3d'+id1+id2+'.png', dpi=None, facecolor='w',
+       edgecolor='w', orientation='portrait', papertype=None, format=None,
+            transparent=False, bbox_inches='tight', pad_inches=0.1)
+    fig2.savefig(file_dir + '/contour'+id1+id2+'.png', dpi=None,
+       facecolor='w',edgecolor='w', orientation='portrait', papertype=None,
+       format=None, transparent=False, bbox_inches='tight', pad_inches=0.1)
 
     plt.show()
 
