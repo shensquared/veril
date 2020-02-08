@@ -244,8 +244,11 @@ def levelset_sos(sys, V0, do_balance=False, write_to_file=False):
     rho = prog.NewContinuousVariables(1, "r")[0]
     prog.AddConstraint(rho >= 0)
     L1 = prog.NewFreePolynomial(Variables(x), degL1).ToExpression()
-
-    prog.AddSosConstraint((x.T@x)**(degxx) * (V - rho) + L1 * Vdot)
+    recast_cstr = 0
+    if hasattr(sys, 'recast'):
+        L2 = prog.NewFreePolynomial(Variables(x), degL1).ToExpression()
+        recast_cstr = L2 * sys.recast
+    prog.AddSosConstraint((x.T@x)**(degxx) * (V - rho) + L1 * Vdot + recast_cstr)
     # levelsetPoly = Polynomial((x.T@x)**(degxx) * (V - rho) + L1 * Vdot, x)
     # prog.AddEqualityConstraintBetweenPolynomials(candidate, levelsetPoly)
 
@@ -259,7 +262,7 @@ def levelset_sos(sys, V0, do_balance=False, write_to_file=False):
 
     solver.set_stream_logging(True, log_file)
     result = solver.Solve(prog, None, None)
-    # print(result.get_solution_result())
+    print(result.get_solution_result())
     # print('w/ solver %s' % (result.get_solver_id().name()))
     assert result.is_success()
     L1 = result.GetSolution(L1)

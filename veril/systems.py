@@ -316,6 +316,9 @@ class PendulumRecast(S4CV_Plants):
         self.I = .25
         self.g = 9.81
         self.init_x_g_B()
+        self.all_slices = list(itertools.combinations(range(2), 2))
+        self.recast = self.sym_x[0]**2 + self.sym_x[1]**2 -1
+
 
     def special_fixed_pt(self):
         prog = MathematicalProgram()
@@ -395,6 +398,7 @@ class DubinsRecast(S4CV_Plants):
         self.init_x_g_B()
         self.B_noneConstant = True
         self.all_slices = list(itertools.combinations(range(3), 2))
+        self.recast = self.sym_x[0]**2 + self.sym_x[1]**2 -1
         self.at_fixed_pt_tol = 5e-2
 
     def special_fixed_pt(self):
