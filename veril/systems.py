@@ -230,7 +230,7 @@ class S4CV_Plants(ClosedLoopSys):
                                     phi=features[1], dphidx=features[2],
                                     ubasis=features[3])
                 features = [g, np.array(B), np.array(phi), np.array(dphidx),
-                np.array(ubasis)]
+                            np.array(ubasis)]
             else:
                 np.savez_compressed(file_path, g=features[0], phi=features[1],
                                     dphidx=features[2], ubasis=features[3])
@@ -393,7 +393,6 @@ class DubinsRecast(S4CV_Plants):
         self.ldot = 2
         self.kv = 0
         self.init_x_g_B()
-        self.deg_g = 2
         self.B_noneConstant = True
         self.all_slices = list(itertools.combinations(range(3), 2))
         self.at_fixed_pt_tol = 5e-2
@@ -426,12 +425,6 @@ class DubinsRecast(S4CV_Plants):
 
     def hx(self, x):
         [s, c, xe, ye] = x
-        # if len(x.shape) == 1: #symbolic
-            # return np.array([[c, 0], [-s, 0], [ye, 1], [-xe, 0]])
-        # else:
-            # z = np.zeros(s.shape)
-            # one = np.ones(s.shape)
-            # return np.array([[c, z], [-s, z], [ye, one], [-xe, z]])
         return np.array([[c, 0], [-s, 0], [ye, 1], [-xe, 0]])
 
     def random_sample(self, n):
@@ -444,8 +437,8 @@ class DubinsRecast(S4CV_Plants):
 
     def poly_to_orig(self, func=None):
         t = self.xo
-        env = dict(zip(self.sym_x, [np.sin(1 * t[0]), np.cos(1 * t[0]), t
-                                    [1], t[2]]))
+        env = dict(zip(self.sym_x, [np.sin(1 * t[0]), np.cos(1 * t[0]), t[1],
+                                    t[2]]))
         if func is not None:
             func = func.Substitute(env)
             return func, env
