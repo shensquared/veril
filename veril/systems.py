@@ -251,6 +251,8 @@ class S4CV_Plants(ClosedLoopSys):
         self.u_weights = u_weights
         self.u = (self.sym_ubasis@u_weights).T
         self.sym_f = self.sym_g + self.hx(self.sym_x)@self.u
+        self.degf = max([Polynomial(i, self.sym_x).TotalDegree() for i in
+        self.sym_f])
         # TODO: fix self.degf
 
 
@@ -391,8 +393,10 @@ class DubinsRecast(S4CV_Plants):
         self.ldot = 2
         self.kv = 0
         self.init_x_g_B()
+        self.deg_g = 2
         self.B_noneConstant = True
         self.all_slices = list(itertools.combinations(range(3), 2))
+        self.at_fixed_pt_tol = 5e-2
 
     def special_fixed_pt(self):
         prog = MathematicalProgram()
