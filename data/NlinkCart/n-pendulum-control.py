@@ -10,36 +10,35 @@ from numpy.linalg import solve
 from scipy.linalg import solve_continuous_are
 # Now specify the number of links, $n$. I'll start with 5 since the Wolfram folks only showed four.
 
-n = 4
+n = 5
 # loaded  = pickle.load(open(str(n) + ".p", "rb" ))
 
-q = me.dynamicsymbols('q:{}'.format(n + 1))  # Generalized coordinates
-u = me.dynamicsymbols('u:{}'.format(n + 1))  # Generalized speeds
-f = me.dynamicsymbols('f')                   # Force applied to the cart
-
+import numpy as np
+q = me.dynamicsymbols('x:{}'.format(n + 1))  # Generalized coordinates
+u = me.dynamicsymbols('dx:{}'.format(n + 1))  # Generalized speeds
+f = me.dynamicsymbols('f:{}'.format(n))                   # Force applied to the cart
+    
 # m = sm.symbols('m:{}'.format(n + 1))         # Mass of each bob
-m = np.ones(n+1,)
 # l = sm.symbols('l:{}'.format(n))             # Length of each link
-l = .5*np.ones(n+1,)
-g =9.81
+
+m = (0.01 / n)*np.ones(n+1,)
+l = (1. / n)*np.ones(n+1,)
+g = 9.81
 t = sm.symbols('t')                     # Gravity and time
 
+# Secondly, we define the define the first point of the pendulum as a particle which has mass. This point can only move laterally and represents the motion of the "cart".
 I = me.ReferenceFrame('I')  # Inertial reference frame
 O = me.Point('O')           # Origin point
 O.set_vel(I, 0)             # Origin's velocity is zero
-
-# Secondly, we define the define the first point of the pendulum as a particle which has mass. This point can only move laterally and represents the motion of the "cart".
 
 P0 = me.Point('P0')                 # Hinge point of top link
 P0.set_pos(O, q[0] * I.x)           # Set the position of P0
 P0.set_vel(I, u[0] * I.x)           # Set the velocity of P0
 Pa0 = me.Particle('Pa0', P0, m[0])  # Define a particle at P0
-
-# Now we can define the $n$ reference frames, particles, gravitational forces, and kinematical differential equations for each of the pendulum links. This is easily done with a loop.
 frames = [I]                              # List to hold the n + 1 frames
 points = [P0]                             # List to hold the n + 1 points
 particles = [Pa0]                         # List to hold the n + 1 particles
-forces = [(P0, f * I.x - m[0] * g * I.y)] # List to hold the n + 1 applied forces, including the input force, f
+forces = [(P0, f[0] * I.x - m[0] * g * I.y)] # List to hold the n + 1 applied forces, including the input force, f
 kindiffs = [q[0].diff(t) - u[0]]          # List to hold kinematic ODE's
 
 for i in range(n):
@@ -50,14 +49,16 @@ for i in range(n):
     Pi = points[-1].locatenew('P' + str(i + 1), l[i] * Bi.x)  # Create a new point
     Pi.v2pt_theory(points[-1], I, Bi)                         # Set the velocity
     points.append(Pi)                                         # Add it to the points list
-
+    
     Pai = me.Particle('Pa' + str(i + 1), Pi, m[i + 1])        # Create a new particle
     particles.append(Pai)                                     # Add it to the particles list
 
     forces.append((Pi, -m[i + 1] * g * I.y))                  # Set the force applied at the point
 
+    
     kindiffs.append(q[i + 1].diff(t) - u[i + 1])              # Define the kinematic ODE:  dq_i / dt - u_i = 0
-
+for i in range(n-1):
+    forces.append((frames[i+1], f[i+1]*frames[i].z))
 
 # With all of the necessary point velocities and particle masses defined, the `KanesMethod` class can be used to derive the equations of motion of the system automatically.
 
@@ -80,6 +81,7 @@ F_B_num = sm.matrix2numpy(F_B, dtype=float)
 A = np.linalg.solve(M_num, F_A_num)
 B = np.linalg.solve(M_num ,F_B_num)
 
+
 # Also convert `equilibrium_point` to a numeric array:
 equilibrium_point = np.asarray([x.evalf() for x in equilibrium_point], dtype=float)
 
@@ -88,7 +90,7 @@ Q = np.eye(A.shape[0])
 R = np.eye(B.shape[1])
 S = solve_continuous_are(A, B, Q, R);
 K = np.dot(np.dot(np.linalg.inv(R), B.T),  S)
-
+print(K.shape)
 # The gains can now be used to define the required input during simulation to stabilize the system. The input $r$ is simply the gain vector multiplied by the error in the state vector from the equilibrium point, $r(t)=K(x_{eq} - x(t))$.
 
 # def right_hand_side(x, t, args):
@@ -126,22 +128,46 @@ K = np.dot(np.dot(np.linalg.inv(R), B.T),  S)
 # x = odeint(right_hand_side, x0, t, args=(parameter_vals,))
 
 #################
-forces = [(P0, np.dot(K, equilibrium_point - states)[0] * I.x - m[0] * g *
- I.y)] # List to hold the n + 1 applied forces, including the input force, f
+
+feedback = np.dot(K, equilibrium_point - states)
+
+forces = [(P0, feedback[0] * I.x - m[0] * g * I.y)] # List to hold the n + 1 applied forces, including the input force, f
+
+
 for i in range(n):
     forces.append((Pi, -m[i + 1] * g * I.y))                  # Set the force applied at the point
+for i in range(n-1):
+    forces.append((frames[i+1], feedback[i+1]*frames[i].z))
 
+# forces = [(P0, np.dot(K, equilibrium_point - states)[0] * I.x - m[0] * g *
+#  I.y)] # List to hold the n + 1 applied forces, including the input force, f
+# for i in range(n):
+#     forces.append((Pi, -m[i + 1] * g * I.y))                  # Set the force applied at the point
+
+
+# foces_dict = dict(f, np.dot(K, equilibrium_point - states))
+
+# forces = []
 kane_cl = me.KanesMethod(I, q_ind=q, u_ind=u, kd_eqs=kindiffs)
 fr_cl, frstar_cl = kane_cl.kanes_equations(forces, particles)
 # M_cl, F_A_cl, F_B_cl, r = kane_cl.linearize(new_method=True,
 #    op_point=equilibrium_dict)
 
-massmatrix = sm.trigsimp(kane_cl.mass_matrix)
-forcesmatrix = sm.trigsimp(kane_cl.forcing)
+massmatrix = (kane_cl.mass_matrix)
+forcesmatrix = (kane_cl.forcing)
+
+massmatrix_num = sm.matrix2numpy(massmatrix.subs(equilibrium_dict),
+   dtype=float)
+
+forcesmatrix_num = sm.matrix2numpy(forcesmatrix.subs(equilibrium_dict),
+   dtype=float)
+
+
 print(massmatrix)
 print(forcesmatrix)
-dyanmics = sm.simplify(massmatrix.inv()@forcesmatrix)
-[print(i) for i in dyanmics]
+
+# dyanmics = sm.simplify(massmatrix.inv()@forcesmatrix)
+# [print(i) for i in dyanmics]
 # import pickle
 # pickle.dump(dyanmics, open(str(n) + ".p", "wb"))
 #
