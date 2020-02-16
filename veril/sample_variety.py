@@ -7,7 +7,7 @@ import numpy as np
 from numpy.linalg import eig, inv
 import time
 from veril.util.plots import *
-
+import math
 
 def verify_via_variety(system, V, init_root_threads=1):
     assert system.loop_closed
@@ -290,8 +290,9 @@ def check_vanishing(system, variety, rho, P, Tinv):
         levelset = xxd[i] * (V[i] - rho)
         this_psi = Tinv@psi[i]
         candidate = this_psi.T@P@this_psi
+        isclose = math.isclose(levelset,candidate,rel_tol=1e-04, abs_tol=1e-1)
         ratio = levelset / candidate
-        # print('two polynomials evals ratio %s' % ratio)
+        print('two polynomials evals ratio %s' % ratio)
         if ratio < .97 or ratio > 1.1:
             isVanishing = False
             idx += [i]
