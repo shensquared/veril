@@ -256,10 +256,7 @@ def solve_SDP_on_samples(system, sampled_quantities, write_to_file=False):
 
     prog.AddCost(-rho)
     solver = MosekSolver()
-    if write_to_file:
-        log_file = "sampling_variety_SDP.text"
-    else:
-        log_file = ""
+    log_file = "sampling_variety_SDP.text" if write_to_file else ""
     solver.set_stream_logging(True, log_file)
     result = solver.Solve(prog, None, None)
     # print(result.get_solution_result())
@@ -284,8 +281,7 @@ def check_vanishing(system, variety, rho, P, T, test_samples=None):
         levelset = xxd[i] * (V[i] - rho)
         this_psi = T@psi[i]
         candidate = this_psi.T@P@this_psi
-        isclose = math.isclose(levelset, candidate,
-                               rel_tol=1e-04, abs_tol=1e-1)
+        isclose = math.isclose(levelset, candidate, rel_tol=1e-4, abs_tol=1e-2)
         ratio = levelset / candidate
         print('two polynomials evals ratio %s' % ratio)
         if ratio < .97 or ratio > 1.1:
