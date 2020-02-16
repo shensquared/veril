@@ -19,22 +19,24 @@ def verify_via_variety(system, V, init_root_threads=1):
     is_vanishing = False
 
     samples = sample_on_variety(variety, init_root_threads)
-
+    # all_failed = np.zeros(system.num_states,)
     while not is_vanishing:
-        samples_monomial, Tinv = sample_monomials(
+        sampled_quantities, T, samples = x_to_monomials_related(
             system, samples, variety)
-        start = time.time()
-        V, rho, P = solve_SDP_on_samples(
-            system, samples_monomial)
-        is_vanishing, new_sample = check_vanishing(
-            system, variety, rho, P, Tinv)
-        end = time.time()
-        print('sampling variety time %s' % (end - start))
-
-        # samples = [np.vstack(i) for i in zip(samples, new_sample)]
+        # start = time.time()
+        V, rho, P = solve_SDP_on_samples(system, sampled_quantities)
+        is_vanishing, test_samples = check_vanishing(
+            system, variety, rho, P, T)
+        # end = time.time()
+        # print('sampling variety time %s' % (end - start))
+        # samples = [np.vstack(i) for i in zip(samples, test_samples)]
         # samples = np.vstack((samples, sample_on_variety
         # (variety, 1)))
-        samples = np.vstack((samples, new_sample))
+        # all_failed = np.vstack((all_failed, test_samples))
+        scatterSamples(np.array(samples), system)
+        scatterSamples(np.array(test_samples), system)
+        samples = np.vstack((samples, test_samples))
+    check_vanishing(system, variety, rho, P, T)
     print(rho)
     plot_funnel(V / rho, system, slice_idx=system.slice,
                 add_title=' - Sampling Variety ' + 'Result')
@@ -139,34 +141,32 @@ def sample_on_variety(variety, root_threads, slice_idx=None):
     return samples[1:]
 
 
-def sample_monomials(system, samples, variety, do_transform=False):
-    enough_samples = False
-    while not enough_samples:
-        new_samples = sample_on_variety(variety, 2)
-        samples = np.vstack([samples, new_samples])
-        V = system.get_v_values(samples)
+def x_to_monomials_related(system, sample_x, variety, do_transform=True):
+    enough_sample_x = False
+    while not enough_sample_x:
+        new_sample_x = sample_on_variety(variety, 1)
+        sample_x = np.vstack([sample_x, new_sample_x])
+        V = system.get_v_values(sample_x)
         balanced = max(V) / min(V) < 1e3
         # balanced = True
-        # test_samples = np.zeros((system.num_states,))
+        # test_sample_x = np.zeros((system.num_states,))
         while not balanced:
-            # print('not balanced')
+            print('not balanced')
             # print(V)
             idx = [np.argmax(V), np.argmin(V)]
-            # test_samples = np.vstack([test_samples, samples[idx]])
-            samples = np.delete(samples, idx, axis=0)
+            # test_sample_x = np.vstack([test_sample_x, sample_x[idx]])
+            sample_x = np.delete(sample_x, idx, axis=0)
             V = np.delete(V, idx, axis=0)
-            # xxd=np.delete(xxd,idx,axis=0)
-            # psi=np.delete(psi,idx,axis=0)
             balanced = max(V) / min(V) < 1e3
-        [xxd, psi] = system.get_sample_variety_features(samples)
+        [xxd, psi] = system.get_sample_variety_features(sample_x)
         if do_transform:
-            trans_psi, Tinv = coordinate_ring_transform(psi)
-            enough_samples = check_genericity(trans_psi)
+            trans_psi, T = coordinate_ring_transform(psi)
+            enough_sample_x = check_genericity(trans_psi)
         else:
             trans_psi = psi
-            Tinv = np.eye(psi.shape[1])
-            enough_samples = check_genericity(psi)
-    return [V, xxd, trans_psi], Tinv
+            T = np.eye(psi.shape[1])
+            enough_sample_x = check_genericity(psi)
+    return [V, xxd, trans_psi], T, sample_x
 
 
 def coordinate_ring_transform(monomial_samples):
@@ -283,21 +283,23 @@ def solve_SDP_on_samples(system, sampled_quantities, write_to_file=False):
     return system.sym_V, rho, P
 
 
-def check_vanishing(system, variety, rho, P, Tinv):
-    test_samples = sample_on_variety(variety, 1)
+def check_vanishing(system, variety, rho, P, T, test_samples=None):
+    if test_samples is None:
+        test_samples = sample_on_variety(variety, 1)
     V = system.get_v_values(test_samples)
     [xxd, psi] = system.get_sample_variety_features(test_samples)
-    idx = []
     isVanishing = True
     # print('vanishing V %s' % V)
     for i in range(test_samples.shape[0]):
         levelset = xxd[i] * (V[i] - rho)
-        this_psi = Tinv@psi[i]
+        this_psi = T@psi[i]
         candidate = this_psi.T@P@this_psi
-        isclose = math.isclose(levelset,candidate,rel_tol=1e-04, abs_tol=1e-1)
+        isclose = math.isclose(levelset, candidate,
+                               rel_tol=1e-04, abs_tol=1e-1)
         ratio = levelset / candidate
         print('two polynomials evals ratio %s' % ratio)
         if ratio < .97 or ratio > 1.1:
             isVanishing = False
-            idx += [i]
-    return isVanishing, test_samples[idx]
+            # idx += [i]
+    # scatterSamples(test_samples, system)
+    return isVanishing, test_samples
