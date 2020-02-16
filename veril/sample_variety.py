@@ -9,6 +9,7 @@ import time
 from veril.util.plots import *
 import math
 
+
 def verify_via_variety(system, V, init_root_threads=1):
     assert system.loop_closed
     system.set_sample_variety_features(V)
@@ -184,7 +185,8 @@ def coordinate_ring_transform(monomial_samples):
         for testing, standard_monomial = T * reduced_basis, or
         pinv(T)@standard_monomial = reduced_basis
     Returns:
-        U_transformed.T (num_samples, reduced_monomials)
+        transformed_basis (num_samples, reduced_monomials)
+        T (reduced_monomials, monomial_dim)
     """
     U = monomial_samples.T
     [u, diag_s, v] = np.linalg.svd(U)
@@ -192,16 +194,18 @@ def coordinate_ring_transform(monomial_samples):
     original_monomial_dim = U.shape[0]
     n = sum(diag_s > tol)
     if n / original_monomial_dim >= .95:
-        print('no transforming')
+        print('no need for transformation')
         return U.T, np.eye(original_monomial_dim)
     else:
-        print('w/ transforming')
+        print('does transforming')
         s = np.zeros(U.shape)
         np.fill_diagonal(s, diag_s)
         U_transformed = v[:n, :]
         T = u@s[:, :n]
-        Tinv = np.linalg.pinv(T)
-        return U_transformed.T, Tinv
+        T = np.linalg.pinv(T)
+        transformed_basis = U_transformed.T
+        assert np.allclose(T@U, U_transformed)
+        return transformed_basis, T
 
 # U=np.array([[1,1,1,0,0,0],
 # [-0.6, -1.2, -0.75, 0.8,0.4,0.25],
@@ -232,7 +236,7 @@ def check_genericity(all_samples):
     sub_samples = all_samples
 
     c = np.power(sub_samples@sub_samples.T, 2)  # c = q'*q
-    print('c shape is %s' % str(c.shape))
+    # print('c shape is %s' % str(c.shape))
     s = abs(np.linalg.eig(c)[0])
     tol = max(c.shape) * np.spacing(max(s)) * 1e3
     sample_rank = sum(s > tol)
@@ -240,7 +244,6 @@ def check_genericity(all_samples):
         # meaning m<n2 and sample full rank
         # print('Insufficient samples!!')
         enough_samples = False
-    # sample_rank by construction less than
     return enough_samples
 
 
@@ -251,8 +254,9 @@ def solve_SDP_on_samples(system, sampled_quantities, write_to_file=False):
 
     [V, xxd, psi] = sampled_quantities
     # print('SDP V %s' % V)
-    dim_psi = psi.shape[1]
-    print(dim_psi)
+    num_samples, dim_psi = psi.shape
+    print('num_samples is %s' % num_samples)
+    print('dim_psi is %s' % dim_psi)
     P = prog.NewSymmetricContinuousVariables(dim_psi, "P")
     prog.AddPositiveSemidefiniteConstraint(P)
 
