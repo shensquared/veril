@@ -79,7 +79,7 @@ class ClosedLoopSys(object):
         deg = int(np.ceil((self.degVdot - self.degV) / 2))
         self.sym_xxd = (xbar.T@xbar)**(deg)
         psi_deg = int(((2 * deg + self.degV) / 2))
-        self.sym_psi = get_monomials(xbar, psi_deg, rm_one)
+        self.sym_psi = get_monomials(xbar, psi_deg, True)
 
     def get_sample_variety_features(self, samples):
         # samples: (num_samples, sys_dim)
