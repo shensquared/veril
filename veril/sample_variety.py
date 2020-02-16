@@ -147,17 +147,7 @@ def x_to_monomials_related(system, sample_x, variety, do_transform=True):
         new_sample_x = sample_on_variety(variety, 1)
         sample_x = np.vstack([sample_x, new_sample_x])
         V = system.get_v_values(sample_x)
-        balanced = max(V) / min(V) < 1e3
-        # balanced = True
-        # test_sample_x = np.zeros((system.num_states,))
-        while not balanced:
-            print('not balanced')
-            # print(V)
-            idx = [np.argmax(V), np.argmin(V)]
-            # test_sample_x = np.vstack([test_sample_x, sample_x[idx]])
-            sample_x = np.delete(sample_x, idx, axis=0)
-            V = np.delete(V, idx, axis=0)
-            balanced = max(V) / min(V) < 1e3
+        sample_x, V = balancing_V(sample_x, V)
         [xxd, psi] = system.get_sample_variety_features(sample_x)
         if do_transform:
             trans_psi, T = coordinate_ring_transform(psi)
@@ -303,3 +293,15 @@ def check_vanishing(system, variety, rho, P, T, test_samples=None):
             # idx += [i]
     # scatterSamples(test_samples, system)
     return isVanishing, test_samples
+
+
+def balancing_V(sample_x, V, tol=1e3):
+    balanced = max(V) / min(V) < tol
+    while not balanced:
+        print('not balanced')
+        idx = [np.argmax(V), np.argmin(V)]
+        # test_sample_x = np.vstack([test_sample_x, sample_x[idx]])
+        sample_x = np.delete(sample_x, idx, axis=0)
+        V = np.delete(V, idx, axis=0)
+        balanced = max(V) / min(V) < tol
+    return sample_x, V
