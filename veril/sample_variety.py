@@ -24,20 +24,22 @@ def verify_via_variety(system, V, init_root_threads=1):
     system.set_sample_variety_features(V)
     Vdot = system.sym_Vdot
     variety = multi_to_univariate(Vdot)
+    x0 = system.x0
 
     is_vanishing = False
-    x = sample_on_variety(variety, init_root_threads)
+    x = sample_on_variety(variety, init_root_threads, x0)
     while not is_vanishing:
-        Y, T, x = x_to_monomials_related(system, x, variety)
+        Y, T, x = x_to_monomials_related(system, x, variety, x0)
         # start = time.time()
         V, rho, P, Y = solve_SDP_on_samples(system, Y)
-        is_vanishing, test_x = check_vanishing(system, variety, rho, P, T, Y)
+        is_vanishing, test_x = check_vanishing(
+            system, variety, rho, P, T, Y, x0)
         # end = time.time()
         # print('sampling variety time %s' % (end - start))
-        # scatterSamples(x, system)
-        # scatterSamples(test_x, system)
         x = np.vstack((x, test_x))
-    check_vanishing(system, variety, rho, P, T, Y)
+    scatterSamples(x, system)
+    scatterSamples(test_x, system)
+    check_vanishing(system, variety, rho, P, T, Y, x0)
     print(rho)
     plot_funnel(V / rho, system, slice_idx=system.slice,
                 add_title=' - Sampling Variety ' + 'Result')
@@ -84,7 +86,7 @@ def multi_to_univariate(variety):
     return [variety_poly, basis_in_t, coeffs_in_x, a, b, t, x, nx]
 
 
-def sample_on_variety(variety, root_threads, slice_idx=None):
+def sample_on_variety(variety, root_threads, x0, slice_idx=None):
     """returns the pure 'x' samples on one given variety. i.e. return the roots
     to the given multi-variate polynomial. Note that, due to the numerical
     accuracy of numpy's polyroots, only returning all the real roots.
@@ -111,6 +113,7 @@ def sample_on_variety(variety, root_threads, slice_idx=None):
         if slice_idx is None:
             alphas = np.random.randn(nx)
             betas = np.random.randn(nx)
+            # betas = np.zeros((nx,))
         else:
             alphas = np.zeros((nx,))
             betas = np.zeros((nx,))
@@ -131,6 +134,8 @@ def sample_on_variety(variety, root_threads, slice_idx=None):
         # end = time.time()
         # print(end - start)
         root_x = np.array([alphas * i + betas for i in root_t])
+        root_x = root_x[~np.all(root_x == x0, axis=1)]
+        # root_x = root_x[~np.any(np.isclose(root_x, 0, atol=1e-1), axis=1)]
         # plug in back the t value to evaluate the polynomial value
         varitey_x = [variety_poly.Evaluate(dict(zip(x, i))) for i in
                      root_x]
@@ -144,10 +149,10 @@ def sample_on_variety(variety, root_threads, slice_idx=None):
     return samples[1:]
 
 
-def x_to_monomials_related(system, x, variety, do_transform=True):
+def x_to_monomials_related(system, x, variety, x0, do_transform=True):
     enough_x = False
     while not enough_x:
-        more_x = sample_on_variety(variety, 1)
+        more_x = sample_on_variety(variety, 1, x0)
         x = np.vstack([x, more_x])
         V = system.get_v_values(x)
         x, V = balancing_V(x, V)
@@ -159,6 +164,10 @@ def x_to_monomials_related(system, x, variety, do_transform=True):
             trans_psi = psi
             T = np.eye(psi.shape[1])
             enough_x = check_genericity(psi)
+    scale = min(V)
+    for i in range(V.shape[0]):
+        xxd[i] = xxd[i] / scale
+        trans_psi[i] = trans_psi[i] / np.sqrt(scale)
     return [V, xxd, trans_psi], T, x
 
 
@@ -266,7 +275,7 @@ def solve_SDP_on_samples(system, Y, write_to_file=False):
     prog.AddCost(-rho)
     solver = MosekSolver()
     log_file = "sampling_variety_SDP.text" if write_to_file else ""
-    solver.set_stream_logging(True, log_file)
+    solver.set_stream_logging(False, log_file)
     result = solver.Solve(prog, None, None)
     print(result.get_solution_result())
     assert result.is_success()
@@ -279,11 +288,17 @@ def solve_SDP_on_samples(system, Y, write_to_file=False):
     return system.sym_V, rho, P, Y
 
 
-def check_vanishing(system, variety, rho, P, T, Y, test_x=None):
-    if test_x is None:
-        test_x = sample_on_variety(variety, 1)
+def check_vanishing(system, variety, rho, P, T, Y, x0):
+    empty_test = True
+    while empty_test:
+        test_x = sample_on_variety(variety, 1, x0)
+        V = system.get_v_values(test_x)
+        old_V = Y[0]
+        idx = old_new_V(old_V, V)
+        empty_test = (len(idx) == test_x.shape[0])
+        test_x = np.delete(test_x, idx, axis=0)
+        V = np.delete(V, idx, axis=0)
 
-    V = system.get_v_values(test_x)
     [xxd, psi] = system.get_sample_variety_features(test_x)
     isVanishing = True
     # print('vanishing V %s' % V)
@@ -291,10 +306,11 @@ def check_vanishing(system, variety, rho, P, T, Y, test_x=None):
         levelset = xxd[i] * (V[i] - rho)
         this_psi = T@psi[i]
         candidate = this_psi.T@P@this_psi
-        isclose = math.isclose(levelset, candidate, rel_tol=1e-4, abs_tol=1e-2)
-        ratio = levelset / candidate
+        isclose = math.isclose(levelset, candidate, rel_tol=1e-3, abs_tol=1e-2)
+        ratio = (levelset - candidate) / candidate
         print('two polynomials evals ratio %s' % ratio)
-        if ratio < .97 or ratio > 1.1:
+        # if ratio < .97 or ratio > 1.1:
+        if not isclose:
             isVanishing = False
             # idx += [i]
     # scatterSamples(test_x, system)
@@ -311,3 +327,12 @@ def balancing_V(x, V, tol=1e3):
         V = np.delete(V, idx, axis=0)
         balanced = max(V) / min(V) < tol
     return x, V
+
+
+def old_new_V(oldv, newv):
+    idx = []
+    for i in range(newv.shape[0]):
+        if newv[i] / max(oldv) > 10 or newv[i] / min(oldv) < 1e-2:
+            print('unbalanced')
+            idx += [i]
+    return idx
