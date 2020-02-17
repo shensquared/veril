@@ -140,22 +140,22 @@ def sample_on_variety(variety, root_threads, slice_idx=None):
     return samples[1:]
 
 
-def x_to_monomials_related(system, sample_x, variety, do_transform=True):
-    enough_sample_x = False
-    while not enough_sample_x:
-        new_sample_x = sample_on_variety(variety, 1)
-        sample_x = np.vstack([sample_x, new_sample_x])
-        V = system.get_v_values(sample_x)
-        sample_x, V = balancing_V(sample_x, V)
-        [xxd, psi] = system.get_sample_variety_features(sample_x)
+def x_to_monomials_related(system, x, variety, do_transform=True):
+    enough_x = False
+    while not enough_x:
+        more_x = sample_on_variety(variety, 1)
+        x = np.vstack([x, more_x])
+        V = system.get_v_values(x)
+        x, V = balancing_V(x, V)
+        [xxd, psi] = system.get_sample_variety_features(x)
         if do_transform:
             trans_psi, T = coordinate_ring_transform(psi)
-            enough_sample_x = check_genericity(trans_psi)
+            enough_x = check_genericity(trans_psi)
         else:
             trans_psi = psi
             T = np.eye(psi.shape[1])
-            enough_sample_x = check_genericity(psi)
-    return [V, xxd, trans_psi], T, sample_x
+            enough_x = check_genericity(psi)
+    return [V, xxd, trans_psi], T, x
 
 
 def coordinate_ring_transform(monomial_samples):
@@ -264,7 +264,7 @@ def solve_SDP_on_samples(system, Y, write_to_file=False):
     log_file = "sampling_variety_SDP.text" if write_to_file else ""
     solver.set_stream_logging(True, log_file)
     result = solver.Solve(prog, None, None)
-    # print(result.get_solution_result())
+    print(result.get_solution_result())
     assert result.is_success()
     P = result.GetSolution(P)
     rho = result.GetSolution(rho)
@@ -297,11 +297,11 @@ def check_vanishing(system, variety, rho, P, T, Y, test_x=None):
     return isVanishing, test_x
 
 
-def balancing_V(sample_x, V, tol=1e3):
+def balancing_V(x, V, tol=1e3):
     """Summary
 
     Args:
-        sample_x (TYPE): Description
+        x (TYPE): Description
         V (TYPE): Description
         tol (float, optional): Description
 
@@ -312,8 +312,8 @@ def balancing_V(sample_x, V, tol=1e3):
     while not balanced:
         print('not balanced')
         idx = [np.argmax(V), np.argmin(V)]
-        # test_sample_x = np.vstack([test_sample_x, sample_x[idx]])
-        sample_x = np.delete(sample_x, idx, axis=0)
+        # test_x = np.vstack([test_x, x[idx]])
+        x = np.delete(x, idx, axis=0)
         V = np.delete(V, idx, axis=0)
         balanced = max(V) / min(V) < tol
-    return sample_x, V
+    return x, V
