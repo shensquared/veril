@@ -12,6 +12,10 @@ import math
 """Summary
 x: sampled state space or indeterminates
 Y = [V, xxd, trans_psi] are all that's necessary for the SDP
+T: transformation matrix due to the coordiante ring, serves to reduce the 
+dimension of the monomial_basis down
+P: r.h.s. SOS decomposition Gram matrix
+rho: scalar Lyapunov level
 """
 
 
@@ -52,7 +56,8 @@ def multi_to_univariate(variety):
         variety (TYPE): pydrake scalar Expression
 
     Returns:
-        TYPE: Description
+        TYPE: List of all necessary parameters to describe the univariate 
+        polynomial to sampel from
     """
     x = np.array(list(variety.GetVariables()))
     nx = x.shape[0]
@@ -103,8 +108,6 @@ def sample_on_variety(variety, root_threads, slice_idx=None):
 
     while num_roots < root_threads:
         # start = time.time()
-        # alphas = np.random.uniform(-2, 2, nx)
-        # betas = np.random.uniform(-2, 2, nx)
         if slice_idx is None:
             alphas = np.random.randn(nx)
             betas = np.random.randn(nx)
@@ -128,9 +131,10 @@ def sample_on_variety(variety, root_threads, slice_idx=None):
         # end = time.time()
         # print(end - start)
         root_x = np.array([alphas * i + betas for i in root_t])
-
+        # plug in back the t value to evaluate the polynomial value
         varitey_x = [variety_poly.Evaluate(dict(zip(x, i))) for i in
                      root_x]
+        # double check the evaluation is close to zero
         close = np.isclose(varitey_x, 0, atol=4e-12)
 
         if np.any(close):
@@ -298,16 +302,6 @@ def check_vanishing(system, variety, rho, P, T, Y, test_x=None):
 
 
 def balancing_V(x, V, tol=1e3):
-    """Summary
-
-    Args:
-        x (TYPE): Description
-        V (TYPE): Description
-        tol (float, optional): Description
-
-    Returns:
-        TYPE: Description
-    """
     balanced = max(V) / min(V) < tol
     while not balanced:
         print('not balanced')
