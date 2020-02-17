@@ -24,9 +24,10 @@ def verify_via_variety(system, V, init_root_threads=1):
         sampled_quantities, T, samples = x_to_monomials_related(
             system, samples, variety)
         # start = time.time()
-        V, rho, P = solve_SDP_on_samples(system, sampled_quantities)
+        V, rho, P, sampled_quantities = solve_SDP_on_samples(
+            system, sampled_quantities)
         is_vanishing, test_samples = check_vanishing(
-            system, variety, rho, P, T)
+            system, variety, rho, P, T, sampled_quantities)
         # end = time.time()
         # print('sampling variety time %s' % (end - start))
         # samples = [np.vstack(i) for i in zip(samples, test_samples)]
@@ -36,7 +37,7 @@ def verify_via_variety(system, V, init_root_threads=1):
         scatterSamples(np.array(samples), system)
         scatterSamples(np.array(test_samples), system)
         samples = np.vstack((samples, test_samples))
-    check_vanishing(system, variety, rho, P, T)
+    check_vanishing(system, variety, rho, P, T, sampled_quantities)
     print(rho)
     plot_funnel(V / rho, system, slice_idx=system.slice,
                 add_title=' - Sampling Variety ' + 'Result')
@@ -267,12 +268,13 @@ def solve_SDP_on_samples(system, sampled_quantities, write_to_file=False):
     # TODO: double check if scaling at this stage affects the downstream
     # oversampling
     print(rho)
-    return system.sym_V, rho, P
+    return system.sym_V, rho, P, sampled_quantities
 
 
-def check_vanishing(system, variety, rho, P, T, test_samples=None):
+def check_vanishing(system, variety, rho, P, T, sampled_quantities, test_samples=None):
     if test_samples is None:
         test_samples = sample_on_variety(variety, 1)
+
     V = system.get_v_values(test_samples)
     [xxd, psi] = system.get_sample_variety_features(test_samples)
     isVanishing = True
