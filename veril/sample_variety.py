@@ -9,6 +9,11 @@ import time
 from veril.util.plots import *
 import math
 
+"""Summary
+x: sampled state space or indeterminates
+Y = [V, xxd, trans_psi] are all that's necessary for the SDP
+"""
+
 
 def verify_via_variety(system, V, init_root_threads=1):
     assert system.loop_closed
@@ -17,27 +22,18 @@ def verify_via_variety(system, V, init_root_threads=1):
     variety = multi_to_univariate(Vdot)
 
     is_vanishing = False
-
-    samples = sample_on_variety(variety, init_root_threads)
-    # all_failed = np.zeros(system.num_states,)
+    x = sample_on_variety(variety, init_root_threads)
     while not is_vanishing:
-        sampled_quantities, T, samples = x_to_monomials_related(
-            system, samples, variety)
+        Y, T, x = x_to_monomials_related(system, x, variety)
         # start = time.time()
-        V, rho, P, sampled_quantities = solve_SDP_on_samples(
-            system, sampled_quantities)
-        is_vanishing, test_samples = check_vanishing(
-            system, variety, rho, P, T, sampled_quantities)
+        V, rho, P, Y = solve_SDP_on_samples(system, Y)
+        is_vanishing, test_x = check_vanishing(system, variety, rho, P, T, Y)
         # end = time.time()
         # print('sampling variety time %s' % (end - start))
-        # samples = [np.vstack(i) for i in zip(samples, test_samples)]
-        # samples = np.vstack((samples, sample_on_variety
-        # (variety, 1)))
-        # all_failed = np.vstack((all_failed, test_samples))
-        scatterSamples(np.array(samples), system)
-        scatterSamples(np.array(test_samples), system)
-        samples = np.vstack((samples, test_samples))
-    check_vanishing(system, variety, rho, P, T, sampled_quantities)
+        # scatterSamples(x, system)
+        # scatterSamples(test_x, system)
+        x = np.vstack((x, test_x))
+    check_vanishing(system, variety, rho, P, T, Y)
     print(rho)
     plot_funnel(V / rho, system, slice_idx=system.slice,
                 add_title=' - Sampling Variety ' + 'Result')
@@ -87,15 +83,17 @@ def sample_on_variety(variety, root_threads, slice_idx=None):
     """returns the pure 'x' samples on one given variety. i.e. return the roots
     to the given multi-variate polynomial. Note that, due to the numerical
     accuracy of numpy's polyroots, only returning all the real roots.
+
     Args:
-        variety (list):
+        variety (list)
         root_threads (int): number of 'attempts' of turning the multi-variate
+        slice_idx (None, optional): Description
         into univarite, i.e., the final num_roots != root_threads. (since
         there're d complex roots for a univariate polynomial of degree d, and
         thus more than 1 real root)
 
     Returns:
-        n_roots-by-num_states(num_x in the variety): all real roots for the
+        n_roots-by-num_states (num_x in the variety): all real roots for the
         univarite polynomial coming from the root_threads attemps of
         transformation
     """
@@ -171,13 +169,16 @@ def coordinate_ring_transform(monomial_samples):
         [u,s,v] = svd(U)
         n = # of non-zero values in s
         U= T@U_transformed, where
-        T:(monomial_dim, n),
-        U_transformed:(n,num_samples)
         for testing, standard_monomial = T * reduced_basis, or
         pinv(T)@standard_monomial = reduced_basis
+
     Returns:
         transformed_basis (num_samples, reduced_monomials)
         T (reduced_monomials, monomial_dim)
+
+    Deleted Parameters:
+        T: (monomial_dim, n),
+        U_transformed: (n,num_samples)
     """
     U = monomial_samples.T
     [u, diag_s, v] = np.linalg.svd(U)
@@ -212,12 +213,15 @@ def check_genericity(all_samples):
 
     Args:
         all_samples (ndarry): (m,n), current samples,
-        m (int): current number of samples
-        n (int): monomial_dim (or reduced_monomial if do_transformation)
+
     Returns:
         enough_samples (Bool): if the current sample set is generic enough
         m0 (int): current samples rank, gives good indicator of whether to
         augment or truncate the current sample set
+
+    Deleted Parameters:
+        m (int): current number of samples
+        n (int): monomial_dim (or reduced_monomial if do_transformation)
     """
     enough_samples = True
     m, n = all_samples.shape
@@ -238,12 +242,12 @@ def check_genericity(all_samples):
     return enough_samples
 
 
-def solve_SDP_on_samples(system, sampled_quantities, write_to_file=False):
+def solve_SDP_on_samples(system, Y, write_to_file=False):
     prog = MathematicalProgram()
     rho = prog.NewContinuousVariables(1, "r")[0]
     prog.AddConstraint(rho >= 0)
 
-    [V, xxd, psi] = sampled_quantities
+    [V, xxd, psi] = Y
     # print('SDP V %s' % V)
     num_samples, dim_psi = psi.shape
     print('num_samples is %s' % num_samples)
@@ -268,18 +272,18 @@ def solve_SDP_on_samples(system, sampled_quantities, write_to_file=False):
     # TODO: double check if scaling at this stage affects the downstream
     # oversampling
     print(rho)
-    return system.sym_V, rho, P, sampled_quantities
+    return system.sym_V, rho, P, Y
 
 
-def check_vanishing(system, variety, rho, P, T, sampled_quantities, test_samples=None):
-    if test_samples is None:
-        test_samples = sample_on_variety(variety, 1)
+def check_vanishing(system, variety, rho, P, T, Y, test_x=None):
+    if test_x is None:
+        test_x = sample_on_variety(variety, 1)
 
-    V = system.get_v_values(test_samples)
-    [xxd, psi] = system.get_sample_variety_features(test_samples)
+    V = system.get_v_values(test_x)
+    [xxd, psi] = system.get_sample_variety_features(test_x)
     isVanishing = True
     # print('vanishing V %s' % V)
-    for i in range(test_samples.shape[0]):
+    for i in range(test_x.shape[0]):
         levelset = xxd[i] * (V[i] - rho)
         this_psi = T@psi[i]
         candidate = this_psi.T@P@this_psi
@@ -289,11 +293,21 @@ def check_vanishing(system, variety, rho, P, T, sampled_quantities, test_samples
         if ratio < .97 or ratio > 1.1:
             isVanishing = False
             # idx += [i]
-    # scatterSamples(test_samples, system)
-    return isVanishing, test_samples
+    # scatterSamples(test_x, system)
+    return isVanishing, test_x
 
 
 def balancing_V(sample_x, V, tol=1e3):
+    """Summary
+
+    Args:
+        sample_x (TYPE): Description
+        V (TYPE): Description
+        tol (float, optional): Description
+
+    Returns:
+        TYPE: Description
+    """
     balanced = max(V) / min(V) < tol
     while not balanced:
         print('not balanced')
