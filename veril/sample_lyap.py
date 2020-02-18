@@ -149,23 +149,22 @@ def get_V(system, train_or_load, over_para=2, reg=None, **kwargs):
 
     tag = '_degV' + str(2 * deg_ftrs)
     model_dir = '../data/' + system.name
+    nx = system.num_states
 
     if not loop_closed:
         tag = tag + 'degU' + str(system.deg_u)
     if rm_one:
         tag = tag + '_rm'
 
+    if loop_closed:
+        train_x = np.load(model_dir + '/stableSamples.npy')
+        n_samples = train_x.shape[0]
+        assert(train_x.shape[1] == nx)
+        print('x size %s' % str(train_x.shape))
+    else:
+        train_x = None
+
     if train_or_load is 'Train':
-        nx = system.num_states
-
-        if loop_closed:
-            train_x = np.load(model_dir + '/stableSamples.npy')
-            n_samples = train_x.shape[0]
-            assert(train_x.shape[1] == nx)
-            print('x size %s' % str(train_x.shape))
-        else:
-            train_x = None
-
         file_path = model_dir + '/features' + tag + '.npz'
         if os.path.exists(file_path):
             features = load_features_dataset(file_path, loop_closed)
@@ -185,13 +184,13 @@ def get_V(system, train_or_load, over_para=2, reg=None, **kwargs):
 
     elif train_or_load is 'Load':
         # TODO: decide if should save the model or directly save V
-        train_x = None
+        # train_x = None
         model = get_V_model(model_dir, tag)
 
     P, u_weights = get_model_weights(model, loop_closed)
     if not loop_closed:
         system.close_the_loop(u_weights)
-    V, Vdot = system.P_to_V(P, samples=None)
+    V, Vdot = system.P_to_V(P, samples=train_x)
     # test_model(model, system, V, Vdot, x=None)
     return V, Vdot, system, model, P, u_weights
 
