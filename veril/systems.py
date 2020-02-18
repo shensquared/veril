@@ -70,25 +70,29 @@ class ClosedLoopSys(object):
     def set_sample_variety_features(self, V):
         # this requires far lower degreed multiplier xxd and consequentially
         # lower degree psi, re-write both
-        rm_one = self.rm_one
+        # rm_one = self.rm_one
         x = self.sym_x
         xbar = self.sym_x - self.x0
         self.sym_V = V
         self.sym_Vdot = self.set_Vdot(V)
         self.degVdot = self.degV - 1 + self.degf
-        deg = int(np.ceil((self.degVdot - self.degV) / 2))
-        self.sym_xxd = (xbar.T@xbar)**(deg)
-        psi_deg = int(((2 * deg + self.degV) / 2))
-        self.sym_psi = get_monomials(xbar, psi_deg, True)
+        self.deg_xxd = int(np.ceil((self.degVdot - self.degV) / 2))
+        self.sym_xxd = (xbar.T@xbar)**(self.deg_xxd)
+        self.deg_psi = int(((2 * self.deg_xxd + self.degV) / 2))
+        self.sym_psi = get_monomials(xbar, self.deg_psi, True)
 
     def get_sample_variety_features(self, samples):
         # samples: (num_samples, sys_dim)
-        n_samples = samples.shape[0]
+        # n_samples = samples.shape[0]
         xxd, psi = [], []
-        for i in range(n_samples):
-            env = dict(zip(self.sym_x, samples[i, :]))
-            xxd.append(self.sym_xxd.Evaluate(env))
-            psi.append([j.Evaluate(env) for j in self.sym_psi])
+        # for i in range(n_samples):
+        #     env = dict(zip(self.sym_x, samples[i, :]))
+        #     xxd.append(self.sym_xxd.Evaluate(env))
+        #     psi.append([j.Evaluate(env) for j in self.sym_psi])
+        xbar = samples - self.x0
+        for i in xbar:
+            xxd.append((i.T@i)**(self.deg_xxd))
+            psi.append(get_monomials(i, self.deg_psi, True))
         return [np.array(xxd), np.array(psi)]
 
     def get_v_values(self, samples, V=None):
