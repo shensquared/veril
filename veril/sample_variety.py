@@ -135,7 +135,9 @@ def sample_on_variety(variety, root_threads, x0, slice_idx=None):
         # print(end - start)
         root_x = np.array([alphas * i + betas for i in root_t])
         root_x = root_x[~np.all(root_x == x0, axis=1)]
-        # root_x = root_x[~np.any(np.isclose(root_x, 0, atol=1e-1), axis=1)]
+        root_x = root_x[~np.any(np.isclose(root_x, 0, atol=1e-1), axis=1)]
+        root_x = root_x[~np.any(np.abs(root_x) > 3.5, axis=1)]
+
         # plug in back the t value to evaluate the polynomial value
         varitey_x = [variety_poly.Evaluate(dict(zip(x, i))) for i in
                      root_x]
@@ -196,10 +198,11 @@ def coordinate_ring_transform(monomial_samples):
     U = monomial_samples.T
     [u, diag_s, v] = np.linalg.svd(U)
     tol = max(U.shape) * diag_s[0] * 1e-16
-    original_monomial_dim = U.shape[0]
+    original_monomial_dim, num_samples = U.shape
+    print('check genericity for %s samples' %num_samples)
     n = sum(diag_s > tol)
     if n / original_monomial_dim >= .95:
-        print('no need for transformation')
+        # print('no need for transformation')
         return U.T, np.eye(original_monomial_dim)
     else:
         print('does transforming')
@@ -263,7 +266,7 @@ def solve_SDP_on_samples(system, Y, write_to_file=False):
     [V, xxd, psi] = Y
     # print('SDP V %s' % V)
     num_samples, dim_psi = psi.shape
-    print('num_samples is %s' % num_samples)
+    # print('num_samples is %s' % num_samples)
     print('dim_psi is %s' % dim_psi)
     P = prog.NewSymmetricContinuousVariables(dim_psi, "P")
     prog.AddPositiveSemidefiniteConstraint(P)
@@ -277,7 +280,7 @@ def solve_SDP_on_samples(system, Y, write_to_file=False):
     log_file = "sampling_variety_SDP.text" if write_to_file else ""
     solver.set_stream_logging(False, log_file)
     result = solver.Solve(prog, None, None)
-    print(result.get_solution_result())
+    # print(result.get_solution_result())
     assert result.is_success()
     P = result.GetSolution(P)
     rho = result.GetSolution(rho)
@@ -302,19 +305,22 @@ def check_vanishing(system, variety, rho, P, T, Y, x0):
     [xxd, psi] = system.get_sample_variety_features(test_x)
     isVanishing = True
     # print('vanishing V %s' % V)
+    idx=[]
     for i in range(test_x.shape[0]):
         levelset = xxd[i] * (V[i] - rho)
         this_psi = T@psi[i]
         candidate = this_psi.T@P@this_psi
-        isclose = math.isclose(levelset, candidate, rel_tol=1e-3, abs_tol=1e-2)
+        # print('levelset %s' %levelset)
+        # print('candidate %s' %candidate)
+        isclose = math.isclose(levelset, candidate, rel_tol=1e-2, abs_tol=1e-2)
         ratio = (levelset - candidate) / candidate
         print('two polynomials evals ratio %s' % ratio)
         # if ratio < .97 or ratio > 1.1:
         if not isclose:
             isVanishing = False
-            # idx += [i]
+            idx += [i]
     # scatterSamples(test_x, system)
-    return isVanishing, test_x
+    return isVanishing, test_x[idx]
 
 
 def balancing_V(x, V, tol=1e3):
