@@ -11,8 +11,8 @@ import math
 
 """Summary
 x: sampled state space or indeterminates
-Y = [V, xxd, trans_psi] are all that's necessary for the SDP
-T: transformation matrix due to the coordiante ring, serves to reduce the 
+Y = [x, V, xxd, trans_psi, T] are all that's necessary for the SDP
+T: transformation matrix due to the coordiante ring, serves to reduce the
 dimension of the monomial_basis down
 P: r.h.s. SOS decomposition Gram matrix
 rho: scalar Lyapunov level
@@ -29,17 +29,17 @@ def verify_via_variety(system, V, init_root_threads=1):
     is_vanishing = False
     x = sample_on_variety(variety, init_root_threads, x0)
     while not is_vanishing:
-        Y, T, x = x_to_monomials_related(system, x, variety, x0)
+        Y = x_to_monomials_related(system, x, variety, x0)
         # start = time.time()
-        V, rho, P, Y = solve_SDP_on_samples(system, Y)
+        sym_V, rho, P, Y = solve_SDP_on_samples(system, Y)
         is_vanishing, test_x = check_vanishing(
-            system, variety, rho, P, T, Y, x0)
+            system, variety, rho, P, Y, x0)
         # end = time.time()
         # print('sampling variety time %s' % (end - start))
         x = np.vstack((x, test_x))
     scatterSamples(x, system)
     scatterSamples(test_x, system)
-    check_vanishing(system, variety, rho, P, T, Y, x0)
+    check_vanishing(system, variety, rho, P, Y, x0)
     print(rho)
     plot_funnel(V / rho, system, slice_idx=system.slice,
                 add_title=' - Sampling Variety ' + 'Result')
@@ -170,7 +170,7 @@ def x_to_monomials_related(system, x, variety, x0, do_transform=True):
     for i in range(V.shape[0]):
         xxd[i] = xxd[i] / scale
         trans_psi[i] = trans_psi[i] / np.sqrt(scale)
-    return [V, xxd, trans_psi], T, x
+    return [x, V, xxd, trans_psi, T]
 
 
 def coordinate_ring_transform(monomial_samples):
@@ -263,7 +263,7 @@ def solve_SDP_on_samples(system, Y, write_to_file=False):
     rho = prog.NewContinuousVariables(1, "r")[0]
     prog.AddConstraint(rho >= 0)
 
-    [V, xxd, psi] = Y
+    [x, V, xxd, psi, T] = Y
     # print('SDP V %s' % V)
     num_samples, dim_psi = psi.shape
     # print('num_samples is %s' % num_samples)
@@ -291,12 +291,13 @@ def solve_SDP_on_samples(system, Y, write_to_file=False):
     return system.sym_V, rho, P, Y
 
 
-def check_vanishing(system, variety, rho, P, T, Y, x0):
+def check_vanishing(system, variety, rho, P, Y, x0):
+    T = Y[-1]
     empty_test = True
     while empty_test:
         test_x = sample_on_variety(variety, 1, x0)
         V = system.get_v_values(test_x)
-        old_V = Y[0]
+        old_V = Y[1]
         idx = old_new_V(old_V, V)
         empty_test = (len(idx) == test_x.shape[0])
         test_x = np.delete(test_x, idx, axis=0)
