@@ -256,7 +256,7 @@ class S4CV_Plants(ClosedLoopSys):
         self.u = (self.sym_ubasis@u_weights).T
         self.sym_f = self.sym_g + self.hx(self.sym_x)@self.u
         self.degf = max([Polynomial(i, self.sym_x).TotalDegree() for i in
-        self.sym_f])
+                         self.sym_f])
         # TODO: fix self.degf
 
 
@@ -321,8 +321,7 @@ class PendulumRecast(S4CV_Plants):
         self.g = 9.81
         self.init_x_g_B()
         self.all_slices = list(itertools.combinations(range(2), 2))
-        self.recast = self.sym_x[0]**2 + self.sym_x[1]**2 -1
-
+        self.recast = self.sym_x[0]**2 + self.sym_x[1]**2 - 1
 
     def special_fixed_pt(self):
         prog = MathematicalProgram()
@@ -402,7 +401,7 @@ class DubinsRecast(S4CV_Plants):
         self.init_x_g_B()
         self.B_noneConstant = True
         self.all_slices = list(itertools.combinations(range(3), 2))
-        self.recast = self.sym_x[0]**2 + self.sym_x[1]**2 -1
+        self.recast = self.sym_x[0]**2 + self.sym_x[1]**2 - 1
         self.at_fixed_pt_tol = 5e-2
 
     def special_fixed_pt(self):
@@ -412,7 +411,7 @@ class DubinsRecast(S4CV_Plants):
         self.x0 = np.array([0, 1, 0, 0])
 
     def get_x(self, d=1, num_grid=100, slice_idx=None):
-        x1 = np.linspace(-np.pi/2, np.pi/2, num_grid)
+        x1 = np.linspace(-np.pi / 2, np.pi / 2, num_grid)
         x2 = np.linspace(-d, d, num_grid)
         x1, x2 = np.meshgrid(x1, x2)
         x1, x2 = x1.ravel(), x2.ravel()
@@ -436,7 +435,7 @@ class DubinsRecast(S4CV_Plants):
         return np.array([[c, 0], [-s, 0], [ye, 1], [-xe, 0]])
 
     def random_sample(self, n):
-        m = np.pi/2
+        m = np.pi / 2
         theta = np.random.uniform(low=-m, high=m, size=(1, n))
         # x1 = np.random.randn(2, n)
         x1 = np.random.uniform(low=-1, high=1, size=(2, n))
