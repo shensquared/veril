@@ -56,10 +56,9 @@ class ClosedLoopSys(object):
             self.sym_ubasis = get_monomials(xbar, deg_u, True)
 
     def features_at_x(self, x, file_path):  # x: (num_samples, sys_dim)
-        n_samples = x.shape[0]
         phi, eta = [], []
-        for i in range(n_samples):
-            env = dict(zip(self.sym_x, x[i, :]))
+        for i in x:
+            env = dict(zip(self.sym_x, i))
             phi.append([j.Evaluate(env) for j in self.sym_phi])
             eta.append([j.Evaluate(env) for j in self.sym_eta])
         features = [np.array(phi), np.array(eta)]
@@ -83,12 +82,7 @@ class ClosedLoopSys(object):
 
     def get_sample_variety_features(self, samples):
         # samples: (num_samples, sys_dim)
-        # n_samples = samples.shape[0]
         xxd, psi = [], []
-        # for i in range(n_samples):
-        #     env = dict(zip(self.sym_x, samples[i, :]))
-        #     xxd.append(self.sym_xxd.Evaluate(env))
-        #     psi.append([j.Evaluate(env) for j in self.sym_psi])
         xbar = samples - self.x0
         for i in xbar:
             xxd.append((i.T@i)**(self.deg_xxd))
@@ -217,16 +211,15 @@ class S4CV_Plants(ClosedLoopSys):
         if x is None:
             x = self.get_x()
         g = self.gx(x.T).T  # (just so 1st dim is # of samples)
-        n_samples = x.shape[0]
         B, phi, dphidx, ubasis = [], [], [], []
-        for i in range(n_samples):
-            env = dict(zip(self.sym_x, x[i]))
+        for i in x:
+            env = dict(zip(self.sym_x, i))
             phi.append([j.Evaluate(env) for j in self.sym_phi])
             dphidx.append([[j.Evaluate(env) for j in k]for k in
                            self.sym_dphidx])
             ubasis.append([j.Evaluate(env) for j in self.sym_ubasis])
             if hasattr(self, 'B_noneConstant'):
-                B.append(self.hx(x[i]))
+                B.append(self.hx(i))
         features = [g, np.array(phi), np.array(dphidx), np.array(ubasis)]
         if file_path is not None:
             if hasattr(self, 'B_noneConstant'):
@@ -257,7 +250,6 @@ class S4CV_Plants(ClosedLoopSys):
         self.sym_f = self.sym_g + self.hx(self.sym_x)@self.u
         self.degf = max([Polynomial(i, self.sym_x).TotalDegree() for i in
                          self.sym_f])
-        # TODO: fix self.degf
 
 
 class PendulumTrig(S4CV_Plants):
