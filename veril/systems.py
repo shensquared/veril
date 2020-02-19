@@ -82,11 +82,9 @@ class ClosedLoopSys(object):
 
     def get_sample_variety_features(self, samples):
         # samples: (num_samples, sys_dim)
-        xxd, psi = [], []
         xbar = samples - self.x0
-        for i in xbar:
-            xxd.append((i.T@i)**(self.deg_xxd))
-            psi.append(get_monomials(i, self.deg_psi, True))
+        xxd = [(i.T@i)**(self.deg_xxd) for i in xbar]
+        psi = [get_monomials(i, self.deg_psi, True) for i in xbar]
         return [np.array(xxd), np.array(psi)]
 
     def get_v_values(self, samples, V=None):
