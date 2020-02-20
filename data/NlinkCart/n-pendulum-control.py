@@ -8,7 +8,7 @@ sys.path.append(
     "/Users/shenshen/drake-build/install/lib/python3.7/site-packages")
 from pydrake.all import (Polynomial, Variable, Evaluate, Substitute,
                          MathematicalProgram, MosekSolver)
-from veril.sample_variety import verify_via_variety
+from veril.sample_variety import coordinate_ring_transform
 from scipy.integrate import odeint
 from matplotlib import animation
 from matplotlib.patches import Rectangle
@@ -393,6 +393,48 @@ def x_to_originial(x):
     velocity = x[-n - 1:]
     return np.concatenate([[x[0]], angles, velocity])
 
+def original_to_x(orig):
+    x =np.array([orig[0]])
+    for i in range(n):
+        tt = orig[i+1]
+        x = np.concatenate([x, [np.sin(tt)]])
+        x = np.concatenate([x, [np.cos(tt)]])
+    velocity = orig[-n - 1:]
+    return np.concatenate([x, velocity])
+
+
+def solve_SDP_on_samples(Vr, Y, write_to_file=False):
+    prog = MathematicalProgram()
+    rho = prog.NewContinuousVariables(1, "r")[0]
+    prog.AddConstraint(rho >= 0)
+
+    [xx, xxd, psi, V] = Y
+    # print('SDP V %s' % V)
+    num_samples, dim_psi = psi.shape
+    # print('num_samples is %s' % num_samples)
+    print('dim_psi is %s' % dim_psi)
+    P = prog.NewSymmetricContinuousVariables(dim_psi, "P")
+    prog.AddPositiveSemidefiniteConstraint(P)
+
+    for i in range(psi.shape[0]):
+        residual = xxd[i] * (V[i] - rho) - psi[i].T@P@psi[i]
+        prog.AddConstraint(residual == 0)
+
+    prog.AddCost(-rho)
+    solver = MosekSolver()
+    log_file = "sampling_variety_SDP.text" if write_to_file else ""
+    solver.set_stream_logging(False, log_file)
+    result = solver.Solve(prog, None, None)
+    # print(result.get_solution_result())
+    assert result.is_success()
+    P = result.GetSolution(P)
+    rho = result.GetSolution(rho)
+    # V = system.sym_V / rho
+    # TODO: double check if scaling at this stage affects the downstream
+    # oversampling
+    print(rho)
+    return Vr, rho, P, Y
+
 system_params = NlinkedSys(n)
 M, F, T, Vr, x, M_func, f_func = system_params
 
@@ -402,34 +444,17 @@ M, F, T, Vr, x, M_func, f_func = system_params
 #     -2,
 #     (np.pi / 2) * np.ones(n) - np.random.uniform(-1, 1, n),
 #     1 * np.ones(n + 1)))
-[xx, xxd, psi, V_num] = load_x_and_y()
-x0 = x_to_originial(xx[44])
+Y = load_x_and_y()
+[xx, xxd, psi, V] = Y
+
+# transformed_basis, T = coordinate_ring_transform(psi)
+# solve_SDP_on_samples(Vr, Y, write_to_file=False)s
+
+
+x0 = x_to_originial(xx[np.argmin(V)])
+x = original_to_x(x0)
+
 do_anim(x0)
-# while len(allV) <= 300:
-#     V_num, xxd_num, psi_num, sol_dict = sample()
-#     allV += V_num
-#     allxxd += xxd_num
-#     allpsi += psi_num
-#     all_sol_dicts += sol_dict
-#
-#
-# np.save('allV', allV)
-# np.save('allxxd', allxxd)
-# np.save('allpsi', allpsi)
-
-
-# solve_SDP_on_samples([np.array(allV), np.array(allxxd), np.array(allpsi)])
-
-
-# def recast_num_from_x(x):
-#     ss = np.zeros(3 * n + 2)
-#     ss[0] = x[0]
-#     for i in range(n):
-#         ss[2 * i + 1] = np.sin(x[1 + i])
-#         ss[2 * i + 2] = np.cos(x[1 + i])
-# #     print(x[-n-1:])
-#     ss[-n - 1:] = x[-n - 1:]
-#     return ss
 
 
 # random_states = [.6, -1.7, -.1, .1]
