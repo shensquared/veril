@@ -13,6 +13,39 @@ from veril.util.plots import *
 import time
 
 
+def global_vdot(system, V, Vdot, circle=None):
+    assert system.loop_closed
+    x = system.sym_x
+    prog = MathematicalProgram()
+    prog.AddIndeterminates(x)
+
+    degV = Polynomial(V, x).TotalDegree()
+    degL1 = degV - 1 + system.degf
+    degVdot = Polynomial(Vdot, x).TotalDegree()
+    recast_cstr = 0
+    if hasattr(system, 'recast'):
+        L2 = prog.NewFreePolynomial(Variables(x), degL1).ToExpression()
+        recast_cstr = L2 * system.recast
+    rho = prog.NewContinuousVariables(1, "r")[0]
+    # prog.AddConstraint(rho >= 0)
+    L1 = prog.NewFreePolynomial(Variables(x), degL1).ToExpression()
+    prog.AddSosConstraint(-Vdot + recast_cstr - rho)
+
+    prog.AddCost(-rho)
+    solver = MosekSolver()
+
+    solver.set_stream_logging(True, '')
+    result = solver.Solve(prog, None, None)
+    print(result.get_solution_result())
+    # print('w/ solver %s' % (result.get_solver_id().name()))
+    assert result.is_success()
+    L1 = result.GetSolution(L1)
+    rho = result.GetSolution(rho)
+    print(result.GetSolution(rho))
+    # P = result.GetSolution(P)
+    # print('cond # of gram is %s' % np.linalg.cond(P))
+
+
 def verify_via_equality(system, V0):
     assert system.loop_closed
     if V0 is None:
@@ -213,10 +246,10 @@ def optimizeV(x, f, L1, L2, V0, sigma1, **kwargs):
     return V, rho
 
 
-def levelset_sos(sys, V0, do_balance=False, write_to_file=False):
-    x = sys.sym_x
-    f = sys.sym_f
-    nX = sys.num_states
+def levelset_sos(system, V0, do_balance=False, write_to_file=False):
+    x = system.sym_x
+    f = system.sym_f
+    nX = system.num_states
     prog = MathematicalProgram()
     prog.AddIndeterminates(x)
     if do_balance:
@@ -226,7 +259,7 @@ def levelset_sos(sys, V0, do_balance=False, write_to_file=False):
     Vdot = (V.Jacobian(x) @ f)
 
     degV = Polynomial(V, x).TotalDegree()
-    degL1 = degV - 1 + sys.degf
+    degL1 = degV - 1 + system.degf
     degVdot = Polynomial(Vdot, x).TotalDegree()
     degxx = int(np.floor((degL1 + degVdot - degV) / 2))
 
@@ -236,7 +269,7 @@ def levelset_sos(sys, V0, do_balance=False, write_to_file=False):
     # print('equality-constrained SDP size is %s' % psi_dim)
 
     H = Jacobian(Vdot.Jacobian(x).T, x)
-    env = dict(zip(x, sys.x0))
+    env = dict(zip(x, system.x0))
     H = .5 * np.array([[i.Evaluate(env) for i in j]for j in H])
     # print('eig of Hessian of Vdot %s' % (eig(H)[0]))
     # assert (np.all(eig(H)[0] <= 0))
@@ -245,9 +278,9 @@ def levelset_sos(sys, V0, do_balance=False, write_to_file=False):
     prog.AddConstraint(rho >= 0)
     L1 = prog.NewFreePolynomial(Variables(x), degL1).ToExpression()
     recast_cstr = 0
-    if hasattr(sys, 'recast'):
+    if hasattr(system, 'recast'):
         L2 = prog.NewFreePolynomial(Variables(x), degL1).ToExpression()
-        recast_cstr = L2 * sys.recast
+        recast_cstr = L2 * system.recast
     prog.AddSosConstraint((x.T@x)**(degxx) * (V - rho) + L1 * Vdot + recast_cstr)
     # levelsetPoly = Polynomial((x.T@x)**(degxx) * (V - rho) + L1 * Vdot, x)
     # prog.AddEqualityConstraintBetweenPolynomials(candidate, levelsetPoly)
