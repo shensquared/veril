@@ -393,12 +393,12 @@ def x_to_originial(x):
     velocity = x[-n - 1:]
     return np.concatenate([[x[0]], angles, velocity])
 
+
 def original_to_x(orig):
-    x =np.array([orig[0]])
+    x = [orig[0]]
     for i in range(n):
-        tt = orig[i+1]
-        x = np.concatenate([x, [np.sin(tt)]])
-        x = np.concatenate([x, [np.cos(tt)]])
+        x.append(np.sin(orig[i + 1]))
+        x.append(np.cos(orig[i + 1]))
     velocity = orig[-n - 1:]
     return np.concatenate([x, velocity])
 
