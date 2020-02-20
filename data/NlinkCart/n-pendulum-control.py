@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 import itertools
 
 
-n = 3
+n = 1
 
 
 def NlinkedSys(n):
@@ -109,10 +109,6 @@ def NlinkedSys(n):
     div = equilibrium_point - states
     # ### Turn the feedback on the small angle $\theta$ to feedback on the $\sin(\theta)$
 
-    # Create a callable function to evaluate the mass matrix
-    M_func = sm.lambdify(q + u + f, kane.mass_matrix_full)
-    f_func = sm.lambdify(q + u + f, kane.forcing_full)
-
     from sympy import sin, cos
     div_in_trig = div
     for i in range(n):
@@ -197,7 +193,11 @@ def NlinkedSys(n):
 # debug: should match the original form
 # assert(full_mass_num == M_num)
 # assert(full_force_num == F_num)
-    return M, F, T, Vr, x, M_func, f_func, K, equilibrium_point
+# Create a callable function to evaluate the mass matrix
+    M_func = sm.lambdify(states, kane_cl.mass_matrix_full)
+    f_func = sm.lambdify(states, kane_cl.forcing_full)
+
+    return M, F, T, Vr, x, M_func, f_func
 
 
 def get_Vdot(M, F, T, Vr, x, x_sample_dict, trig_sample_dict):
@@ -267,15 +267,18 @@ def get_Y(V, states):
     psi = [get_monomials(i, 2, True) for i in x]
     V_num = [V.subs(dict(zip(states, i))) for i in x]
     file = './link' + str(n) + '/Y.npz'
-    Y = [np.array(xxd), np.array(psi), np.array(V_num)]
+    Y = [np.array(xxd), np.array(psi), np.array(V_num, dtype=float)]
     np.savez_compressed(file, xxd=Y[0], psi=Y[1], V_num=Y[2])
 
 
-system_params = NlinkedSys(n)
-M, F, T, Vr, x, M_func, f_func, K, equilibrium_point = system_params
-
-
+def load_x_and_y():
+    folder = './link' + str(n)
+    xx = np.load(folder + '/samples.npy')
+    Y = np.load('./link' + str(n) + '/Y.npz')
+    return [xx, Y['xxd'], Y['psi'], Y['V_num']]
 ##############################
+
+
 def right_hand_side(x, t):
     """Returns the derivatives of the states.
 
@@ -294,10 +297,7 @@ def right_hand_side(x, t):
         The derivative of the state.
 
     """
-    div = equilibrium_point - x
-    div[:n + 1] = np.sin(div[:n + 1])
-    r = np.dot(K, div)    # The controller
-    arguments = np.hstack((x, r))     # States, input, and parameters
+    arguments = np.hstack((x))     # States, input, and parameters
     dx = np.array(np.linalg.solve(M_func(*arguments), f_func(*arguments))).T[0]
     return dx
 
@@ -376,33 +376,35 @@ def animate_pendulum(t, states, length, filename=None):
     # call the animator function
     anim = animation.FuncAnimation(fig, animate, frames=len(t), init_func=init,
                                    interval=t[-1] / len(t) * 1000, blit=True, repeat=False)
-
-    # save the animation if a filename is given
-    if filename is not None:
-        anim.save(filename, fps=30, codec='libx264')
-    return anim
-
-
-def do_anim(x0, equilibrium_point):
-    t = np.linspace(0.0, 7.0, num=500)
-    x = odeint(right_hand_side, x0, t)
-    anim = animate_pendulum(t, x, 1. / n)
-    # Set up formatting for the movie files
     Writer = animation.writers['ffmpeg']
     writer = Writer(fps=15, metadata=dict(artist='Me'), bitrate=1800)
     f_name = './link' + str(n) + '/closed-loop.mp4'
     anim.save(f_name, writer='ffmpeg')
 
+
+def do_anim(x0):
+    t = np.linspace(0.0, 7.0, num=500)
+    x = odeint(right_hand_side, x0, t)
+    anim = animate_pendulum(t, x, 1. / n)
+
+
+def x_to_originial(x):
+    angles = np.arctan2(x[1:2 * n + 1:2], x[2:2 * n + 2:2])
+    velocity = x[-n - 1:]
+    return np.concatenate([[x[0]], angles, velocity])
+
+system_params = NlinkedSys(n)
+M, F, T, Vr, x, M_func, f_func = system_params
+
 # sample(system_params, 100)
-
 # get_Y(Vr, x)
-x0 = np.hstack((
-    -2,
-    (np.pi / 2) * np.ones(n) - np.random.uniform(-1, 1, n),
-    1 * np.ones(n + 1)))
-
-print(x0)
-do_anim(x0, equilibrium_point)
+# x0 = np.hstack((
+#     -2,
+#     (np.pi / 2) * np.ones(n) - np.random.uniform(-1, 1, n),
+#     1 * np.ones(n + 1)))
+[xx, xxd, psi, V_num] = load_x_and_y()
+x0 = x_to_originial(xx[44])
+do_anim(x0)
 # while len(allV) <= 300:
 #     V_num, xxd_num, psi_num, sol_dict = sample()
 #     allV += V_num
