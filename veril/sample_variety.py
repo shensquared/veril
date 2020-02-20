@@ -199,8 +199,9 @@ def coordinate_ring_transform(monomial_samples):
     [u, diag_s, v] = np.linalg.svd(U)
     tol = max(U.shape) * diag_s[0] * 1e-16
     original_monomial_dim, num_samples = U.shape
-    print('check genericity for %s samples' %num_samples)
     n = sum(diag_s > tol)
+    print('rank %s' % n)
+    print('check genericity for %s samples' % num_samples)
     if n / original_monomial_dim >= .95:
         # print('no need for transformation')
         return U.T, np.eye(original_monomial_dim)
@@ -306,7 +307,7 @@ def check_vanishing(system, variety, rho, P, Y, x0):
     [xxd, psi] = system.get_sample_variety_features(test_x)
     isVanishing = True
     # print('vanishing V %s' % V)
-    idx=[]
+    idx = []
     for i in range(test_x.shape[0]):
         levelset = xxd[i] * (V[i] - rho)
         this_psi = T@psi[i]
