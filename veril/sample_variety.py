@@ -200,7 +200,8 @@ def coordinate_ring_transform(monomial_samples):
     tol = max(U.shape) * diag_s[0] * 1e-16
     original_monomial_dim, num_samples = U.shape
     n = sum(diag_s > tol)
-    print('rank %s' % n)
+    print('original_monomial_dim is %s' %original_monomial_dim)
+    print('rank for SVD %s' % n)
     print('check genericity for %s samples' % num_samples)
     if n / original_monomial_dim >= .95:
         # print('no need for transformation')
