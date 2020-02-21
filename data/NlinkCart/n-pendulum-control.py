@@ -276,7 +276,7 @@ def get_Y(V, states):
 def load_x_and_y():
     folder = './link' + str(n)
     xx = np.load(folder + '/samples.npy')
-    Y = np.load('./link' + str(n) + '/Y.npz')
+    Y = np.load(folder + '/Y.npz')
     return [xx, Y['xxd'], Y['psi'], Y['V_num']]
 ##############################
 
@@ -431,9 +431,6 @@ def solve_SDP_on_samples(Vr, Y, write_to_file=False):
     assert result.is_success()
     P = result.GetSolution(P)
     rho = result.GetSolution(rho)
-    # V = system.sym_V / rho
-    # TODO: double check if scaling at this stage affects the downstream
-    # oversampling
     print(rho)
     return Vr, rho, P, Y
 
@@ -448,18 +445,12 @@ M, F, T, Vr, x, M_func, f_func = system_params
 #     1 * np.ones(n + 1)))
 Y = load_x_and_y()
 [xx, xxd, psi, V] = Y
+print(min(V))
 
 transformed_basis, T = coordinate_ring_transform(psi)
 print(check_genericity(psi))
 Y[2] = transformed_basis
 Vr, rho, P, Y = solve_SDP_on_samples(Vr, Y, write_to_file=False)
-print(min(V))
 
 # x0 = x_to_originial(xx[5])
 # do_anim(x0)
-
-
-# random_states = [.6, -1.7, -.1, .1]
-# ss = recast_num_from_x(random_states)
-# print(Vr.subs(dict(zip(x, ss))))
-# x = sim_once(random_states)
