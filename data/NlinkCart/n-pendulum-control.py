@@ -8,7 +8,7 @@ sys.path.append(
     "/Users/shenshen/drake-build/install/lib/python3.7/site-packages")
 from pydrake.all import (Polynomial, Variable, Evaluate, Substitute,
                          MathematicalProgram, MosekSolver)
-from veril.sample_variety import coordinate_ring_transform
+from veril.sample_variety import coordinate_ring_transform, check_genericity
 from scipy.integrate import odeint
 from matplotlib import animation
 from matplotlib.patches import Rectangle
@@ -262,11 +262,13 @@ def get_monomials(x, deg, rm_one):
 
 def get_Y(V, states):
     folder = './link' + str(n)
-    x = np.load(folder + '/samples.npy')
+    x = np.load(folder + '/x_samples.npy')
+    x = x[~np.any(np.abs(x) > 30, axis=1)]
+    np.save(folder + './samples.npy', x)
     xxd = [(i.T@i) for i in x]
     psi = [get_monomials(i, 2, True) for i in x]
     V_num = [V.subs(dict(zip(states, i))) for i in x]
-    file = './link' + str(n) + '/Y.npz'
+    file = folder + '/Y.npz'
     Y = [np.array(xxd), np.array(psi), np.array(V_num, dtype=float)]
     np.savez_compressed(file, xxd=Y[0], psi=Y[1], V_num=Y[2])
 
@@ -423,7 +425,7 @@ def solve_SDP_on_samples(Vr, Y, write_to_file=False):
     prog.AddCost(-rho)
     solver = MosekSolver()
     log_file = "sampling_variety_SDP.text" if write_to_file else ""
-    solver.set_stream_logging(False, log_file)
+    solver.set_stream_logging(True, log_file)
     result = solver.Solve(prog, None, None)
     # print(result.get_solution_result())
     assert result.is_success()
@@ -447,14 +449,14 @@ M, F, T, Vr, x, M_func, f_func = system_params
 Y = load_x_and_y()
 [xx, xxd, psi, V] = Y
 
-# transformed_basis, T = coordinate_ring_transform(psi)
-# solve_SDP_on_samples(Vr, Y, write_to_file=False)s
+transformed_basis, T = coordinate_ring_transform(psi)
+print(check_genericity(psi))
+Y[2] = transformed_basis
+Vr, rho, P, Y = solve_SDP_on_samples(Vr, Y, write_to_file=False)
+print(min(V))
 
-
-x0 = x_to_originial(xx[np.argmin(V)])
-x = original_to_x(x0)
-
-do_anim(x0)
+# x0 = x_to_originial(xx[5])
+# do_anim(x0)
 
 
 # random_states = [.6, -1.7, -.1, .1]
