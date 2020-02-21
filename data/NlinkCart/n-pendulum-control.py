@@ -14,9 +14,10 @@ from matplotlib import animation
 from matplotlib.patches import Rectangle
 import matplotlib.pyplot as plt
 import itertools
+import os
 
 
-n = 1
+n = 4
 
 
 def NlinkedSys(n):
@@ -140,7 +141,7 @@ def NlinkedSys(n):
     F_A_num_cl = sm.matrix2numpy(F_A_cl, dtype=float)
     A_cl = np.linalg.solve(M_num_cl, F_A_num_cl)
 
-    print('closed-loop A eigs %s' % np.linalg.eig(A_cl)[0])
+    # print('closed-loop A eigs %s' % np.linalg.eig(A_cl)[0])
     from scipy.linalg import solve_lyapunov
     P = solve_lyapunov(A_cl.T, -np.eye(A_cl.shape[0]))
     V = sm.expand_trig((div_in_trig).T@P@(div_in_trig))
@@ -197,7 +198,7 @@ def NlinkedSys(n):
     M_func = sm.lambdify(states, kane_cl.mass_matrix_full)
     f_func = sm.lambdify(states, kane_cl.forcing_full)
 
-    return M, F, T, Vr, x, M_func, f_func
+    return [M, F, T, Vr, x, M_func, f_func]
 
 
 def get_Vdot(M, F, T, Vr, x, x_sample_dict, trig_sample_dict):
@@ -220,14 +221,15 @@ def sample(system_params, n_samples):
     x_samples = []
     while len(x_samples) < n_samples:
 
-        # alpha = np.random.randn(3 * n + 2)
-        # beta = np.random.randn(3 * n + 2)
-        alpha = np.random.uniform(-1, 1, 3 * n + 2)
-        beta = np.random.uniform(-1 / 2, 1 / 2, 3 * n + 2)
+        alpha = np.random.randn(3 * n + 2)
+        beta = np.random.randn(3 * n + 2)
+        # alpha = np.random.uniform(-1, 1, 3 * n + 2)
+        # beta = np.random.uniform(-1, 1, 3 * n + 2)
+        # beta = np.zeros(3 * n + 2)
         t = sm.Symbol('t', real=True)
         x_sample_dict = dict(zip(x, alpha * t + beta))
 
-        angle = np.pi / 2 + np.random.uniform(-np.pi / 2, np.pi / 2, n)
+        angle = np.random.uniform(-np.pi, np.pi, n)
         trig_sample_dict = dict(zip(x[1:2 * n + 1:2], np.sin(angle)))
         trig_sample_dict.update(dict(zip(x[2:2 * n + 2:2], np.cos(angle))))
 
@@ -243,8 +245,12 @@ def sample(system_params, n_samples):
                 sol_dict.update(trig_sample_dict)
                 xx = np.array(list(sol_dict.values()), dtype='float')
                 print(xx)
-                x_samples.append(xx)
-                file = './link' + str(n) + '/x_samples'
+                file = './link' + str(n) + '/x_samples.npy'
+                if os.path.exists(file):
+                    x_samples = np.load(file)
+                    x_samples = np.vstack((x_samples, xx))
+                else:
+                    x_samples.append(xx)
                 np.save(file, np.array(x_samples))
         else:
             print('no root')
