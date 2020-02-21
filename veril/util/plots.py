@@ -42,9 +42,10 @@ def plot_funnel(V, system, **kwargs):
     plt.ylabel('X' + id2)
     leg = plt.legend()
     plt.title(sys_name + add_title)
-    plt.savefig(file_dir + '/plot.png', dpi=None, facecolor='w', edgecolor='w',
-            orientation='portrait', papertype=None, format=None,
-            transparent=False, bbox_inches=None, pad_inches=0.1)
+    plt.savefig(file_dir + '/funnel' + add_title + '.png', dpi=None,
+                facecolor='w', edgecolor='w', orientation='portrait',
+                papertype=None, format=None, transparent=False,
+                bbox_inches=None, pad_inches=0.1)
     plt.show()
 
 
@@ -89,7 +90,7 @@ def plot_traj(initial, system, **kwargs):
     #            range(nx)]
     # plt.legend(handles=handles)
     slice_idx = kwargs['slice_idx'] if 'slice_idx' in kwargs else range(nx)
-    fig, axs = plt.subplots(1, len(slice_idx), sharey=False,figsize=(9, 3))
+    fig, axs = plt.subplots(1, len(slice_idx), sharey=False, figsize=(9, 3))
     st = fig.suptitle("\n" + sys_name + ' Simulation ' + add_title)
     [j.set_ylabel('x' + str(i + 1)) for (i, j) in zip(slice_idx, axs)]
 
@@ -152,12 +153,12 @@ def plot3d(V, system, r_max=[3, 3], slice_idx=(0, 1), in_xo=True):
     ylab = 'X' + str(slice_idx[1] + 1)
     [i.set_xlabel(xlab) for i in [ax, ax2]]
     [i.set_ylabel(ylab) for i in [ax, ax2]]
-    fig.savefig(file_dir + '/3d'+id1+id2+'.png', dpi=None, facecolor='w',
-       edgecolor='w', orientation='portrait', papertype=None, format=None,
-            transparent=False, bbox_inches='tight', pad_inches=0.1)
-    fig2.savefig(file_dir + '/contour'+id1+id2+'.png', dpi=None,
-       facecolor='w',edgecolor='w', orientation='portrait', papertype=None,
-       format=None, transparent=False, bbox_inches='tight', pad_inches=0.1)
+    fig.savefig(file_dir + '/3d' + id1 + id2 + '.png', dpi=None, facecolor='w',
+                edgecolor='w', orientation='portrait', papertype=None, format=None,
+                transparent=False, bbox_inches='tight', pad_inches=0.1)
+    fig2.savefig(file_dir + '/contour' + id1 + id2 + '.png', dpi=None,
+                 facecolor='w', edgecolor='w', orientation='portrait', papertype=None,
+                 format=None, transparent=False, bbox_inches='tight', pad_inches=0.1)
 
     plt.show()
 
