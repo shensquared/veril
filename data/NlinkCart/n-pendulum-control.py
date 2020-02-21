@@ -411,7 +411,7 @@ def original_to_x(orig):
     return np.concatenate([x, velocity])
 
 
-def solve_SDP_on_samples(Vr, Y, write_to_file=False):
+def solve_SDP_on_samples(Y, write_to_file=False):
     prog = MathematicalProgram()
     rho = prog.NewContinuousVariables(1, "r")[0]
     prog.AddConstraint(rho >= 0)
@@ -438,7 +438,7 @@ def solve_SDP_on_samples(Vr, Y, write_to_file=False):
     P = result.GetSolution(P)
     rho = result.GetSolution(rho)
     print(rho)
-    return Vr, rho, P, Y
+    return rho, P, Y
 
 system_params = NlinkedSys(n)
 M, F, T, Vr, x, M_func, f_func = system_params
@@ -456,7 +456,7 @@ print(min(V))
 transformed_basis, T = coordinate_ring_transform(psi)
 print(check_genericity(psi))
 Y[2] = transformed_basis
-Vr, rho, P, Y = solve_SDP_on_samples(Vr, Y, write_to_file=False)
+rho, P, Y = solve_SDP_on_samples(Y, write_to_file=False)
 
 # x0 = x_to_originial(xx[5])
 # do_anim(x0)
