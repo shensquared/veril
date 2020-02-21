@@ -442,6 +442,25 @@ def solve_SDP_on_samples(Y, write_to_file=False):
 
 system_params = NlinkedSys(n)
 M, F, T, Vr, x, M_func, f_func = system_params
+import cvxpy as cp
+def solve_SDP_on_samples_CVX(Y, write_to_file=False):
+    [xx, xxd, psi, V] = Y
+    num_samples,monomial_dim = psi.shape
+    constraints = []
+    P = cp.Variable((monomial_dim, monomial_dim), symmetric=True)
+    rho = cp.Variable(1)
+    constraints += [P >> 0]
+    constraints += [rho >= 0]
+    for i in range(num_samples):
+        residual = xxd[i] * (V[i] - rho) - psi[i].T@P@psi[i]
+        constraints += [residual==0]
+
+    prob = cp.Problem(cp.Minimize(-rho), constraints)
+    prob.solve(solver=cp.MOSEK, verbose=True)
+    P = P.value
+    rho = rho.value
+    print('rho value %s' % rho)
+    return P
 
 # sample(system_params, 100)
 # get_Y(Vr, x)
