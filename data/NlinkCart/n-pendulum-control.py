@@ -440,12 +440,13 @@ def solve_SDP_on_samples(Y, write_to_file=False):
     print(rho)
     return rho, P, Y
 
-system_params = NlinkedSys(n)
-M, F, T, Vr, x, M_func, f_func = system_params
+
 import cvxpy as cp
+
+
 def solve_SDP_on_samples_CVX(Y, write_to_file=False):
     [xx, xxd, psi, V] = Y
-    num_samples,monomial_dim = psi.shape
+    num_samples, monomial_dim = psi.shape
     constraints = []
     P = cp.Variable((monomial_dim, monomial_dim), symmetric=True)
     rho = cp.Variable(1)
@@ -453,7 +454,7 @@ def solve_SDP_on_samples_CVX(Y, write_to_file=False):
     constraints += [rho >= 0]
     for i in range(num_samples):
         residual = xxd[i] * (V[i] - rho) - psi[i].T@P@psi[i]
-        constraints += [residual==0]
+        constraints += [residual == 0]
 
     prob = cp.Problem(cp.Minimize(-rho), constraints)
     prob.solve(solver=cp.MOSEK, verbose=True)
@@ -462,12 +463,11 @@ def solve_SDP_on_samples_CVX(Y, write_to_file=False):
     print('rho value %s' % rho)
     return P
 
+system_params = NlinkedSys(n)
+M, F, T, Vr, x, M_func, f_func = system_params
 # sample(system_params, 100)
 # get_Y(Vr, x)
-# x0 = np.hstack((
-#     -2,
-#     (np.pi / 2) * np.ones(n) - np.random.uniform(-1, 1, n),
-#     1 * np.ones(n + 1)))
+
 Y = load_x_and_y()
 [xx, xxd, psi, V] = Y
 print(min(V))
