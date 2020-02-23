@@ -133,6 +133,8 @@ def sample_on_variety(variety, root_threads, x0, slice_idx=None):
         root_t = root_t[~np.iscomplex(root_t)].real
         # end = time.time()
         # print(end - start)
+        if len(root_t)==0:
+            continue
         root_x = np.array([alphas * i + betas for i in root_t])
         root_x = root_x[~np.all(root_x == x0, axis=1)]
         root_x = root_x[~np.any(np.isclose(root_x, 0, atol=1e-1), axis=1)]
