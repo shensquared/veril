@@ -17,14 +17,17 @@ import itertools
 import os
 from sympy import sin, cos
 
-kv =1
-folder = './'
+# kv =1
+# folder = './'
+# n=77
 
 # kv =.8
 # folder = './LB/'
+# n=66
 
-# kv =1.2
-# folder = './UB/'
+kv =1.2
+folder = './UB/'
+n=76
 
 def Dubins_original():
     l=1
@@ -180,10 +183,10 @@ def get_Y(V, states):
     x = np.load(folder + 'x_samples.npy')
     x = x[~np.any(np.abs(x) > 20, axis=1)]
     V_num = np.array([V.subs(dict(zip(states, i))) for i in x], dtype=float)
-    x, V_num = balancing_V(x, V_num, tol=10)
+    x, V_num = balancing_V(x, V_num, tol=25)
     np.save(folder + 'samples.npy', x)
     xxd = [(i.T@i) for i in x]
-    psi = [get_monomials(i, 2, True) for i in x]
+    psi = [get_monomials(i, 3, False) for i in x]
     file = folder + 'Y.npz'
     Y = [np.array(xxd), np.array(psi), V_num]
     np.savez_compressed(file, xxd=Y[0], psi=Y[1], V_num=Y[2])
@@ -355,10 +358,8 @@ Vr, x, T, f_cl = Dubins_original()
 get_Y(Vr, x)
 Y = load_x_and_y()
 [xx, xxd, psi, V] = Y
-print(min(V))
 
 # transformed_basis, T = coordinate_ring_transform(psi)
-n= 52
 print(check_genericity(psi[:n,]))
 # Y[2] = transformed_basis
 rho, P, Y = solve_SDP_on_samples(Y,n=n, write_to_file=False)
