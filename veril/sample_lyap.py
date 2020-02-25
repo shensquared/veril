@@ -155,9 +155,9 @@ def get_V(system, train_or_load, over_para=2, reg=None, **kwargs):
         tag = tag + 'degU' + str(system.deg_u)
     if rm_one:
         tag = tag + '_rm'
-
-    if loop_closed:
-        train_x = np.load(model_dir + '/stableSamples.npy')
+    x_path = model_dir + '/stableSamples.npy'
+    if loop_closed and os.path.exists(x_path):
+        train_x = np.load(x_path)
         n_samples = train_x.shape[0]
         assert(train_x.shape[1] == nx)
         print('x size %s' % str(train_x.shape))
