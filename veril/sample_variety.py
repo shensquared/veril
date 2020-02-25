@@ -8,6 +8,7 @@ from numpy.linalg import eig, inv
 import time
 from veril.util.plots import *
 import math
+import os
 
 """Summary
 x: sampled state space or indeterminates
@@ -23,23 +24,30 @@ def verify_via_variety(system, V, init_root_threads=1):
     assert system.loop_closed
     system.set_sample_variety_features(V)
     Vdot = system.sym_Vdot
-    variety = multi_to_univariate(Vdot)
     x0 = system.x0
-
+    variety = multi_to_univariate(Vdot)
     is_vanishing = False
-    x = sample_on_variety(variety, init_root_threads, x0)
-    while not is_vanishing:
+    filepath = '../data/' + system.name + '/variety_Y.npz'
+    if os.path.exists(filepath):
+        ff = np.load(filepath)
+        Y = [ff['x'], ff['V'], ff['xxd'], ff['psi'], ff['T']]
+    else:
+        x = sample_on_variety(variety, init_root_threads, x0)
         Y = x_to_monomials_related(system, x, variety, x0)
+    while not is_vanishing:
         # start = time.time()
         sym_V, rho, P, Y = solve_SDP_on_samples(system, Y)
         is_vanishing, test_x = check_vanishing(
             system, variety, rho, P, Y, x0)
         # end = time.time()
         # print('sampling variety time %s' % (end - start))
+        test_Y = x_to_monomials_related(system, test_x, variety, x0)
         x = np.vstack((x, test_x))
-    scatterSamples(x, system)
-    scatterSamples(test_x, system)
-    check_vanishing(system, variety, rho, P, Y, x0)
+        Y = [np.vstack([i,j]) for (i,j) in zip(Y, test_Y)]
+
+    # scatterSamples(x, system)
+    # scatterSamples(test_x, system)
+    # check_vanishing(system, variety, rho, P, Y, x0)
     print(rho)
     plot_funnel(V / rho, system, slice_idx=system.slice,
                 add_title=' - Sampling Variety ' + 'Result')
@@ -153,8 +161,8 @@ def sample_on_variety(variety, root_threads, x0, slice_idx=None):
     return samples[1:]
 
 
-def x_to_monomials_related(system, x, variety, x0, do_transform=True):
-    enough_x = False
+def x_to_monomials_related(system, x, variety, x0, do_transform=False):
+    enough_x = True
     while not enough_x:
         more_x = sample_on_variety(variety, 1, x0)
         x = np.vstack([x, more_x])
@@ -172,7 +180,10 @@ def x_to_monomials_related(system, x, variety, x0, do_transform=True):
     for i in range(V.shape[0]):
         xxd[i] = xxd[i] / scale
         trans_psi[i] = trans_psi[i] / np.sqrt(scale)
-    return [x, V, xxd, trans_psi, T]
+    Y = [x, V, xxd, trans_psi, T]
+    filepath = '../data/' + system.name + '/variety_Y.npz'
+    # np.savez_compressed(filepath, x=Y[0], V = Y[1], xxd = Y[2], psi=Y[3], T=Y[4])
+    return Y
 
 
 def coordinate_ring_transform(monomial_samples):
@@ -204,7 +215,7 @@ def coordinate_ring_transform(monomial_samples):
     n = sum(diag_s > tol)
     print('original_monomial_dim is %s' %original_monomial_dim)
     print('rank for SVD %s' % n)
-    print('check genericity for %s samples' % num_samples)
+    print('coordinate_ring_transform for %s samples' % num_samples)
     if n / original_monomial_dim >= .95:
         # print('no need for transformation')
         return U.T, np.eye(original_monomial_dim)
@@ -255,6 +266,7 @@ def check_genericity(all_samples):
     s = abs(np.linalg.eig(c)[0])
     tol = max(c.shape) * np.spacing(max(s)) * 1e3
     sample_rank = sum(s > tol)
+    print('sample rank is %s' %sample_rank)
     if sample_rank == m0 and sample_rank < n2:
         # meaning m<n2 and sample full rank
         # print('Insufficient samples!!')
@@ -282,7 +294,7 @@ def solve_SDP_on_samples(system, Y, write_to_file=False):
     prog.AddCost(-rho)
     solver = MosekSolver()
     log_file = "sampling_variety_SDP.text" if write_to_file else ""
-    solver.set_stream_logging(False, log_file)
+    solver.set_stream_logging(True, log_file)
     result = solver.Solve(prog, None, None)
     # print(result.get_solution_result())
     assert result.is_success()
