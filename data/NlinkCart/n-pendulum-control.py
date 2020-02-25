@@ -17,7 +17,7 @@ import itertools
 import os
 
 
-n = 4
+n = 5
 
 
 def NlinkedSys(n):
@@ -221,10 +221,11 @@ def sample(system_params, n_samples):
     x_samples = []
     while len(x_samples) < n_samples:
 
-        alpha = np.random.randn(3 * n + 2)
-        beta = np.random.randn(3 * n + 2)
-        # alpha = np.random.uniform(-1, 1, 3 * n + 2)
-        # beta = np.random.uniform(-1, 1, 3 * n + 2)
+        # alpha = np.random.randn(3 * n + 2)*10
+        # beta = np.random.randn(3 * n + 2)
+        alpha = np.random.uniform(-5, 5, 3 * n + 2)
+        beta = np.random.uniform(-1, 1, 3 * n + 2)
+        alpha[0]=10
         # beta = np.zeros(3 * n + 2)
         t = sm.Symbol('t', real=True)
         x_sample_dict = dict(zip(x, alpha * t + beta))
@@ -465,7 +466,7 @@ def solve_SDP_on_samples_CVX(Y, write_to_file=False):
 
 system_params = NlinkedSys(n)
 M, F, T, Vr, x, M_func, f_func = system_params
-# sample(system_params, 100)
+sample(system_params, 300)
 # get_Y(Vr, x)
 
 Y = load_x_and_y()
