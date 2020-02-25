@@ -21,13 +21,13 @@ from sympy import sin, cos
 # folder = './'
 # n=77
 
-# kv =.8
-# folder = './LB/'
-# n=66
+kv =.8
+folder = './LB/'
+n=66
 
-kv =1.2
-folder = './UB/'
-n=76
+# kv =1.2
+# folder = './UB/'
+# n=76
 
 def Dubins_original():
     l=1
@@ -355,14 +355,39 @@ def solve_SDP_on_samples(Y, n=None, write_to_file=False):
 
 Vr, x, T, f_cl = Dubins_original()
 # sample(300)
+
+
 get_Y(Vr, x)
 Y = load_x_and_y()
 [xx, xxd, psi, V] = Y
 
 # transformed_basis, T = coordinate_ring_transform(psi)
-print(check_genericity(psi[:n,]))
+# print(check_genericity(psi[:n,]))
 # Y[2] = transformed_basis
 rho, P, Y = solve_SDP_on_samples(Y,n=n, write_to_file=False)
+import matplotlib
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.pyplot import cm
+import matplotlib.lines as mlines
 
+def scatter_3d(Vr,rho, x, r_max=[1,1],res=20):
+    theta = np.linspace(-np.pi,np.pi, res)
+    X = np.linspace(-r_max[0], r_max[0], res)
+    Y = np.linspace(-r_max[1], r_max[1], res)
+    X, Y, Z =np.meshgrid(theta,X,Y)
+    X, Y, Z = X.ravel(), Y.ravel(), Z.ravel()
+    sins = np.sin(X)
+    coss = np.cos(X)
+    samples = np.array([sins, coss, Y, Z]).T
+    values = np.array([Vr.subs(dict(zip(x, i))) for i in samples])
+    np.save('V_values', values)
+
+    fig = plt.figure()
+    ax = fig.gca(projection='3d')
+    ax.scatter(X[values<=rho], Y[values<=rho], Z[values<=rho])
+    plt.show()
+
+# scatter_3d(Vr,rho,x)
 # x0 = x_to_originial(xx[5])
 # do_anim(x0)
