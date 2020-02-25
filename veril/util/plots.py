@@ -118,7 +118,8 @@ def plot_traj(initial, system, **kwargs):
     return final_states, final_Vs
 
 
-def plot3d(V, system, r_max=[3, 3], slice_idx=(0, 1), in_xo=True):
+def plot3d(V, system, r_max=[3, 3], slice_idx=(0, 1), in_xo=True, limit=None,
+           nd=151):
     [sys_name, slice_idx, file_dir, add_title, id1, id2, stable_samples] = \
         plot_params(system, slice_idx=slice_idx)
     if in_xo and hasattr(system, 'poly_to_orig'):
@@ -127,8 +128,8 @@ def plot3d(V, system, r_max=[3, 3], slice_idx=(0, 1), in_xo=True):
     else:
         sym_x = system.sym_x
 
-    nq = 151
-    nqd = 151
+    nq = nd
+    nqd = nd
     x = np.linspace(-r_max[0], r_max[0], nq)
     y = np.linspace(-r_max[1], r_max[1], nqd)
     X, Y = np.meshgrid(x, y)
@@ -139,12 +140,16 @@ def plot3d(V, system, r_max=[3, 3], slice_idx=(0, 1), in_xo=True):
             env1 = {sym_x[slice_idx[0]]: X[i, j], sym_x[slice_idx[1]]: Y[i, j]}
             env.update(env1)
             Z[i, j] = V.Evaluate(env)
-
+    # if limit is not None:
+    #     X3d = X[np.abs(Z) <= limit]
+    #     Y3d = Y[np.abs(Z) <= limit]
+    #     Z3d = Z[np.abs(Z) <= limit]
     fig = plt.figure()
     ax = fig.gca(projection='3d')
-    ax.plot_surface(X, Y, Z, linewidth=0.2, cmap=cm.coolwarm, antialiased=True)
+    ax.plot_surface(X, Y, Z, linewidth=0.2, cmap=cm.coolwarm,
+                    antialiased=True)
     # ax.contour(X, Y, Z, zdir='z', offset=min(Z.ravel())-.25, cmap=cm.coolwarm)
-    # ax.set_zlim(min(Z.ravel())-.25, max(Z.ravel()))
+    # if limit is not None: ax.set_zlim(min(Z.ravel())-.25, limit)
 
     fig2, ax2 = plt.subplots()
     ax2.contour(X, Y, Z, levels=30, cmap=cm.Spectral)
