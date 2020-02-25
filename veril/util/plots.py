@@ -91,23 +91,22 @@ def plot_traj(initial, system, **kwargs):
     # plt.legend(handles=handles)
     slice_idx = kwargs['slice_idx'] if 'slice_idx' in kwargs else range(nx)
     fig, axs = plt.subplots(1, len(slice_idx), sharey=False, figsize=(9, 3))
+    fig2, axs2 = plt.subplots()
     st = fig.suptitle("\n" + sys_name + ' Simulation ' + add_title)
     [j.set_ylabel('x' + str(i + 1)) for (i, j) in zip(slice_idx, axs)]
-
-    plotV = False
-    if 'V' in kwargs:
-        fig2, axs2 = plt.subplots()
-        plotV = True
+    [i.set_xlabel('time') for i in axs]
     final_states = []
     final_Vs = []
     for i, c in zip(initial, color):
         sol = system.forward_sim(i, **kwargs)
         if sol.status != -1:
-            [j.plot(sol.y[i], c=c) for (i, j) in zip(slice_idx, axs)]
+            [j.plot(sol.t, sol.y[i],  c=c) for (i, j) in zip(slice_idx, axs)]
             final_states.append(sol.y[:, -1])
-            if plotV:
+            if 'V' in kwargs:
                 Vtraj = system.get_v_values(sol.y.T, V=kwargs['V'])
-                axs2.plot(Vtraj, c=c)
+                axs2.plot(sol.t, Vtraj, c=c)
+                axs2.set_xlabel('time')
+                axs2.set_ylabel('V')
                 axs2.set_title('V trajectory')
                 print('final V value is %s' % Vtraj[-1])
                 final_Vs.append(Vtraj[-1])
