@@ -2,7 +2,7 @@ import sys
 sys.path.append(
     "/Users/shenshen/drake-build/install/lib/python3.7/site-packages")
 from pydrake.all import (MathematicalProgram, Polynomial, Expression,
-                         MonomialBasis, Jacobian, Evaluate)
+                         MonomialBasis, Jacobian, Evaluate, sin, cos)
 
 import os
 import itertools
@@ -122,7 +122,9 @@ class ClosedLoopSys(object):
         H = Jacobian(Vdot.Jacobian(self.sym_x).T, self.sym_x)
         env = dict(zip(self.sym_x, self.x0))
         H = np.array([[i.Evaluate(env) for i in j]for j in H])
-        print('eig of Hessian of Vdot0 %s' % (eig(H)[0]))
+        hessian_eigs = eig(H)[0]
+        # print('eig of Hessian of Vdot0 %s' % hessian_eigs)
+        return hessian_eigs
         # assert (np.all(eig(H)[0] <= 0))
 
     def set_Vdot(self, V):
@@ -367,7 +369,9 @@ class PendulumRecast(S4CV_Plants):
         H = Jacobian(Vdot.Jacobian(self.xo).T, self.xo)
         env = dict(zip(self.xo, self.xo0))
         H = np.array([[i.Evaluate(env) for i in j]for j in H])
-        print('eig of Hessian of Vdot0 %s' % (eig(H)[0]))
+        hessian_eigs = eig(H)[0]
+        # print('eig of Hessian of Vdot0 %s' % hessian_eigs)
+        return hessian_eigs
         # assert (np.all(eig(H)[0] <= 0))
 
     def u_scaling_reg(self):
@@ -425,10 +429,10 @@ class DubinsRecast(S4CV_Plants):
         return np.array([[c, 0], [-s, 0], [ye, 1], [-xe, 0]])
 
     def random_sample(self, n):
-        m = np.pi / 2
+        m = np.pi
         theta = np.random.uniform(low=-m, high=m, size=(1, n))
         # x1 = np.random.randn(2, n)
-        x1 = np.random.uniform(low=-1, high=1, size=(2, n))
+        x1 = np.random.uniform(low=-10, high=10, size=(2, n))
         x = np.vstack((np.sin(theta), np.cos(theta), x1)).T  # (n,4)
         return x
 
@@ -447,7 +451,9 @@ class DubinsRecast(S4CV_Plants):
         H = Jacobian(Vdot.Jacobian(self.xo).T, self.xo)
         env = dict(zip(self.xo, self.xo0))
         H = np.array([[i.Evaluate(env) for i in j]for j in H])
-        print('eig of Hessian of Vdot0 %s' % (eig(H)[0]))
+        hessian_eigs = eig(H)[0]
+        # print('eig of Hessian of Vdot0 %s' % hessian_eigs)
+        return hessian_eigs
         # assert (np.all(eig(H)[0] <= 0))
 
 
@@ -529,7 +535,7 @@ class VirtualDubins3d(ClosedLoopSys):
         super().__init__('VirtualDubins3d', 3, idx=(1, 2))
         # parameters
         self.ldot = 2
-        self.kv = 0
+        self.kv = 0.1
         self.init_x_f()
         self.degf = 4
         self.at_fixed_pt_tol = 5e-2
@@ -544,8 +550,14 @@ class VirtualDubins3d(ClosedLoopSys):
         x1dot = V * kb - kv * ldot
         # x2dot = V * kb * x3 + V - ldot * np.cos(1 * x1)
         # x3dot = -V * kb * x2 + ldot * np.sin(1 * x1)
-        s = x1 - x1**3 / 6
-        c = 1 - x1**2 / 2
+        # s = x1 - x1**3 / 6
+        # c = 1 - x1**2 / 2
+        if isinstance(x1, float):
+            s = np.sin(x1)
+            c = np.cos(x1)
+        else:
+            s = sin(x1)
+            c = cos(x1)
         x2dot = V * kb * x3 + V - ldot * c
         x3dot = -V * kb * x2 + ldot * s
         return np.concatenate([[x1dot], [x2dot], [x3dot]])
@@ -557,7 +569,7 @@ class VirtualDubins3d(ClosedLoopSys):
         # # V = ||[xE;yE]|| (or V = sqrt(xE^2 + yE^2) ), and
         # # kb = -yE.
         V = x2**2 + x3**2 + self.ldot
-        kb = -x3
+        kb = -x3 + self.kv
         u = np.array([V, kb])
         return self.open_loop(y, u)
 
