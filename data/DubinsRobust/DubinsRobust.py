@@ -17,20 +17,15 @@ import itertools
 import os
 from sympy import sin, cos
 
-# kv =1
-# folder = './'
-# n=77
+import matplotlib
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.pyplot import cm
+import matplotlib.lines as mlines
 
-kv =.8
-folder = './LB/'
-n=66
-
-# kv =1.2
-# folder = './UB/'
-# n=76
 
 def Dubins_original():
-    l=1
+    l = 1
     q = me.dynamicsymbols('q:{}'.format(3))  # Generalized coordinates
     f = me.dynamicsymbols('f:{}'.format(2))      # Force applied to the cart
     t = sm.symbols('t')                     # Gravity and time
@@ -65,6 +60,7 @@ def Dubins_original():
     # K = np.dot(np.dot(np.linalg.inv(R), B.T),  S)
     # print('saving gain')
     K = np.load('gain.npy')
+    # K = np.ones((2, 3))
     # The gains can now be used to define the required input during simulation to stabilize the system. The input $r$ is simply the gain vector multiplied by the error in the state vector from the equilibrium point, $r(t)=K(x_{eq} - x(t))$.
     # ### Feedback the LQR controller for the closed-loop EOM:
     div = - np.array(q)
@@ -73,9 +69,9 @@ def Dubins_original():
     div_in_trig[0] = sin(div[0])
     feedback = np.dot(K, div_in_trig)
 
-    qdot_cl = qdot.subs(dict(zip(f, feedback)))
+    qdot_cl = sm.expand_trig(sm.simplify(qdot.subs(dict(zip(f, feedback)))))
     # A_cl = sm.matrix2numpy(qdot_cl.jacobian(q).subs(equilibrium_dict),
-    #                        dtype=float)
+    # dtype=float)
 
     # print('closed-loop A eigs %s' % np.linalg.eig(A_cl)[0])
     # from scipy.linalg import solve_lyapunov
@@ -115,16 +111,17 @@ def Dubins_original():
     Vr = V.subs(q_to_x_dict)
     print('Vr at the fixed pt %s' % Vr.subs(x0_dict))
 
-    f_cl = sm.expand_trig(qdot_cl).subs(q_to_x_dict)
+    f_cl = sm.simplify(T@sm.expand_trig(qdot_cl).subs(q_to_x_dict))
 
-    return Vr, x, T, f_cl
+    return Vr, x, f_cl, qdot_cl, q
 
 
-def get_Vdot(Vr, x, T, f_cl, x_sample_dict, trig_sample_dict):
+def get_Vdot(Vr, x, f_cl, x_sample_dict, trig_sample_dict):
     phi = Vr.diff((x, 1))
     this_phi = phi.subs(x_sample_dict)
-    this_T = T.subs(trig_sample_dict)
-    this_f = this_T@f_cl.subs(x_sample_dict)
+    # this_T = T.subs(trig_sample_dict)
+    # this_f = this_T@f_cl.subs(x_sample_dict)
+    this_f = f_cl.subs(x_sample_dict)
 
     this_Vdot = this_phi@sm.matrix2numpy(this_f)
     return this_Vdot
@@ -148,7 +145,7 @@ def sample(n_samples):
 
         x_sample_dict.update(trig_sample_dict)
 
-        this_Vdot = get_Vdot(Vr, x, T, f_cl, x_sample_dict, trig_sample_dict)
+        this_Vdot = get_Vdot(Vr, x, f_cl, x_sample_dict, trig_sample_dict)
 
         t_num = sm.solve(this_Vdot, t)
 
@@ -200,118 +197,15 @@ def load_x_and_y():
 
 
 def right_hand_side(x, t):
-    """Returns the derivatives of the states.
-
-    Parameters
-    ----------
-    x : ndarray, shape(2 * (n + 1))
-        The current state vector.
-    t : float
-        The current time.
-    args : ndarray
-        The constants.
-
-    Returns
-    -------
-    dx : ndarray, shape(2 * (n + 1))
-        The derivative of the state.
-
-    """
-    arguments = np.hstack((x))     # States, input, and parameters
-    dx = np.array(qdot_cl).T[0]
+    dx = sm.matrix2numpy(qdot_cl.subs(dict(zip(q, x))), dtype=float).T[0]
     return dx
 
 
-def animate_pendulum(t, states, length, filename=None):
-    """Animates the n-pendulum and optionally saves it to file.
-
-    Parameters
-    ----------
-    t : ndarray, shape(m)
-        Time array.
-    states: ndarray, shape(m,p)
-        State time history.
-    length: float
-        The length of the pendulum links.
-    filename: string or None, optional
-        If true a movie file will be saved of the animation. This may take some time.
-
-    Returns
-    -------
-    fig : matplotlib.Figure
-        The figure.
-    anim : matplotlib.FuncAnimation
-        The animation.
-
-    """
-    # the number of pendulum bobs
-    numpoints = states.shape[1] // 2
-
-    # first set up the figure, the axis, and the plot elements we want to
-    # animate
-    fig = plt.figure()
-
-    # some dimesions
-    cart_width = 0.4
-    cart_height = 0.2
-
-    # set the limits based on the motion
-    xmin = np.around(states[:, 0].min() - cart_width / 2.0, 1)
-    xmax = np.around(states[:, 0].max() + cart_width / 2.0, 1)
-
-    # create the axes
-    ax = plt.axes(xlim=(xmin, xmax), ylim=(-1.1, 1.1), aspect='equal')
-
-    # display the current time
-    time_text = ax.text(0.04, 0.9, '', transform=ax.transAxes)
-
-    # create a rectangular cart
-    rect = Rectangle([states[0, 0] - cart_width / 2.0, -cart_height / 2],
-                     cart_width, cart_height, fill=True, color='red',
-                     ec='black')
-    ax.add_patch(rect)
-
-    # blank line for the pendulum
-    line, = ax.plot([], [], lw=2, marker='o', markersize=6)
-
-    # initialization function: plot the background of each frame
-    def init():
-        time_text.set_text('')
-        rect.set_xy((0.0, 0.0))
-        line.set_data([], [])
-        return time_text, rect, line,
-
-    # animation function: update the objects
-    def animate(i):
-        time_text.set_text('time = {:2.2f}'.format(t[i]))
-        rect.set_xy((states[i, 0] - cart_width / 2.0, -cart_height / 2))
-        x = np.hstack((states[i, 0], np.zeros((numpoints - 1))))
-        y = np.zeros((numpoints))
-        for j in np.arange(1, numpoints):
-            x[j] = x[j - 1] + length * np.cos(states[i, j])
-            y[j] = y[j - 1] + length * np.sin(states[i, j])
-        line.set_data(x, y)
-        return time_text, rect, line,
-
-    # call the animator function
-    anim = animation.FuncAnimation(fig, animate, frames=len(t), init_func=init,
-                                   interval=t[-1] / len(t) * 1000, blit=True, repeat=False)
-    Writer = animation.writers['ffmpeg']
-    writer = Writer(fps=15, metadata=dict(artist='Me'), bitrate=1800)
-    f_name = './link' + str(n) + '/closed-loop.mp4'
-    anim.save(f_name, writer='ffmpeg')
-
-
-def do_anim(x0):
-    t = np.linspace(0.0, 7.0, num=500)
-    x = odeint(right_hand_side, x0, t)
-    anim = animate_pendulum(t, x, 1. / n)
-
-
 def x_to_originial(x):
-    angles = np.arctan2(x[1:2 * n + 1:2], x[2:2 * n + 2:2])
-    velocity = x[-n - 1:]
-    return np.concatenate([[x[0]], angles, velocity])
+    x=x.reshape((-1,4))
+    angles = np.arctan2(x[:,0], x[:,1]).reshape((-1,1))
+    velocity = x[:, -2:]
+    return np.hstack([angles, velocity])
 
 
 def original_to_x(orig):
@@ -353,41 +247,164 @@ def solve_SDP_on_samples(Y, n=None, write_to_file=False):
     print(rho)
     return rho, P, Y
 
-Vr, x, T, f_cl = Dubins_original()
-# sample(300)
 
-
-get_Y(Vr, x)
-Y = load_x_and_y()
-[xx, xxd, psi, V] = Y
-
-# transformed_basis, T = coordinate_ring_transform(psi)
-# print(check_genericity(psi[:n,]))
-# Y[2] = transformed_basis
-rho, P, Y = solve_SDP_on_samples(Y,n=n, write_to_file=False)
-import matplotlib
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-from matplotlib.pyplot import cm
-import matplotlib.lines as mlines
-
-def scatter_3d(Vr,rho, x, r_max=[1,1],res=20):
-    theta = np.linspace(-np.pi,np.pi, res)
+def scatter_3d(Vr, rhos, x, r_max=[1.2, 1.2], res=50):
+    [rho1, rho2, rho3] = rhos
+    theta = np.linspace(-np.pi, np.pi, res)
     X = np.linspace(-r_max[0], r_max[0], res)
     Y = np.linspace(-r_max[1], r_max[1], res)
-    X, Y, Z =np.meshgrid(theta,X,Y)
+    X, Y, Z = np.meshgrid(theta, X, Y)
     X, Y, Z = X.ravel(), Y.ravel(), Z.ravel()
     sins = np.sin(X)
     coss = np.cos(X)
     samples = np.array([sins, coss, Y, Z]).T
-    values = np.array([Vr.subs(dict(zip(x, i))) for i in samples])
-    np.save('V_values', values)
+    np.save('Densedensex.npy', samples)
+    vdots = [get_Vdot(Vr, x, f_cl, dict(zip(x, i)), dict(zip(x, i))) for i in
+             samples]
+    np.save('Vdot_values', vdots)
+    # values = np.array([Vr.subs(dict(zip(x, i))) for i in samples])
+    # np.save('V_values', values)
+    # values = np.load('V_values.npy', allow_pickle=True)
 
     fig = plt.figure()
     ax = fig.gca(projection='3d')
-    ax.scatter(X[values<=rho], Y[values<=rho], Z[values<=rho])
+    ax.set_xlabel('angle')
+    ax.set_ylabel('x')
+    ax.set_zlabel('y')
+    [X1, Y1, Z1] = X[values <= rho1], Y[values <= rho1], Z[values <= rho1]
+    ax.scatter(X1, Y1, Z1, c='red')
+
+    idx2 = (values >= rho1) & (values <= rho2)
+    ax.scatter(X[idx2], Y[idx2], Z[idx2], c='blue', alpha=.2)
+
+    idx3 = (values >= rho2) & (values <= rho3)
+    ax.scatter(X[idx3], Y[idx3], Z[idx3], c='yellow', alpha=.1)
+
     plt.show()
 
-# scatter_3d(Vr,rho,x)
-# x0 = x_to_originial(xx[5])
-# do_anim(x0)
+
+import plotly.graph_objects as go
+
+
+def scatter_volume(rhos, r_max=[1.2, 1.2], res=50):
+    [rho1, rho2, rho3] = rhos
+    theta = np.linspace(-np.pi, np.pi, res)
+    X = np.linspace(-r_max[0], r_max[0], res)
+    Y = np.linspace(-r_max[1], r_max[1], res)
+    X, Y, Z = np.meshgrid(theta, X, Y)
+    X, Y, Z = X.ravel(), Y.ravel(), Z.ravel()
+#     sins = np.sin(X)
+#     coss = np.cos(X)
+#     samples = np.array([sins, coss, Y, Z]).T
+    # values = np.array([Vr.subs(dict(zip(x, i))) for i in samples])
+    # np.save('V_values', values)
+    values = np.load('V_values.npy')
+    # values = np.load('Vdot_values.npy')
+    values[values <= rho1] = rho1
+    allbad= np.load('all_bad.npy')
+    bad_samples = go.Scatter3d(x=allbad[:,0],y=allbad[:,1],z=allbad[:,2], mode='markers')
+    fig = go.Figure(data=[go.Volume(
+        x=X.flatten(), y=Y.flatten(), z=Z.flatten(),
+        value=values.flatten(),
+        isomin=rho1,
+        isomax=rho3,
+        opacity=0.2,
+        surface_count=3,
+        opacityscale=[[rho1, 1], [rho2, 0.3], [rho3, .1]],
+    ),bad_samples])
+#     fig.update_layout(scene_xaxis_showticklabels=True,
+#                   scene_yaxis_showticklabels=Fals,
+#                   scene_zaxis_showticklabels=False)
+    fig.show()
+#     import chart_studio.plotly as py
+#     py.iplot(fig, filename="Dubins")
+
+
+def sim_once():
+    # x0 = [2.11, 1.2, 1]
+    x0 =x_to_originial(np.load('bad_sample.npy'))
+    x0 = x0 + np.random.uniform(-1e-3,1e-3,3)
+    x0=x0.ravel()
+    t = np.linspace(0.0, 10.0, num=500)
+    x = odeint(right_hand_side, x0, t)
+
+    lines = plt.plot(t, x)
+    lab = plt.xlabel('Time [sec]')
+    plt.show()
+    return x
+
+
+def sim_samples(r_max=[1.2, 1.2], res=50):
+    # theta = np.linspace(-np.pi, np.pi, res)
+    # X = np.linspace(-r_max[0], r_max[0], res)
+    # Y = np.linspace(-r_max[1], r_max[1], res)
+    # X, Y, Z = np.meshgrid(theta, X, Y)
+    # X, Y, Z = X.ravel(), Y.ravel(), Z.ravel()
+    t = np.linspace(0.0, 10.0, num=500)
+    # samples = np.array([X,Y,Z]).T
+    # np.save('dense_samples', samples)
+    samples = np.load('dense_samples.npy')
+    x = [odeint(right_hand_side, i, t)[-1] for i in samples]
+    np.save('final', x)
+
+
+def right_hand_side_4d(x0, t):
+    return sm.matrix2numpy(f_cl.subs(dict(zip(x, x0))), dtype=float).T[0]
+
+
+def sim_4d_once():
+    # x0 = [np.sin(-np.pi / 3), np.cos(-np.pi / 3), 0, 0]
+    x0 = np.load('bad_sample.npy')
+    t = np.linspace(0.0, 10.0, num=500)
+    x = odeint(right_hand_side_4d, x0, t)
+    lines = plt.plot(t, x)
+    lab = plt.xlabel('Time [sec]')
+    plt.legend(str(kv))
+    plt.show()
+    return x
+
+def solve_fixed_pt(f_cl,x):
+    first = sm.Matrix(sm.solve(f_cl,x)[-1])
+    unit = first[0]**2 + first[1]**2 -1 
+    aa = sm.solve(unit,x)
+    bb = [first.subs(dict(zip(x,i))) for i in aa]
+    return aa
+
+
+kv = 1
+folder = './'
+n = 77
+
+# kv = .8
+# folder = './LB/'
+# n = 66
+
+# kv =1.2
+# folder = './UB/'
+# n=76
+
+
+Vr, x, f_cl, qdot_cl, q = Dubins_original()
+
+# solve_fixed_pt(f_cl,x)
+# sample(300)
+
+
+# get_Y(Vr, x)
+# Y = load_x_and_y()
+# [xx, xxd, psi, V] = Y
+
+
+# transformed_basis, T = coordinate_ring_transform(psi)
+# print(check_genericity(psi[:n,]))
+# Y[2] = transformed_basis
+# rho, P, Y = solve_SDP_on_samples(Y,n=n, write_to_file=False)
+
+
+rhos = [.367, 0.57, 0.633]
+# scatter_3d(Vr, rhos, x)
+# scatter_volume(rhos)
+
+x3d = sim_once()
+# x4d = sim_4d_once()
+# sim_samples(r_max=[1.2, 1.2], res=10)
