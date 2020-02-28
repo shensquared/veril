@@ -1,6 +1,3 @@
-# import sys
-# sys.path.append(
-#     "/Users/shenshen/drake-build/install/lib/python3.7/site-packages")
 from pydrake.all import (Polynomial, Variable, Evaluate, Substitute,
                          MathematicalProgram, MosekSolver)
 import numpy as np
@@ -23,31 +20,24 @@ rho: scalar Lyapunov level
 def verify_via_variety(system, V, init_root_threads=1):
     assert system.loop_closed
     system.set_sample_variety_features(V)
-    Vdot = system.sym_Vdot
-    x0 = system.x0
-    variety = multi_to_univariate(Vdot)
+    variety = multi_to_univariate(system.sym_Vdot)
     is_vanishing = False
     filepath = '../data/' + system.name + '/variety_Y.npz'
     if os.path.exists(filepath):
         ff = np.load(filepath)
         Y = [ff['x'], ff['V'], ff['xxd'], ff['psi'], ff['T']]
     else:
-        x = sample_on_variety(variety, init_root_threads, x0)
-        Y = x_to_monomials_related(system, x, variety, x0)
+        x = sample_on_variety(variety, init_root_threads, system.x0)
+        Y = x_to_Y(system, x, variety)
     while not is_vanishing:
         # start = time.time()
         sym_V, rho, P, Y = solve_SDP_on_samples(system, Y)
-        is_vanishing, test_x = check_vanishing(
-            system, variety, rho, P, Y, x0)
+        is_vanishing, test_x = check_vanishing(system, variety, rho, P, Y)
         # end = time.time()
         # print('sampling variety time %s' % (end - start))
-        test_Y = x_to_monomials_related(system, test_x, variety, x0)
-        x = np.vstack((x, test_x))
-        Y = [np.vstack([i,j]) for (i,j) in zip(Y, test_Y)]
-
-    # scatterSamples(x, system)
-    # scatterSamples(test_x, system)
-    # check_vanishing(system, variety, rho, P, Y, x0)
+        test_Y = x_to_Y(system, test_x, variety, test_only=True)
+        Y = [np.concatenate([i, j])
+             for (i, j) in zip(Y[:-1], test_Y[:-1])] + [Y[-1]]
     print(rho)
     plot_funnel(V / rho, system, slice_idx=system.slice,
                 add_title=' - Sampling Variety ' + 'Result')
@@ -66,7 +56,7 @@ def multi_to_univariate(variety):
         variety (TYPE): pydrake scalar Expression
 
     Returns:
-        TYPE: List of all necessary parameters to describe the univariate 
+        TYPE: List of all necessary parameters to describe the univariate
         polynomial to sampel from
     """
     x = np.array(list(variety.GetVariables()))
@@ -141,7 +131,7 @@ def sample_on_variety(variety, root_threads, x0, slice_idx=None):
         root_t = root_t[~np.iscomplex(root_t)].real
         # end = time.time()
         # print(end - start)
-        if len(root_t)==0:
+        if len(root_t) == 0:
             continue
         root_x = np.array([alphas * i + betas for i in root_t])
         root_x = root_x[~np.all(root_x == x0, axis=1)]
@@ -161,39 +151,36 @@ def sample_on_variety(variety, root_threads, x0, slice_idx=None):
     return samples[1:]
 
 
-def x_to_monomials_related(system, x, variety, x0, do_transform=False):
-    enough_x = True
+def x_to_Y(system, x, variety, do_transform=True, test_only=False):
+    enough_x = False
     while not enough_x:
-        more_x = sample_on_variety(variety, 1, x0)
+        more_x = sample_on_variety(variety, 1, system.x0)
         x = np.vstack([x, more_x])
         V = system.get_v_values(x)
         x, V = balancing_V(x, V)
         [xxd, psi] = system.get_sample_variety_features(x)
-        if do_transform:
-            trans_psi, T = coordinate_ring_transform(psi)
-            enough_x = check_genericity(trans_psi)
-        else:
-            trans_psi = psi
-            T = np.eye(psi.shape[1])
-            enough_x = check_genericity(psi)
+        trans_psi, T = coordinate_ring_transform(psi, do_transform, test_only)
+        enough_x = check_genericity(trans_psi, test_only)
+
     scale = min(V)
     for i in range(V.shape[0]):
         xxd[i] = xxd[i] / scale
         trans_psi[i] = trans_psi[i] / np.sqrt(scale)
     Y = [x, V, xxd, trans_psi, T]
-    filepath = '../data/' + system.name + '/variety_Y.npz'
-    # np.savez_compressed(filepath, x=Y[0], V = Y[1], xxd = Y[2], psi=Y[3], T=Y[4])
+    if not test_only:
+        path = '../data/' + system.name + '/variety_Y.npz'
+        np.savez_compressed(path, x=Y[0], V=Y[1], xxd=Y[2], psi=Y[3], T=Y[4])
     return Y
 
 
-def coordinate_ring_transform(monomial_samples):
+def coordinate_ring_transform(psi, do_transform, test_only):
     """reduce the dimensionality of the sampled-monimials by taking advantage
     of the coordiate ring structure (similar to Gaussian elimination used in
     finding Grobner basis)
 
     Args:
-        monomial_samples: (num_samples, monomial_dim)
-        U =monomial_samples.T (monomial_dim, num_samples)
+        psi: (num_samples, monomial_dim)
+        U =psi.T (monomial_dim, num_samples)
         [u,s,v] = svd(U)
         n = # of non-zero values in s
         U= T@U_transformed, where
@@ -203,17 +190,15 @@ def coordinate_ring_transform(monomial_samples):
     Returns:
         transformed_basis (num_samples, reduced_monomials)
         T (reduced_monomials, monomial_dim)
-
-    Deleted Parameters:
-        T: (monomial_dim, n),
-        U_transformed: (n,num_samples)
     """
-    U = monomial_samples.T
+    if test_only or not do_transform:
+        return psi, np.eye(psi.shape[1])
+    U = psi.T
     [u, diag_s, v] = np.linalg.svd(U)
     tol = max(U.shape) * diag_s[0] * 1e-16
     original_monomial_dim, num_samples = U.shape
     n = sum(diag_s > tol)
-    print('original_monomial_dim is %s' %original_monomial_dim)
+    print('original_monomial_dim is %s' % original_monomial_dim)
     print('rank for SVD %s' % n)
     print('coordinate_ring_transform for %s samples' % num_samples)
     if n / original_monomial_dim >= .95:
@@ -238,12 +223,12 @@ def coordinate_ring_transform(monomial_samples):
 # coordinate_ring_transform(U.T)
 
 
-def check_genericity(all_samples):
+def check_genericity(psi, test_only):
     """check the rank condition of the samples to make sure the genericity is
     satisfied
 
     Args:
-        all_samples (ndarry): (m,n), current samples,
+        psi (ndarry): (m,n), current samples,
 
     Returns:
         enough_samples (Bool): if the current sample set is generic enough
@@ -254,19 +239,21 @@ def check_genericity(all_samples):
         m (int): current number of samples
         n (int): monomial_dim (or reduced_monomial if do_transformation)
     """
+    if test_only:
+        return True
     enough_samples = True
-    m, n = all_samples.shape
+    m, n = psi.shape
     n2 = n * (n + 1) / 2
     m0 = min(m, n2)
-    # sub_samples = all_samples[:m0, :]
-    sub_samples = all_samples
+    # sub_samples = psi[:m0, :]
+    sub_samples = psi
 
     c = np.power(sub_samples@sub_samples.T, 2)  # c = q'*q
     # print('c shape is %s' % str(c.shape))
     s = abs(np.linalg.eig(c)[0])
     tol = max(c.shape) * np.spacing(max(s)) * 1e3
     sample_rank = sum(s > tol)
-    print('sample rank is %s' %sample_rank)
+    # print('sample rank is %s' % sample_rank)
     if sample_rank == m0 and sample_rank < n2:
         # meaning m<n2 and sample full rank
         # print('Insufficient samples!!')
@@ -307,11 +294,11 @@ def solve_SDP_on_samples(system, Y, write_to_file=False):
     return system.sym_V, rho, P, Y
 
 
-def check_vanishing(system, variety, rho, P, Y, x0):
+def check_vanishing(system, variety, rho, P, Y):
     T = Y[-1]
     empty_test = True
     while empty_test:
-        test_x = sample_on_variety(variety, 1, x0)
+        test_x = sample_on_variety(variety, 1, system.x0)
         V = system.get_v_values(test_x)
         old_V = Y[1]
         idx = old_new_V(old_V, V)
