@@ -295,7 +295,6 @@ def scatter_volume(rhos, r_max=[1.2, 1.2], res=50):
     X, Y, Z = X.ravel(), Y.ravel(), Z.ravel()
 #     sins = np.sin(X)
 #     coss = np.cos(X)
-#     samples = np.array([sins, coss, Y, Z]).T
     # values = np.array([Vr.subs(dict(zip(x, i))) for i in samples])
     # np.save('V_values', values)
     values = np.load('V_values.npy')
@@ -303,27 +302,42 @@ def scatter_volume(rhos, r_max=[1.2, 1.2], res=50):
     values[values <= rho1] = rho1
     allbad= np.load('all_bad.npy')
     bad_samples = go.Scatter3d(x=allbad[:,0],y=allbad[:,1],z=allbad[:,2], mode='markers')
-    fig = go.Figure(data=[go.Volume(
-        x=X.flatten(), y=Y.flatten(), z=Z.flatten(),
+    roa = go.Volume(
+        x=X, y=Y, z=Z,
         value=values.flatten(),
         isomin=rho1,
         isomax=rho3,
         opacity=0.2,
         surface_count=3,
         opacityscale=[[rho1, 1], [rho2, 0.3], [rho3, .1]],
-    ),bad_samples])
+    )
+
 #     fig.update_layout(scene_xaxis_showticklabels=True,
 #                   scene_yaxis_showticklabels=Fals,
 #                   scene_zaxis_showticklabels=False)
-    fig.show()
-#     import chart_studio.plotly as py
-#     py.iplot(fig, filename="Dubins")
+    # theta = allbad[:,0] + np.linspace(-.05, .05, 15)
+    # X = allbad[:,1] + np.linspace(-.05, .05, 15)
+    # Y = allbad[:,2] + np.linspace(-.05, .05, 15)
+    # X, Y, Z = np.meshgrid(theta, X, Y)
+    # X, Y, Z = X.ravel(), Y.ravel(), Z.ravel()
 
+    # samples = np.array([X , Y, Z]).T
+    # field = [qdot_cl.subs(dict(zip(q,i))) for i in samples]
+    # [U,V,W] = np.array(field,dtype=float).T
+    # cones = dict(type='cone',x=X, y=Y, z=Z, u=U, v=V, w=W, 
+    #               sizemode='scaled',
+    #               sizeref=3,
+    #               showscale=True,
+    #               # colorscale=pl_curl,
+    #               # colorbar=dict(thickness=20, ticklen=4, len=0.75),
+    #               anchor='tail'
+    #           )
+    # fig = go.Figure(data=[roa, bad_samples, cones])
+    fig = go.Figure(data = [roa, bad_samples])
+    fig.show()
 
 def sim_once():
-    # x0 = [2.11, 1.2, 1]
-    x0 =x_to_originial(np.load('bad_sample.npy'))
-    x0 = x0 + np.random.uniform(-1e-3,1e-3,3)
+    x0 =x_to_originial(np.load(folder + 'bad_sample.npy'))
     x0=x0.ravel()
     t = np.linspace(0.0, 10.0, num=500)
     x = odeint(right_hand_side, x0, t)
@@ -334,18 +348,18 @@ def sim_once():
     return x
 
 
-def sim_samples(r_max=[1.2, 1.2], res=50):
-    # theta = np.linspace(-np.pi, np.pi, res)
-    # X = np.linspace(-r_max[0], r_max[0], res)
-    # Y = np.linspace(-r_max[1], r_max[1], res)
-    # X, Y, Z = np.meshgrid(theta, X, Y)
-    # X, Y, Z = X.ravel(), Y.ravel(), Z.ravel()
-    t = np.linspace(0.0, 10.0, num=500)
-    # samples = np.array([X,Y,Z]).T
-    # np.save('dense_samples', samples)
-    samples = np.load('dense_samples.npy')
-    x = [odeint(right_hand_side, i, t)[-1] for i in samples]
-    np.save('final', x)
+# def sim_samples(r_max=[1.2, 1.2], res=50):
+#     # theta = np.linspace(-np.pi, np.pi, res)
+#     # X = np.linspace(-r_max[0], r_max[0], res)
+#     # Y = np.linspace(-r_max[1], r_max[1], res)
+#     # X, Y, Z = np.meshgrid(theta, X, Y)
+#     # X, Y, Z = X.ravel(), Y.ravel(), Z.ravel()
+#     t = np.linspace(0.0, 10.0, num=500)
+#     # samples = np.array([X,Y,Z]).T
+#     # np.save('dense_samples', samples)
+#     samples = np.load('dense_samples.npy')
+#     x = [odeint(right_hand_side, i, t)[-1] for i in samples]
+#     np.save('final', x)
 
 
 def right_hand_side_4d(x0, t):
@@ -403,8 +417,8 @@ Vr, x, f_cl, qdot_cl, q = Dubins_original()
 
 rhos = [.367, 0.57, 0.633]
 # scatter_3d(Vr, rhos, x)
-# scatter_volume(rhos)
-
+scatter_volume(rhos)
+# vector_filed_plot(r_max=[1.2, 1.2], res=10)
 x3d = sim_once()
 # x4d = sim_4d_once()
 # sim_samples(r_max=[1.2, 1.2], res=10)
