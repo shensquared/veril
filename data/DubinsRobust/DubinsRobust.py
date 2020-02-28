@@ -312,9 +312,25 @@ def scatter_volume(rhos, r_max=[1.2, 1.2], res=50):
         surface_count=3,
         opacityscale=[[rho1, 1], [rho2, 0.3], [rho3, .1]],
     )
+    folder = ['./', './LB/', './UB/']
+    # bad_traj = np.load(folder + 'bad_traj.npy')
+    traj = [go.Scatter3d(
+        x=np.load(i + 'bad_traj.npy')[:, 0],
+        y=np.load(i + 'bad_traj.npy')[:, 1],
+        z=np.load(i + 'bad_traj.npy')[:, 2],
+        marker=dict(
+            size=1,
+            # color=z,
+            # colorscale='Viridis',
+        ),
+        line=dict(
+            color='darkblue',
+            width=1
+        ),
+    ) for i in folder ]
 
-#     fig.update_layout(scene_xaxis_showticklabels=True,
-#                   scene_yaxis_showticklabels=Fals,
+    # scene_xaxis_showticklabels=True,
+    # scene_yaxis_showticklabels=Fals,
 #                   scene_zaxis_showticklabels=False)
     # theta = allbad[:,0] + np.linspace(-.05, .05, 15)
     # X = allbad[:,1] + np.linspace(-.05, .05, 15)
@@ -334,7 +350,8 @@ def scatter_volume(rhos, r_max=[1.2, 1.2], res=50):
     #               anchor='tail'
     #           )
     # fig = go.Figure(data=[roa, bad_samples, cones])
-    fig = go.Figure(data=[roa, bad_samples])
+    fig = go.Figure(data=[roa, bad_samples] + traj)
+    # fig.update_layout(layout_showscale=False)
     fig.show()
 
 
@@ -388,13 +405,28 @@ def solve_fixed_pt(f_cl, x):
     return aa
 
 
-kv = 1
-folder = './'
-n = 78
+def traj_to_unstable():
+    x0 = x_to_originial(np.load(folder + 'bad_sample.npy'))
+    x0 = x0.ravel()
+    A = qdot_cl.jacobian(q).subs(dict(zip(q, x0)))
+    A = sm.matrix2numpy(A, dtype=float)
+    # eigs = np.linalg.eig(A)
+    x1 = x0 - A@x0 * 1e-4
+    # starting from x1 (close to the unstable pt), roll-out backwards
+    unstable_out = sim_once(x0=x1, backwards=True, t_max=12)
+    # double check that starting from the backward roll-out traj end pt, can
+    # get to the unstable fixed pt
+    to_unstable = sim_once(x0=unstable_out[-1])
+    # save the to_unstable traj
+    np.save(folder + 'bad_traj.npy', to_unstable)
 
-# kv = .8
-# folder = './LB/'
-# n = 66
+# kv = 1
+# folder = './'
+# n = 78
+
+kv = .8
+folder = './LB/'
+n = 66
 
 # kv =1.2
 # folder = './UB/'
@@ -408,12 +440,12 @@ Vr, x, f_cl, qdot_cl, q = Dubins_original()
 # get_Y(Vr, x)
 
 
-Y = load_x_and_y()
-[xx, xxd, psi, V] = Y
-transformed_basis, T = coordinate_ring_transform(psi, True, False)
-print(check_genericity(psi[:n, ], False))
-Y[2] = transformed_basis
-rho, P, Y = solve_SDP_on_samples(Y, n=n, write_to_file=False)
+# Y = load_x_and_y()
+# [xx, xxd, psi, V] = Y
+# transformed_basis, T = coordinate_ring_transform(psi, True, False)
+# print(check_genericity(psi[:n, ], False))
+# Y[2] = transformed_basis
+# rho, P, Y = solve_SDP_on_samples(Y, n=n, write_to_file=False)
 
 
 # rhos = [.367, 0.57, 0.633]
@@ -423,3 +455,7 @@ rho, P, Y = solve_SDP_on_samples(Y, n=n, write_to_file=False)
 # x3d = sim_once()
 # x4d = sim_4d_once()
 # sim_samples(r_max=[1.2, 1.2], res=10)
+
+# traj_to_unstable()
+rhos = [.367, 0.57, 0.633]
+scatter_volume(rhos)
