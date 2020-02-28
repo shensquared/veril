@@ -1,6 +1,6 @@
-import sys
-sys.path.append(
-    "/Users/shenshen/drake-build/install/lib/python3.7/site-packages")
+# import sys
+# sys.path.append(
+#     "/Users/shenshen/drake-build/install/lib/python3.7/site-packages")
 from pydrake.all import (Polynomial, Variable, Evaluate, Substitute,
                          MathematicalProgram, MosekSolver)
 import numpy as np

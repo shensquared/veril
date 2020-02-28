@@ -1,6 +1,6 @@
-import sys
-sys.path.append(
-    "/Users/shenshen/drake-build/install/lib/python3.7/site-packages")
+# import sys
+# sys.path.append(
+#     "/Users/shenshen/drake-build/install/lib/python3.7/site-packages")
 from pydrake.all import (MathematicalProgram, Polynomial, Expression,
                          SolutionResult, Variables, Solve, Jacobian, Evaluate,
                          Substitute, MosekSolver, MonomialBasis)

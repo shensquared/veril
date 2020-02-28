@@ -3,9 +3,9 @@ import sympy as sm
 import sympy.physics.mechanics as me
 import numpy as np
 me.init_vprinting()
-import sys
-sys.path.append(
-    "/Users/shenshen/drake-build/install/lib/python3.7/site-packages")
+# import sys
+# sys.path.append(
+#     "/Users/shenshen/drake-build/install/lib/python3.7/site-packages")
 from pydrake.all import (Polynomial, Variable, Evaluate, Substitute,
                          MathematicalProgram, MosekSolver)
 from veril.sample_variety import coordinate_ring_transform, check_genericity, balancing_V

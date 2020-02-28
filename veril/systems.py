@@ -1,6 +1,6 @@
-import sys
-sys.path.append(
-    "/Users/shenshen/drake-build/install/lib/python3.7/site-packages")
+# import sys
+# sys.path.append(
+#     "/Users/shenshen/drake-build/install/lib/python3.7/site-packages")
 from pydrake.all import (MathematicalProgram, Polynomial, Expression,
                          MonomialBasis, Jacobian, Evaluate, sin, cos)
 
