@@ -202,8 +202,8 @@ def right_hand_side(x, t):
 
 
 def x_to_originial(x):
-    x=x.reshape((-1,4))
-    angles = np.arctan2(x[:,0], x[:,1]).reshape((-1,1))
+    x = x.reshape((-1, 4))
+    angles = np.arctan2(x[:, 0], x[:, 1]).reshape((-1, 1))
     velocity = x[:, -2:]
     return np.hstack([angles, velocity])
 
@@ -300,8 +300,9 @@ def scatter_volume(rhos, r_max=[1.2, 1.2], res=50):
     values = np.load('V_values.npy')
     # values = np.load('Vdot_values.npy')
     values[values <= rho1] = rho1
-    allbad= np.load('all_bad.npy')
-    bad_samples = go.Scatter3d(x=allbad[:,0],y=allbad[:,1],z=allbad[:,2], mode='markers')
+    allbad = np.load('all_bad.npy')
+    bad_samples = go.Scatter3d(
+        x=allbad[:, 0], y=allbad[:, 1], z=allbad[:, 2], mode='markers')
     roa = go.Volume(
         x=X, y=Y, z=Z,
         value=values.flatten(),
@@ -324,7 +325,7 @@ def scatter_volume(rhos, r_max=[1.2, 1.2], res=50):
     # samples = np.array([X , Y, Z]).T
     # field = [qdot_cl.subs(dict(zip(q,i))) for i in samples]
     # [U,V,W] = np.array(field,dtype=float).T
-    # cones = dict(type='cone',x=X, y=Y, z=Z, u=U, v=V, w=W, 
+    # cones = dict(type='cone',x=X, y=Y, z=Z, u=U, v=V, w=W,
     #               sizemode='scaled',
     #               sizeref=3,
     #               showscale=True,
@@ -333,12 +334,13 @@ def scatter_volume(rhos, r_max=[1.2, 1.2], res=50):
     #               anchor='tail'
     #           )
     # fig = go.Figure(data=[roa, bad_samples, cones])
-    fig = go.Figure(data = [roa, bad_samples])
+    fig = go.Figure(data=[roa, bad_samples])
     fig.show()
 
+
 def sim_once():
-    x0 =x_to_originial(np.load(folder + 'bad_sample.npy'))
-    x0=x0.ravel()
+    x0 = x_to_originial(np.load(folder + 'bad_sample.npy'))
+    x0 = x0.ravel()
     t = np.linspace(0.0, 10.0, num=500)
     x = odeint(right_hand_side, x0, t)
 
@@ -377,17 +379,18 @@ def sim_4d_once():
     plt.show()
     return x
 
-def solve_fixed_pt(f_cl,x):
-    first = sm.Matrix(sm.solve(f_cl,x)[-1])
-    unit = first[0]**2 + first[1]**2 -1 
-    aa = sm.solve(unit,x)
-    bb = [first.subs(dict(zip(x,i))) for i in aa]
+
+def solve_fixed_pt(f_cl, x):
+    first = sm.Matrix(sm.solve(f_cl, x)[-1])
+    unit = first[0]**2 + first[1]**2 - 1
+    aa = sm.solve(unit, x)
+    bb = [first.subs(dict(zip(x, i))) for i in aa]
     return aa
 
 
 kv = 1
 folder = './'
-n = 77
+n = 78
 
 # kv = .8
 # folder = './LB/'
@@ -402,23 +405,21 @@ Vr, x, f_cl, qdot_cl, q = Dubins_original()
 
 # solve_fixed_pt(f_cl,x)
 # sample(300)
-
-
 # get_Y(Vr, x)
-# Y = load_x_and_y()
-# [xx, xxd, psi, V] = Y
 
 
-# transformed_basis, T = coordinate_ring_transform(psi)
-# print(check_genericity(psi[:n,]))
-# Y[2] = transformed_basis
-# rho, P, Y = solve_SDP_on_samples(Y,n=n, write_to_file=False)
+Y = load_x_and_y()
+[xx, xxd, psi, V] = Y
+transformed_basis, T = coordinate_ring_transform(psi, True, False)
+print(check_genericity(psi[:n, ], False))
+Y[2] = transformed_basis
+rho, P, Y = solve_SDP_on_samples(Y, n=n, write_to_file=False)
 
 
-rhos = [.367, 0.57, 0.633]
+# rhos = [.367, 0.57, 0.633]
 # scatter_3d(Vr, rhos, x)
-scatter_volume(rhos)
+# scatter_volume(rhos)
 # vector_filed_plot(r_max=[1.2, 1.2], res=10)
-x3d = sim_once()
+# x3d = sim_once()
 # x4d = sim_4d_once()
 # sim_samples(r_max=[1.2, 1.2], res=10)
