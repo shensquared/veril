@@ -91,7 +91,7 @@ def plot_traj(initial, system, **kwargs):
     # plt.legend(handles=handles)
     slice_idx = kwargs['slice_idx'] if 'slice_idx' in kwargs else range(nx)
     fig, axs = plt.subplots(1, len(slice_idx), sharey=False, figsize=(9, 3))
-    fig2, axs2 = plt.subplots()
+    if 'V' in kwargs: fig2, axs2 = plt.subplots()
     st = fig.suptitle("\n" + sys_name + ' Simulation ' + add_title)
     [j.set_ylabel('x' + str(i + 1)) for (i, j) in zip(slice_idx, axs)]
     [i.set_xlabel('time') for i in axs]
