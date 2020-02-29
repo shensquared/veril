@@ -215,37 +215,36 @@ def NlinkedSys(n):
 
 
 def get_Vdot(M, F, T, Vr, x, x_sample_dict, trig_sample_dict):
-    phi = Vr.diff((x, 1))
-    this_phi = phi.subs(x_sample_dict)
+    phi = sm.Matrix(Vr.diff((x, 1)))
+    phi_T = phi.T@T
+    this_phi_T = phi_T.subs(x_sample_dict)
 
     this_mass = sm.matrix2numpy(M.subs(trig_sample_dict), dtype=float)
     this_mass_inv = np.linalg.inv(this_mass)
 
     this_force = F.subs(x_sample_dict)
-    this_T = T.subs(trig_sample_dict)
-    this_f = this_T@this_mass_inv@this_force
+    this_f = this_mass_inv@this_force
 
-    this_Vdot = this_phi@sm.matrix2numpy(this_f)
+    this_Vdot = this_phi_T@sm.matrix2numpy(this_f)
     return this_Vdot
 
 
 def sample(system_params, n_samples):
     M, F, T, Vr, x, M_func, f_func, q, u, x0 = system_params
     x_samples = []
+    t = sm.Symbol('t', real=True)
     while len(x_samples) < n_samples:
+        alpha = np.random.randn(n + 2)
+        beta = np.random.randn(n + 2)
+        # alpha = np.random.uniform(-5, 5, 3 * n + 2)
+        # beta = np.random.uniform(-1, 1, 3 * n + 2)
+        excluded_angles = [x[0], *x[-n - 1:]]
+        x_sample_dict = dict(zip(excluded_angles, alpha * t + beta))
 
-        # alpha = np.random.randn(3 * n + 2)*10
-        # beta = np.random.randn(3 * n + 2)
-        alpha = np.random.uniform(-5, 5, 3 * n + 2)
-        beta = np.random.uniform(-1, 1, 3 * n + 2)
-        alpha[0]=10
-        # beta = np.zeros(3 * n + 2)
-        t = sm.Symbol('t', real=True)
-        x_sample_dict = dict(zip(x, alpha * t + beta))
-
-        angle = np.random.uniform(-np.pi, np.pi, n)
-        trig_sample_dict = dict(zip(x[1:2 * n + 1:2], np.sin(angle)))
-        trig_sample_dict.update(dict(zip(x[2:2 * n + 2:2], np.cos(angle))))
+        ang = np.random.uniform(-np.pi, np.pi, n)
+        trigs_angle = np.array([[i, j] for (i, j) in zip(np.sin(ang), np.cos(ang))]).ravel()
+        trig_sample_dict = dict(zip(x[1:2 * n + 1], trigs_angle))
+        # trig_sample_dict.update(dict(zip(x[2:2 * n + 2:2], np.cos(ang))))
 
         x_sample_dict.update(trig_sample_dict)
 
@@ -255,10 +254,12 @@ def sample(system_params, n_samples):
 
         if len(t_num) > 0:
             for i in t_num:
-                sol_dict = dict(zip(x, alpha * i + beta))
-                sol_dict.update(trig_sample_dict)
-                xx = np.array(list(sol_dict.values()), dtype='float')
+                xx = alpha * i + beta
+                xx = np.insert(xx, 1, trigs_angle)
                 print(xx)
+                # double checking the root is accurate
+                # sol_dict = dict(zip(x, xx))
+                # print(get_Vdot(M, F, T, Vr, x, sol_dict, sol_dict))
                 file = './link' + str(n) + '/x_samples.npy'
                 if os.path.exists(file):
                     x_samples = np.load(file)
