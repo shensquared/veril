@@ -211,7 +211,7 @@ def NlinkedSys(n):
     M_func = sm.lambdify(states, kane_cl.mass_matrix_full)
     f_func = sm.lambdify(states, kane_cl.forcing_full)
 
-    return [M, F, T, Vr, x, M_func, f_func]
+    return [M, F, T, Vr, x, M_func, f_func, q, u, x0]
 
 
 def get_Vdot(M, F, T, Vr, x, x_sample_dict, trig_sample_dict):
@@ -230,7 +230,7 @@ def get_Vdot(M, F, T, Vr, x, x_sample_dict, trig_sample_dict):
 
 
 def sample(system_params, n_samples):
-    M, F, T, Vr, x, M_func, f_func = system_params
+    M, F, T, Vr, x, M_func, f_func, q, u, x0 = system_params
     x_samples = []
     while len(x_samples) < n_samples:
 
@@ -272,8 +272,7 @@ def sample(system_params, n_samples):
 
 
 def get_monomials(x, deg, rm_one):
-    c = 1
-    _ = itertools.combinations_with_replacement(np.append(c, x), deg)
+    _ = itertools.combinations_with_replacement(np.append(1, x), deg)
     basis = [np.prod(j) for j in _]
     if rm_one:
         basis = basis[1:]
@@ -283,8 +282,9 @@ def get_monomials(x, deg, rm_one):
 def get_Y(V, states):
     folder = './link' + str(n)
     x = np.load(folder + '/x_samples.npy')
+    print('raw roots number' + str(x.shape[0]))
     x = x[~np.any(np.abs(x) > 30, axis=1)]
-    np.save(folder + './samples.npy', x)
+    np.save(folder + '/samples.npy', x)
     xxd = [(i.T@i) for i in x]
     psi = [get_monomials(i, 2, True) for i in x]
     V_num = [V.subs(dict(zip(states, i))) for i in x]
@@ -294,7 +294,6 @@ def get_Y(V, states):
 
 
 def load_x_and_y():
-    folder = './link' + str(n)
     xx = np.load(folder + '/samples.npy')
     Y = np.load(folder + '/Y.npz')
     return [xx, Y['xxd'], Y['psi'], Y['V_num']]
@@ -322,92 +321,6 @@ def right_hand_side(x, t):
     arguments = np.hstack((x))     # States, input, and parameters
     dx = np.array(np.linalg.solve(M_func(*arguments), f_func(*arguments))).T[0]
     return dx
-
-
-def animate_pendulum(t, states, length, filename=None):
-    """Animates the n-pendulum and optionally saves it to file.
-
-    Parameters
-    ----------
-    t : ndarray, shape(m)
-        Time array.
-    states: ndarray, shape(m,p)
-        State time history.
-    length: float
-        The length of the pendulum links.
-    filename: string or None, optional
-        If true a movie file will be saved of the animation. This may take some time.
-
-    Returns
-    -------
-    fig : matplotlib.Figure
-        The figure.
-    anim : matplotlib.FuncAnimation
-        The animation.
-
-    """
-    # the number of pendulum bobs
-    numpoints = states.shape[1] // 2
-
-    # first set up the figure, the axis, and the plot elements we want to
-    # animate
-    fig = plt.figure()
-
-    # some dimesions
-    cart_width = 0.4
-    cart_height = 0.2
-
-    # set the limits based on the motion
-    xmin = np.around(states[:, 0].min() - cart_width / 2.0, 1)
-    xmax = np.around(states[:, 0].max() + cart_width / 2.0, 1)
-
-    # create the axes
-    ax = plt.axes(xlim=(xmin, xmax), ylim=(-1.1, 1.1), aspect='equal')
-
-    # display the current time
-    time_text = ax.text(0.04, 0.9, '', transform=ax.transAxes)
-
-    # create a rectangular cart
-    rect = Rectangle([states[0, 0] - cart_width / 2.0, -cart_height / 2],
-                     cart_width, cart_height, fill=True, color='red',
-                     ec='black')
-    ax.add_patch(rect)
-
-    # blank line for the pendulum
-    line, = ax.plot([], [], lw=2, marker='o', markersize=6)
-
-    # initialization function: plot the background of each frame
-    def init():
-        time_text.set_text('')
-        rect.set_xy((0.0, 0.0))
-        line.set_data([], [])
-        return time_text, rect, line,
-
-    # animation function: update the objects
-    def animate(i):
-        time_text.set_text('time = {:2.2f}'.format(t[i]))
-        rect.set_xy((states[i, 0] - cart_width / 2.0, -cart_height / 2))
-        x = np.hstack((states[i, 0], np.zeros((numpoints - 1))))
-        y = np.zeros((numpoints))
-        for j in np.arange(1, numpoints):
-            x[j] = x[j - 1] + length * np.cos(states[i, j])
-            y[j] = y[j - 1] + length * np.sin(states[i, j])
-        line.set_data(x, y)
-        return time_text, rect, line,
-
-    # call the animator function
-    anim = animation.FuncAnimation(fig, animate, frames=len(t), init_func=init,
-                                   interval=t[-1] / len(t) * 1000, blit=True, repeat=False)
-    Writer = animation.writers['ffmpeg']
-    writer = Writer(fps=15, metadata=dict(artist='Me'), bitrate=1800)
-    f_name = './link' + str(n) + '/closed-loop.mp4'
-    anim.save(f_name, writer='ffmpeg')
-
-
-def do_anim(x0):
-    t = np.linspace(0.0, 7.0, num=500)
-    x = odeint(right_hand_side, x0, t)
-    anim = animate_pendulum(t, x, 1. / n)
 
 
 def x_to_originial(x):
@@ -438,7 +351,7 @@ def solve_SDP_on_samples(Y, write_to_file=False):
     P = prog.NewSymmetricContinuousVariables(dim_psi, "P")
     prog.AddPositiveSemidefiniteConstraint(P)
 
-    for i in range(psi.shape[0]):
+    for i in range(num_samples):
         residual = xxd[i] * (V[i] - rho) - psi[i].T@P@psi[i]
         prog.AddConstraint(residual == 0)
 
@@ -453,9 +366,6 @@ def solve_SDP_on_samples(Y, write_to_file=False):
     rho = result.GetSolution(rho)
     print(rho)
     return rho, P, Y
-
-
-import cvxpy as cp
 
 
 def solve_SDP_on_samples_CVX(Y, write_to_file=False):
@@ -477,9 +387,12 @@ def solve_SDP_on_samples_CVX(Y, write_to_file=False):
     print('rho value %s' % rho)
     return P
 
+n = 3
+print(n)
+folder = './link' + str(n)
+
 system_params = NlinkedSys(n)
-M, F, T, Vr, x, M_func, f_func = system_params
-sample(system_params, 300)
+M, F, T, Vr, x, M_func, f_func, q, u, x0 = system_params
 # get_Y(Vr, x)
 
 Y = load_x_and_y()
