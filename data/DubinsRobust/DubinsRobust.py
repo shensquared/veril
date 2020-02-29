@@ -196,8 +196,9 @@ def load_x_and_y():
 ##############################
 
 
-def right_hand_side(x, t):
+def right_hand_side(x, t, args):
     dx = sm.matrix2numpy(qdot_cl.subs(dict(zip(q, x))), dtype=float).T[0]
+    if args: dx = -dx
     return dx
 
 
@@ -355,11 +356,12 @@ def scatter_volume(rhos, r_max=[1.2, 1.2], res=50):
     fig.show()
 
 
-def sim_once():
-    x0 = x_to_originial(np.load(folder + 'bad_sample.npy'))
+def sim_once(x0=None, backwards=False, t_max=10):
+    if x0 is None:
+        x0 = x_to_originial(np.load(folder + 'bad_sample.npy'))
     x0 = x0.ravel()
-    t = np.linspace(0.0, 10.0, num=500)
-    x = odeint(right_hand_side, x0, t)
+    t = np.linspace(0.0, t_max, num=500)
+    x = odeint(right_hand_side, x0, t, args=(backwards,))
 
     lines = plt.plot(t, x)
     lab = plt.xlabel('Time [sec]')
