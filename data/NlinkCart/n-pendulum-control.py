@@ -160,7 +160,7 @@ def NlinkedSys(n):
     V = sm.expand_trig((div_in_trig).T@P@(div_in_trig))
     sm.N(V.subs(equilibrium_dict))
 
-# def recat_state(n):
+    # def recat_state(n):
     # sins = me.dynamicsymbols('s:{}'.format(n + 1))[1:]
     # coss = me.dynamicsymbols('c:{}'.format(n + 1))[1:]
 
@@ -174,7 +174,7 @@ def NlinkedSys(n):
 
     x0_dict = dict(zip(x, [0] + [1, 0] * (n) + [0] * (n + 1)))
 
-# def recast_transform(n):
+    # def recast_transform(n):
     T = sm.Matrix(np.zeros((3 * n + 2, 2 * n + 2)))
     T[0, 0] = sm.S(1)
     for i in range(n):
@@ -185,7 +185,7 @@ def NlinkedSys(n):
     # return T
 
 
-# def recast_sym_subs_dict(q):
+    # def recast_sym_subs_dict(q):
     sin_q = [sin(i) for i in q[1:]]
     cos_q = [cos(i) for i in q[1:]]
     key = sin_q + cos_q
@@ -196,27 +196,25 @@ def NlinkedSys(n):
     Vr = V.subs(q_to_x_dict)
     print('Vr at the fixed pt %s' % Vr.subs(x0_dict))
 
-# recast the mass and force matrices
+    # recast the mass and force matrices
     M = full_mass.subs(q_to_x_dict)
     F = sm.expand_trig(full_force).subs(q_to_x_dict)
 
-# M_num = M.subs(x0_dict)
-# F_num = F.subs(x0_dict)
+    # M_num = M.subs(x0_dict)
+    # F_num = F.subs(x0_dict)
 
 
-# debug: should match the original form
-# assert(full_mass_num == M_num)
-# assert(full_force_num == F_num)
-# Create a callable function to evaluate the mass matrix
+    # debug: should match the original form
+    # assert(full_mass_num == M_num)
+    # assert(full_force_num == F_num)
+    # Create a callable function to evaluate the mass matrix
     M_func = sm.lambdify(states, kane_cl.mass_matrix_full)
     f_func = sm.lambdify(states, kane_cl.forcing_full)
 
     return [M, F, T, Vr, x, M_func, f_func, q, u, x0]
 
 
-def get_Vdot(M, F, T, Vr, x, x_sample_dict, trig_sample_dict):
-    phi = sm.Matrix(Vr.diff((x, 1)))
-    phi_T = phi.T@T
+def get_Vdot(M, F, phi_T, x_sample_dict, trig_sample_dict):
     this_phi_T = phi_T.subs(x_sample_dict)
 
     this_mass = sm.matrix2numpy(M.subs(trig_sample_dict), dtype=float)
@@ -233,6 +231,9 @@ def sample(system_params, n_samples):
     M, F, T, Vr, x, M_func, f_func, q, u, x0 = system_params
     x_samples = []
     t = sm.Symbol('t', real=True)
+    phi = sm.Matrix(Vr.diff((x, 1)))
+    phi_T = phi.T@T
+
     while len(x_samples) < n_samples:
         alpha = np.random.randn(n + 2)
         beta = np.random.randn(n + 2)
@@ -248,7 +249,7 @@ def sample(system_params, n_samples):
 
         x_sample_dict.update(trig_sample_dict)
 
-        this_Vdot = get_Vdot(M, F, T, Vr, x, x_sample_dict, trig_sample_dict)
+        this_Vdot = get_Vdot(M, F, phi_T, x_sample_dict, trig_sample_dict)
 
         t_num = sm.solve(this_Vdot, t)
 
@@ -256,10 +257,11 @@ def sample(system_params, n_samples):
             for i in t_num:
                 xx = alpha * i + beta
                 xx = np.insert(xx, 1, trigs_angle)
+                xx = np.asarray(xx, dtype=float)
                 print(xx)
                 # double checking the root is accurate
                 # sol_dict = dict(zip(x, xx))
-                # print(get_Vdot(M, F, T, Vr, x, sol_dict, sol_dict))
+                # print(get_Vdot(M, F, phi_T, sol_dict, sol_dict))
                 file = './link' + str(n) + '/x_samples.npy'
                 if os.path.exists(file):
                     x_samples = np.load(file)
