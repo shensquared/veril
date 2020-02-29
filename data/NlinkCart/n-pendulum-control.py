@@ -3,27 +3,24 @@ import sympy as sm
 import sympy.physics.mechanics as me
 import numpy as np
 me.init_vprinting()
-# import sys
-# sys.path.append(
-#     "/Users/shenshen/drake-build/install/lib/python3.7/site-packages")
-from pydrake.all import (Polynomial, Variable, Evaluate, Substitute,
-                         MathematicalProgram, MosekSolver)
+from pydrake.all import MosekSolver, MathematicalProgram
 from veril.sample_variety import coordinate_ring_transform, check_genericity
 from scipy.integrate import odeint
-from matplotlib import animation
-from matplotlib.patches import Rectangle
-import matplotlib.pyplot as plt
 import itertools
 import os
-
-
-n = 5
+from scipy import integrate
+import cvxpy as cp
 
 
 def NlinkedSys(n):
     q = me.dynamicsymbols('q:{}'.format(n + 1))  # Generalized coordinates
     u = me.dynamicsymbols('dq:{}'.format(n + 1))  # Generalized speeds
     f = me.dynamicsymbols('f:{}'.format(n))      # Force applied to the cart
+
+    # q = sm.symbols('q:{}'.format(n + 1))  # Generalized coordinates
+    # u = sm.symbols('dq:{}'.format(n + 1))  # Generalized speeds
+    # f = sm.symbols('f:{}'.format(n))
+
     # m = sm.symbols('m:{}'.format(n + 1))         # Mass of each bob
     # l = sm.symbols('l:{}'.format(n))             # Length of each link
     m = (0.01 / n) * np.ones(n + 1,)
@@ -83,31 +80,40 @@ def NlinkedSys(n):
     equilibrium_point = [sm.S(0)] + [sm.pi / 2] * \
         (len(q) - 1) + [sm.S(0)] * len(u)
     equilibrium_dict = dict(zip(q + u, equilibrium_point))
-    print('orig coordiante fixed pt %s' % equilibrium_dict)
+    # print('orig coordiante fixed pt %s' % equilibrium_dict)
 
-    M, F_A, F_B, r = kane.linearize(new_method=True, op_point=equilibrium_dict)
+ ##########################################################################
+    try:
+        K = np.load(folder + '/gain.npy')
+        print('loading gain')
+    except:
+        M, F_A, F_B, r = kane.linearize(
+            new_method=True, op_point=equilibrium_dict)
 
-    M_num = sm.matrix2numpy(M, dtype=float)
-    F_A_num = sm.matrix2numpy(F_A, dtype=float)
-    F_B_num = sm.matrix2numpy(F_B, dtype=float)
-    A = np.linalg.solve(M_num, F_A_num)
-    B = np.linalg.solve(M_num, F_B_num)
+        M_num = sm.matrix2numpy(M, dtype=float)
+        F_A_num = sm.matrix2numpy(F_A, dtype=float)
+        F_B_num = sm.matrix2numpy(F_B, dtype=float)
+        A = np.linalg.solve(M_num, F_A_num)
+        B = np.linalg.solve(M_num, F_B_num)
 
-    # Also convert `equilibrium_point` to a numeric array:
-    equilibrium_point = np.asarray([x.evalf()
-                                    for x in equilibrium_point], dtype=float)
-    # Now that we have a linear system, the SciPy package can be used to design an optimal controller for the system.
-    # So now we can compute the optimal gains with a linear quadratic
-    # regulator. I chose identity matrices for the weightings for simplicity.
-    from scipy.linalg import solve_continuous_are
-    Q = np.eye(A.shape[0])
-    R = np.eye(B.shape[1])
-    S = solve_continuous_are(A, B, Q, R)
-    K = np.dot(np.dot(np.linalg.inv(R), B.T),  S)
+        # Now that we have a linear system, the SciPy package can be used to design an optimal controller for the system.
+        # So now we can compute the optimal gains with a linear quadratic
+        # regulator. I chose identity matrices for the weightings for
+        # simplicity.
+        from scipy.linalg import solve_continuous_are
+        Q = np.eye(A.shape[0])
+        R = np.eye(B.shape[1])
+        S = solve_continuous_are(A, B, Q, R)
+        K = np.dot(np.dot(np.linalg.inv(R), B.T),  S)
+        print('saving gain')
+        np.save(folder + '/gain.npy', K)
+     ##########################################################################
     # The gains can now be used to define the required input during simulation to stabilize the system. The input $r$ is simply the gain vector multiplied by the error in the state vector from the equilibrium point, $r(t)=K(x_{eq} - x(t))$.
     # ### Feedback the LQR controller for the closed-loop EOM:
+    # # Also convert `equilibrium_point` to a numeric array:
+    x0 = np.asarray([x.evalf() for x in equilibrium_point], dtype=float)
     states = np.array(q + u)
-    div = equilibrium_point - states
+    div = x0 - states
     # ### Turn the feedback on the small angle $\theta$ to feedback on the $\sin(\theta)$
 
     from sympy import sin, cos
@@ -135,30 +141,38 @@ def NlinkedSys(n):
     # full_mass_num = full_mass.subs(equilibrium_dict)
     # full_force_num = full_force.subs(equilibrium_dict)
     # ### Double check the CL dynamics in terms of $q$ $\dot q$ are stable
-    M_cl, F_A_cl, F_B_cl, _ = kane_cl.linearize(new_method=True,
-                                                op_point=equilibrium_dict)
-    M_num_cl = sm.matrix2numpy(M_cl, dtype=float)
-    F_A_num_cl = sm.matrix2numpy(F_A_cl, dtype=float)
-    A_cl = np.linalg.solve(M_num_cl, F_A_num_cl)
+    try:
+        P = np.load(folder + '/P.npy')
+        print('loading P')
+    except:
+        M_cl, F_A_cl, F_B_cl, _ = kane_cl.linearize(new_method=True,
+                                                    op_point=equilibrium_dict)
+        M_num_cl = sm.matrix2numpy(M_cl, dtype=float)
+        F_A_num_cl = sm.matrix2numpy(F_A_cl, dtype=float)
+        A_cl = np.linalg.solve(M_num_cl, F_A_num_cl)
 
-    # print('closed-loop A eigs %s' % np.linalg.eig(A_cl)[0])
-    from scipy.linalg import solve_lyapunov
-    P = solve_lyapunov(A_cl.T, -np.eye(A_cl.shape[0]))
+        # print('closed-loop A eigs %s' % np.linalg.eig(A_cl)[0])
+        from scipy.linalg import solve_lyapunov
+        P = solve_lyapunov(A_cl.T, -np.eye(A_cl.shape[0]))
+        print('saving P')
+        np.save(folder + '/P.npy', P)
+
     V = sm.expand_trig((div_in_trig).T@P@(div_in_trig))
     sm.N(V.subs(equilibrium_dict))
 
 # def recat_state(n):
-    sins = me.dynamicsymbols('s:{}'.format(n + 1))[1:]
-    coss = me.dynamicsymbols('c:{}'.format(n + 1))[1:]
+    # sins = me.dynamicsymbols('s:{}'.format(n + 1))[1:]
+    # coss = me.dynamicsymbols('c:{}'.format(n + 1))[1:]
+
+    sins = sm.symbols('s:{}'.format(n + 1))[1:]
+    coss = sm.symbols('c:{}'.format(n + 1))[1:]
+
     x = [q[0]]
     for i in range(n):
         x = x + [sins[i]] + [coss[i]]
     x += u
 
-    x0 = [sm.S(0)] + [sm.S(1), sm.S(0)] * (n) + [sm.S(0)] * (n + 1)
-    x0_dict = dict(zip(x, x0))
-    # return x, x0_dict
-
+    x0_dict = dict(zip(x, [0] + [1, 0] * (n) + [0] * (n + 1)))
 
 # def recast_transform(n):
     T = sm.Matrix(np.zeros((3 * n + 2, 2 * n + 2)))
@@ -181,7 +195,6 @@ def NlinkedSys(n):
 
     Vr = V.subs(q_to_x_dict)
     print('Vr at the fixed pt %s' % Vr.subs(x0_dict))
-
 
 # recast the mass and force matrices
     M = full_mass.subs(q_to_x_dict)
