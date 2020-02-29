@@ -273,6 +273,24 @@ def sample(system_params, n_samples):
             print('no root')
     return x_samples
 
+def cleanup_x_samples():
+    file = './link' + str(n) + '/x_samples.npy'
+    x = np.load(file)
+    print('total number of samples is' + str(x.shape[0]))
+    good =0
+    bad = 0
+    for j in x:
+        if np.isclose(j[1]**2 + j[2]**2, 1, atol=1e-6):
+            good+=1
+        else:
+            bad+=1
+            print(j)
+            for k in range(n):
+                assert np.isclose(j[-k-1]**2 + j[-n-k-1]**2, 1, atol=1e-6)
+    print('good is' + str(good) + 'bad is' + str(bad))
+            # x = np.load(file, allow_pickle = True)
+            # x = np.array(x, dtype=float)
+            # np.save(file, x)
 
 def get_monomials(x, deg, rm_one):
     _ = itertools.combinations_with_replacement(np.append(1, x), deg)
