@@ -300,23 +300,8 @@ def load_x_and_y():
 ##############################
 
 
-def right_hand_side(x, t):
+def right_hand_side(t, x):
     """Returns the derivatives of the states.
-
-    Parameters
-    ----------
-    x : ndarray, shape(2 * (n + 1))
-        The current state vector.
-    t : float
-        The current time.
-    args : ndarray
-        The constants.
-
-    Returns
-    -------
-    dx : ndarray, shape(2 * (n + 1))
-        The derivative of the state.
-
     """
     arguments = np.hstack((x))     # States, input, and parameters
     dx = np.array(np.linalg.solve(M_func(*arguments), f_func(*arguments))).T[0]
@@ -387,22 +372,65 @@ def solve_SDP_on_samples_CVX(Y, write_to_file=False):
     print('rho value %s' % rho)
     return P
 
+def sim_for_counterexample(system_params, rho=0):
+    M, F, T, Vr, x, M_func, f_func, q, u, x0 = system_params
+    states = np.array(q + u)
+    try:
+        samples = np.load(folder + '/counterexample-x-sample-mesh.npy')
+        V = np.load(folder + '/counterexample-V-evals.npy')
+    except:
+        aa = np.linspace(-.5, .5, 1)
+        bb = np.meshgrid(*([aa] * (2 * n + 2)))
+        samples = np.array([i.ravel() for i in bb]).T
+        samples = np.array([i + x0 for i in samples])
+        V = [Vr.subs(dict(zip(x, original_to_x(i)))) for i in samples]
+        # do sorting
+        samples = samples[np.argsort(V)]
+        V = np.array(np.sort(V), dtype=float)
+        np.save(folder + '/counterexample-x-sample-mesh.npy', samples)
+        np.save(folder + '/counterexample-V-evals.npy', V)
+
+    int_samples = samples[V >= rho]
+    print(int_samples[0])
+    for i in int_samples:
+        sol = integrate.solve_ivp(right_hand_side, [0, 12], i, events=event)
+        if sol.status == 1:
+            print(i)
+            print(sol.y[:, -1])
+            print(Vr.subs(dict(zip(x, original_to_x(i)))))
+            return None
+
+
+def event(t, x):
+    x[1:n + 1] = x[1:n + 1] % (2 * np.pi)
+    norm = np.linalg.norm(x - x0)
+    out_ = norm - 20
+    in_ = norm - 1e-2
+    return out_ or in_
+event.terminal = True
+
+
 n = 3
 print(n)
 folder = './link' + str(n)
 
 system_params = NlinkedSys(n)
 M, F, T, Vr, x, M_func, f_func, q, u, x0 = system_params
+# sim_for_counterexample(system_params, rho=.36)
+# alternative_fixedpt(system_params)
+# sample_parameterization(system_params, 10)
+sample(system_params, 500)
 # get_Y(Vr, x)
 
-Y = load_x_and_y()
-[xx, xxd, psi, V] = Y
-print(min(V))
-
-transformed_basis, T = coordinate_ring_transform(psi)
-print(check_genericity(psi))
-Y[2] = transformed_basis
-rho, P, Y = solve_SDP_on_samples(Y, write_to_file=False)
+# Y = load_x_and_y()
+# [xx, xxd, psi, V] = Y
+# print(xx.shape[0])
+# print(min(V))
+#
+# transformed_basis, T = coordinate_ring_transform(psi, True, False)
+# print(check_genericity(psi, False))
+# Y[2] = transformed_basis
+# rho, P, Y = solve_SDP_on_samples(Y, write_to_file=False)
 
 # x0 = x_to_originial(xx[5])
 # do_anim(x0)
